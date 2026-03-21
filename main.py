@@ -40,7 +40,7 @@ from astrbot.api import logger
 # ─────────────────────────────────────────
 RESULT_CHECK_INTERVAL = 300  # 赛后查结果间隔（秒），固定值
 
-DATA_FILE = os.path.join(os.path.dirname(__file__), "data", "cs_data.json")
+# DATA_FILE 在插件初始化时通过 StarTools.get_data_dir() 动态获取
 API_BASE  = "https://api.pandascore.co"
 CST       = timezone(timedelta(hours=8))
 
@@ -121,14 +121,16 @@ class DataStore:
         key = name.lower().strip()
         if key not in self._data["followed_teams"]:
             self._data["followed_teams"].append(key)
-            self.save(); return True
+            self.save()
+            return True
         return False
 
     def unfollow_team(self, name: str) -> bool:
         key = name.lower().strip()
         if key in self._data["followed_teams"]:
             self._data["followed_teams"].remove(key)
-            self.save(); return True
+            self.save()
+            return True
         return False
 
     def get_followed_teams(self) -> list:
@@ -138,13 +140,15 @@ class DataStore:
     def add_group(self, gid: str) -> bool:
         if gid not in self._data["push_groups"]:
             self._data["push_groups"].append(gid)
-            self.save(); return True
+            self.save()
+            return True
         return False
 
     def remove_group(self, gid: str) -> bool:
         if gid in self._data["push_groups"]:
             self._data["push_groups"].remove(gid)
-            self.save(); return True
+            self.save()
+            return True
         return False
 
     def get_groups(self) -> list:
@@ -152,7 +156,8 @@ class DataStore:
 
     # 提醒时间
     def set_remind_minutes(self, m: int):
-        self._data["remind_minutes"] = m; self.save()
+        self._data["remind_minutes"] = m
+        self.save()
 
     def get_remind_minutes(self) -> int:
         return self._data.get("remind_minutes", 10)
@@ -206,39 +211,54 @@ class PandaScoreClient:
             "Authorization": f"Bearer {token}",
         }
         self._timeout = aiohttp.ClientTimeout(total=20)
+        self._session: Optional[aiohttp.ClientSession] = None
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """复用 ClientSession，避免频繁建立 TCP 连接"""
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession()
+        return self._session
+
+    async def close(self):
+        """关闭 Session，在插件 destroy 时调用"""
+        if self._session and not self._session.closed:
+            await self._session.close()
+            self._session = None
 
     async def get_upcoming_matches(self, per_page: int = 50) -> list:
         try:
-            async with aiohttp.ClientSession() as s:
-                async with s.get(
-                    f"{API_BASE}/csgo/matches/upcoming",
-                    headers=self.headers,
-                    params={"per_page": per_page, "sort": "begin_at"},
-                    timeout=self._timeout
-                ) as r:
-                    if r.status == 200:
-                        return await r.json()
-                    logger.warning(f"[CS] upcoming 失败: HTTP {r.status}")
+            s = await self._get_session()
+            async with s.get(
+                f"{API_BASE}/csgo/matches/upcoming",
+                headers=self.headers,
+                params={"per_page": per_page, "sort": "begin_at"},
+                timeout=self._timeout
+            ) as r:
+                if r.status == 200:
+                    return await r.json()
+                logger.warning(f"[CS] upcoming 失败: HTTP {r.status}")
         except Exception as e:
             logger.error(f"[CS] upcoming 请求异常: {e}")
+            self._session = None  # 出错时重置，下次重建
         return []
 
     async def get_match_result(self, match_id: int) -> Optional[dict]:
         """用 past 接口查结果（免费 Token 单场详情接口 403）"""
         try:
-            async with aiohttp.ClientSession() as s:
-                async with s.get(
-                    f"{API_BASE}/csgo/matches/past",
-                    headers=self.headers,
-                    params={"filter[id]": match_id, "per_page": 1},
-                    timeout=self._timeout
-                ) as r:
-                    if r.status == 200:
-                        data = await r.json()
-                        if data:
-                            return data[0]
+            s = await self._get_session()
+            async with s.get(
+                f"{API_BASE}/csgo/matches/past",
+                headers=self.headers,
+                params={"filter[id]": match_id, "per_page": 1},
+                timeout=self._timeout
+            ) as r:
+                if r.status == 200:
+                    data = await r.json()
+                    if data:
+                        return data[0]
         except Exception as e:
             logger.error(f"[CS] 查询赛果异常 id={match_id}: {e}")
+            self._session = None
         return None
 
 
@@ -368,7 +388,11 @@ class CSMatchPlugin(Star):
     def __init__(self, context: Context, config=None):
         super().__init__(context, config)
         self._load_config(config)
-        self.store  = DataStore(DATA_FILE)
+        # 使用 StarTools.get_data_dir() 获取规范存储路径
+        from astrbot.core.star.star_tools import StarTools
+        data_dir = StarTools.get_data_dir("astrbot_plugin_cs_match")
+        data_file = str(data_dir / "cs_data.json")
+        self.store  = DataStore(data_file)
         self.client = PandaScoreClient(self._token)
         self._scheduled: list = []           # 当前已安排的比赛列表
         self._loop_task = None               # 主循环任务
@@ -406,6 +430,7 @@ class CSMatchPlugin(Star):
         for t in self._match_tasks.values():
             t.cancel()
         self._match_tasks.clear()
+        await self.client.close()
         logger.info("[CS] 插件已停止")
 
     # ── 主轮询循环 ────────────────────────
@@ -495,6 +520,14 @@ class CSMatchPlugin(Star):
         """为单场比赛精确倒计时推送提醒 + 赛后结果"""
         mid      = match["id"]
         sched_dt = _parse_dt(_sched_str(match))
+        try:
+            await self._run_schedule_match(match, remind_min, mid, sched_dt)
+        finally:
+            # 任务完成后（无论正常还是异常）从字典中清理，防止内存泄漏
+            self._match_tasks.pop(mid, None)
+
+    async def _run_schedule_match(self, match: dict, remind_min: int, mid: int, sched_dt):
+        """实际执行比赛提醒逻辑"""
 
         # ── 赛前提醒 ──────────────────────
         remind_dt   = sched_dt - timedelta(minutes=remind_min)
