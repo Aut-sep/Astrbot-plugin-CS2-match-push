@@ -1,14 +1,12 @@
 """
-astrbot_plugin_cs_match  v3.0.0
+astrbot_plugin_cs2_match_push  v3.1.0
 CS2 比赛推送插件
 
 推送逻辑：
-  - 每 10 分钟静默刷新一次日程
-  - 发现比赛时间变更时，推送「时间变更提醒」，并重新安排倒计时
+  - 每 N 分钟静默刷新一次日程（默认10分钟，WebUI 可配置）
+  - 发现比赛时间变更时推送变更通知，并重新安排倒计时
   - 赛前 X 分钟精确推送单场提醒
   - 比赛结束后自动推送赛果
-  - /cs刷新 → 静默刷新，只回复「已刷新」
-  - /cs比赛 → 显示完整赛程列表
 
 指令：
   /cs比赛            查看已安排的比赛列表
@@ -36,24 +34,24 @@ from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
 from astrbot.api import logger
 
 # ─────────────────────────────────────────
-# 配置（已迁移到 WebUI 插件配置，此处为兜底默认值）
+# 固定常量
 # ─────────────────────────────────────────
-RESULT_CHECK_INTERVAL = 300  # 赛后查结果间隔（秒），固定值
-
-# DATA_FILE 在插件初始化时通过 StarTools.get_data_dir() 动态获取
-API_BASE  = "https://api.pandascore.co"
-CST       = timezone(timedelta(hours=8))
+RESULT_CHECK_INTERVAL = 300
+API_BASE              = "https://api.pandascore.co"
+CST                   = timezone(timedelta(hours=8))
 
 
 # ─────────────────────────────────────────
 # 工具函数
 # ─────────────────────────────────────────
 
+def _now_utc() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 def _now_cst() -> datetime:
     return datetime.now(CST)
 
-def _now_utc() -> datetime:
-    return datetime.now(timezone.utc)
 
 def _fmt_time(iso: Optional[str]) -> str:
     if not iso:
@@ -64,8 +62,10 @@ def _fmt_time(iso: Optional[str]) -> str:
     except Exception:
         return iso
 
+
 def _parse_dt(iso: str) -> datetime:
     return datetime.fromisoformat(iso.replace("Z", "+00:00"))
+
 
 def _team_name(match: dict, idx: int) -> str:
     try:
@@ -73,8 +73,10 @@ def _team_name(match: dict, idx: int) -> str:
     except (IndexError, KeyError, TypeError):
         return "TBD"
 
+
 def _match_tier(match: dict) -> str:
     return ((match.get("tournament") or {}).get("tier") or "unranked").lower()
+
 
 def _sched_str(match: dict) -> Optional[str]:
     return match.get("scheduled_at") or match.get("begin_at")
@@ -90,9 +92,9 @@ class DataStore:
         "push_groups":       [],
         "remind_minutes":    10,
         "min_tiers":         ["s", "a"],
-        "notified_upcoming": [],   # 已推赛前提醒的 match_id
-        "notified_finished": [],   # 已推赛果的 match_id
-        "match_schedules":   {},   # {match_id: scheduled_at} 上次记录的时间
+        "notified_upcoming": [],
+        "notified_finished": [],
+        "match_schedules":   {},
     }
 
     def __init__(self, path: str):
@@ -116,7 +118,6 @@ class DataStore:
         with open(self.path, "w", encoding="utf-8") as f:
             json.dump(self._data, f, ensure_ascii=False, indent=2)
 
-    # 战队关注
     def follow_team(self, name: str) -> bool:
         key = name.lower().strip()
         if key not in self._data["followed_teams"]:
@@ -136,7 +137,6 @@ class DataStore:
     def get_followed_teams(self) -> list:
         return self._data["followed_teams"]
 
-    # 推送群
     def add_group(self, gid: str) -> bool:
         if gid not in self._data["push_groups"]:
             self._data["push_groups"].append(gid)
@@ -154,7 +154,6 @@ class DataStore:
     def get_groups(self) -> list:
         return self._data["push_groups"]
 
-    # 提醒时间
     def set_remind_minutes(self, m: int):
         self._data["remind_minutes"] = m
         self.save()
@@ -162,11 +161,9 @@ class DataStore:
     def get_remind_minutes(self) -> int:
         return self._data.get("remind_minutes", 10)
 
-    # 推送等级
     def get_min_tiers(self) -> list:
         return self._data.get("min_tiers", ["s", "a"])
 
-    # 通知记录
     def is_upcoming_notified(self, mid: int) -> bool:
         return mid in self._data["notified_upcoming"]
 
@@ -177,7 +174,6 @@ class DataStore:
             self.save()
 
     def clear_upcoming_notified(self, mid: int):
-        """时间变更时清除已通知标记，允许重新提醒"""
         if mid in self._data["notified_upcoming"]:
             self._data["notified_upcoming"].remove(mid)
             self.save()
@@ -191,7 +187,6 @@ class DataStore:
             self._data["notified_finished"] = self._data["notified_finished"][-500:]
             self.save()
 
-    # 比赛时间记录（用于检测时间变更）
     def get_match_schedule(self, mid: int) -> Optional[str]:
         return self._data["match_schedules"].get(str(mid))
 
@@ -211,54 +206,39 @@ class PandaScoreClient:
             "Authorization": f"Bearer {token}",
         }
         self._timeout = aiohttp.ClientTimeout(total=20)
-        self._session: Optional[aiohttp.ClientSession] = None
-
-    async def _get_session(self) -> aiohttp.ClientSession:
-        """复用 ClientSession，避免频繁建立 TCP 连接"""
-        if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
-        return self._session
-
-    async def close(self):
-        """关闭 Session，在插件 destroy 时调用"""
-        if self._session and not self._session.closed:
-            await self._session.close()
-            self._session = None
 
     async def get_upcoming_matches(self, per_page: int = 50) -> list:
         try:
-            s = await self._get_session()
-            async with s.get(
-                f"{API_BASE}/csgo/matches/upcoming",
-                headers=self.headers,
-                params={"per_page": per_page, "sort": "begin_at"},
-                timeout=self._timeout
-            ) as r:
-                if r.status == 200:
-                    return await r.json()
-                logger.warning(f"[CS] upcoming 失败: HTTP {r.status}")
+            async with aiohttp.ClientSession() as s:
+                async with s.get(
+                    f"{API_BASE}/csgo/matches/upcoming",
+                    headers=self.headers,
+                    params={"per_page": per_page, "sort": "begin_at"},
+                    timeout=self._timeout
+                ) as r:
+                    if r.status == 200:
+                        return await r.json()
+                    logger.warning(f"[CS] upcoming 失败: HTTP {r.status}")
         except Exception as e:
             logger.error(f"[CS] upcoming 请求异常: {e}")
-            self._session = None  # 出错时重置，下次重建
         return []
 
     async def get_match_result(self, match_id: int) -> Optional[dict]:
         """用 past 接口查结果（免费 Token 单场详情接口 403）"""
         try:
-            s = await self._get_session()
-            async with s.get(
-                f"{API_BASE}/csgo/matches/past",
-                headers=self.headers,
-                params={"filter[id]": match_id, "per_page": 1},
-                timeout=self._timeout
-            ) as r:
-                if r.status == 200:
-                    data = await r.json()
-                    if data:
-                        return data[0]
+            async with aiohttp.ClientSession() as s:
+                async with s.get(
+                    f"{API_BASE}/csgo/matches/past",
+                    headers=self.headers,
+                    params={"filter[id]": match_id, "per_page": 1},
+                    timeout=self._timeout
+                ) as r:
+                    if r.status == 200:
+                        data = await r.json()
+                        if data:
+                            return data[0]
         except Exception as e:
             logger.error(f"[CS] 查询赛果异常 id={match_id}: {e}")
-            self._session = None
         return None
 
 
@@ -271,13 +251,13 @@ def fmt_schedule(matches: list, followed: list) -> str:
         return "📭 未来 48 小时内没有符合条件的 CS2 比赛"
     lines = [f"📅 【已安排的 CS2 赛程】共 {len(matches)} 场"]
     for m in matches:
-        t1    = _team_name(m, 0)
-        t2    = _team_name(m, 1)
-        sched = _fmt_time(_sched_str(m))
-        league= (m.get("league") or {}).get("name", "?")
-        num   = m.get("number_of_games", 0)
+        t1     = _team_name(m, 0)
+        t2     = _team_name(m, 1)
+        sched  = _fmt_time(_sched_str(m))
+        league = (m.get("league") or {}).get("name", "?")
+        num    = m.get("number_of_games", 0)
         t1l, t2l = t1.lower(), t2.lower()
-        star  = "⭐ " if any(f in t1l or f in t2l for f in followed) else ""
+        star   = "⭐ " if any(f in t1l or f in t2l for f in followed) else ""
         lines.append(
             f"━━━━━━━━━━━━━\n"
             f"🕒 {sched}\n"
@@ -330,18 +310,28 @@ def fmt_finished(match: dict) -> str:
     tour   = (match.get("tournament") or {}).get("name", "")
     name   = match.get("name", "")
 
-    score_map = {r["team_id"]: r["score"] for r in match.get("results", []) if "team_id" in r}
+    score_map = {
+        r["team_id"]: r["score"]
+        for r in match.get("results", []) if "team_id" in r
+    }
+
     def tid(i):
-        try: return match["opponents"][i]["opponent"]["id"]
-        except: return None
+        try:
+            return match["opponents"][i]["opponent"]["id"]
+        except Exception:
+            return None
 
     s1 = score_map.get(tid(0), "-")
     s2 = score_map.get(tid(1), "-")
-    winner     = match.get("winner") or {}
-    winner_name= winner.get("name", "未知")
-    result_str = "🤝 平局" if match.get("draw") else (
-        f"🏳️ 弃权，胜者：{winner_name}" if match.get("forfeit") else f"🏅 胜者：{winner_name}"
-    )
+    winner      = match.get("winner") or {}
+    winner_name = winner.get("name", "未知")
+
+    if match.get("draw"):
+        result_str = "🤝 平局"
+    elif match.get("forfeit"):
+        result_str = f"🏳️ 弃权，胜者：{winner_name}"
+    else:
+        result_str = f"🏅 胜者：{winner_name}"
 
     id_to_name = {
         opp["opponent"]["id"]: opp["opponent"]["name"]
@@ -351,10 +341,10 @@ def fmt_finished(match: dict) -> str:
     for g in match.get("games", []):
         if g.get("status") == "not_played":
             continue
-        pos    = g.get("position", "?")
-        gw_id  = (g.get("winner") or {}).get("id")
-        gw_name= id_to_name.get(gw_id, "未知") if gw_id else "未知"
-        forfeit= "（弃权）" if g.get("forfeit") else ""
+        pos     = g.get("position", "?")
+        gw_id   = (g.get("winner") or {}).get("id")
+        gw_name = id_to_name.get(gw_id, "未知") if gw_id else "未知"
+        forfeit = "（弃权）" if g.get("forfeit") else ""
         games_lines.append(f"  第{pos}局：{gw_name} 获胜{forfeit}")
 
     lines = [
@@ -378,30 +368,28 @@ def fmt_finished(match: dict) -> str:
 # ─────────────────────────────────────────
 
 @register(
-    "astrbot_plugin_cs_match",
+    "astrbot_plugin_cs2_match_push",
     "CS2 比赛推送插件",
-    "每10分钟静默刷新，时间变更时提醒，精确倒计时推送赛前提醒和赛后结果",
-    "3.0.0",
+    "每N分钟静默刷新，时间变更时提醒，精确倒计时推送赛前提醒和赛后结果",
+    "3.1.0",
 )
 class CSMatchPlugin(Star):
 
     def __init__(self, context: Context, config=None):
         super().__init__(context, config)
         self._load_config(config)
-        # 使用 StarTools.get_data_dir() 获取规范存储路径
         from astrbot.core.star.star_tools import StarTools
-        data_dir = StarTools.get_data_dir("astrbot_plugin_cs_match")
+        data_dir  = StarTools.get_data_dir("astrbot_plugin_cs_match")
         data_file = str(data_dir / "cs_data.json")
         self.store  = DataStore(data_file)
         self.client = PandaScoreClient(self._token)
-        self._scheduled: list = []           # 当前已安排的比赛列表
-        self._loop_task = None               # 主循环任务
-        self._match_tasks: dict = {}         # {match_id: Task}
+        self._scheduled: list  = []
+        self._loop_task        = None
+        self._match_tasks: dict = {}
 
     def _load_config(self, config=None):
-        """从 AstrBot WebUI 插件配置读取参数（config 由 AstrBot 启动时注入）"""
         cfg = config or {}
-        # AstrBotConfig 对象支持 .get() 方法
+
         def _get(key, default):
             try:
                 v = cfg.get(key)
@@ -415,6 +403,7 @@ class CSMatchPlugin(Star):
         self._bo1_wait       = int(_get("bo1_wait_minutes", 30))
         self._bo3_wait       = int(_get("bo3_wait_minutes", 80))
         self._bo5_wait       = int(_get("bo5_wait_minutes", 120))
+
         if not self._token:
             logger.warning("[CS] ⚠️ 未配置 PandaScore Token！请在 WebUI 插件配置中填写 pandascore_token")
         else:
@@ -430,27 +419,23 @@ class CSMatchPlugin(Star):
         for t in self._match_tasks.values():
             t.cancel()
         self._match_tasks.clear()
-        await self.client.close()
         logger.info("[CS] 插件已停止")
 
     # ── 主轮询循环 ────────────────────────
 
     async def _poll_loop(self):
-        """每 10 分钟静默刷新一次"""
-        await self._fetch_and_schedule(silent=True)
+        await self._fetch_and_schedule()
         while True:
             try:
                 await asyncio.sleep(self._fetch_interval * 60)
             except asyncio.CancelledError:
                 break
-            await self._fetch_and_schedule(silent=True)
+            await self._fetch_and_schedule()
 
-    async def _fetch_and_schedule(self, silent: bool = True):
-        """
-        拉取日程并安排提醒
-        silent=True：静默模式，只在时间变更时推送变更通知
-        silent=False：不使用（刷新和日程都静默处理）
-        """
+    async def _fetch_and_schedule(self):
+        if not self._token:
+            return
+
         matches = await self.client.get_upcoming_matches(per_page=50)
         if not matches:
             logger.warning("[CS] 未获取到比赛数据")
@@ -487,49 +472,40 @@ class CSMatchPlugin(Star):
             new_sched = _sched_str(match)
             old_sched = self.store.get_match_schedule(mid)
 
-            # 检测时间变更
             if old_sched and old_sched != new_sched:
                 old_fmt = _fmt_time(old_sched)
                 new_fmt = _fmt_time(new_sched)
                 logger.info(f"[CS] 比赛 {mid} 时间变更：{old_fmt} -> {new_fmt}")
-                # 取消旧协程
                 if mid in self._match_tasks and not self._match_tasks[mid].done():
                     self._match_tasks[mid].cancel()
-                # 清除已通知标记，允许重新提醒
                 self.store.clear_upcoming_notified(mid)
-                # 推送变更通知
                 await self._push(fmt_reschedule(match, old_fmt, new_fmt))
 
-            # 记录/更新时间
             self.store.set_match_schedule(mid, new_sched)
 
-            # 安排提醒（跳过已结束、已提醒且时间未变的）
             if self.store.is_finished_notified(mid):
                 continue
             if self.store.is_upcoming_notified(mid):
-                # 时间未变，已有提醒安排，跳过
                 if mid in self._match_tasks and not self._match_tasks[mid].done():
                     continue
-            # 创建新协程
+
             if mid not in self._match_tasks or self._match_tasks[mid].done():
                 t = asyncio.create_task(self._schedule_match(match, remind_min))
                 self._match_tasks[mid] = t
                 logger.info(f"[CS] 已安排比赛 {mid} 的提醒任务")
 
     async def _schedule_match(self, match: dict, remind_min: int):
-        """为单场比赛精确倒计时推送提醒 + 赛后结果"""
-        mid      = match["id"]
-        sched_dt = _parse_dt(_sched_str(match))
+        mid = match["id"]
         try:
-            await self._run_schedule_match(match, remind_min, mid, sched_dt)
+            await self._run_match(match, remind_min)
         finally:
-            # 任务完成后（无论正常还是异常）从字典中清理，防止内存泄漏
             self._match_tasks.pop(mid, None)
 
-    async def _run_schedule_match(self, match: dict, remind_min: int, mid: int, sched_dt):
-        """实际执行比赛提醒逻辑"""
+    async def _run_match(self, match: dict, remind_min: int):
+        mid      = match["id"]
+        sched_dt = _parse_dt(_sched_str(match))
 
-        # ── 赛前提醒 ──────────────────────
+        # 赛前提醒
         remind_dt   = sched_dt - timedelta(minutes=remind_min)
         wait_remind = (remind_dt - _now_utc()).total_seconds()
 
@@ -538,14 +514,14 @@ class CSMatchPlugin(Star):
             try:
                 await asyncio.sleep(wait_remind)
             except asyncio.CancelledError:
-                logger.info(f"[CS] 比赛 {mid} 提醒任务已取消（可能时间变更）")
+                logger.info(f"[CS] 比赛 {mid} 提醒任务取消（时间变更）")
                 return
             if not self.store.is_upcoming_notified(mid):
                 await self._push(fmt_upcoming(match, remind_min))
                 self.store.mark_upcoming_notified(mid)
                 logger.info(f"[CS] 已推送赛前提醒 比赛 {mid}")
 
-        # ── 等赛后结果 ────────────────────
+        # 等赛后结果
         if self.store.is_finished_notified(mid):
             return
 
@@ -556,7 +532,6 @@ class CSMatchPlugin(Star):
             except asyncio.CancelledError:
                 return
 
-        # 根据赛制额外等待，节约 API 额度
         num_games = match.get("number_of_games", 1) or 1
         if num_games >= 5:
             extra_wait = self._bo5_wait * 60
@@ -571,7 +546,7 @@ class CSMatchPlugin(Star):
         except asyncio.CancelledError:
             return
 
-        for _ in range(72):  # 最多等 6 小时
+        for _ in range(72):
             if self.store.is_finished_notified(mid):
                 return
             result = await self.client.get_match_result(mid)
@@ -606,14 +581,12 @@ class CSMatchPlugin(Star):
                 )
                 logger.info(f"[CS] 已推送 -> 群 {gid}")
             except Exception as e:
-                import traceback
-                logger.error(f"[CS] 推送失败 群={gid}: {e}\n{traceback.format_exc()}")
+                logger.error(f"[CS] 推送失败 群={gid}: {e}")
 
     # ── 指令 ──────────────────────────────
 
     @filter.command("cs比赛")
     async def cmd_list(self, event: AstrMessageEvent) -> MessageEventResult:
-        """查看已安排的比赛列表"""
         followed = self.store.get_followed_teams()
         if not self._scheduled:
             return event.plain_result("📭 当前没有已安排的比赛\n发送 /cs刷新 更新日程")
@@ -621,8 +594,7 @@ class CSMatchPlugin(Star):
 
     @filter.command("cs刷新")
     async def cmd_refresh(self, event: AstrMessageEvent) -> MessageEventResult:
-        """静默刷新日程"""
-        asyncio.create_task(self._fetch_and_schedule(silent=True))
+        asyncio.create_task(self._fetch_and_schedule())
         return event.plain_result("✅ 正在刷新日程，发送 /cs比赛 查看最新赛程")
 
     @filter.command("cs设置群")
@@ -658,13 +630,12 @@ class CSMatchPlugin(Star):
             cur = self.store.get_remind_minutes()
             return event.plain_result(f"当前赛前提醒：{cur} 分钟\n修改：/cs提醒 <分钟>（1~120）")
         self.store.set_remind_minutes(m)
-        # 取消所有未完成的比赛协程，用新时间重建
         for mid, task in list(self._match_tasks.items()):
             if not task.done():
                 task.cancel()
                 self.store.clear_upcoming_notified(mid)
         self._match_tasks.clear()
-        asyncio.create_task(self._fetch_and_schedule(silent=True))
+        asyncio.create_task(self._fetch_and_schedule())
         return event.plain_result(f"✅ 已设置：比赛开始前 {m} 分钟推送提醒，已自动重建所有比赛提醒")
 
     @filter.command("cs关注")
@@ -731,6 +702,6 @@ class CSMatchPlugin(Star):
             "/cs状态              查看当前配置\n"
             "/cs帮助              显示此帮助\n"
             "━━━━━━━━━━━━━\n"
-            "每 10 分钟静默刷新，时间变更时自动通知\n"
+            "每 N 分钟静默刷新，时间变更时自动通知\n"
             "赛前精确倒计时提醒，赛后自动推送结果"
         )
