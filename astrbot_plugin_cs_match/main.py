@@ -365,30 +365,36 @@ def fmt_finished(match: dict) -> str:
 )
 class CSMatchPlugin(Star):
 
-    def __init__(self, context: Context):
-        super().__init__(context)
-        self._load_config()
+    def __init__(self, context: Context, config=None):
+        super().__init__(context, config)
+        self._load_config(config)
         self.store  = DataStore(DATA_FILE)
         self.client = PandaScoreClient(self._token)
         self._scheduled: list = []           # 当前已安排的比赛列表
         self._loop_task = None               # 主循环任务
         self._match_tasks: dict = {}         # {match_id: Task}
 
-    def _load_config(self):
-        """从 AstrBot WebUI 插件配置读取参数"""
-        cfg = self.context.get_config() or {}
-        self._token            = cfg.get("pandascore_token", "FoHCderdXl_F2qN6nNHl-VBeeFzyv-x-KePLf4KxSRCvm9dvzac")
-        self._fetch_interval   = int(cfg.get("fetch_interval_min", 10))
-        self._fetch_ahead      = int(cfg.get("fetch_ahead_hours", 48))
-        self._bo1_wait         = int(cfg.get("bo1_wait_minutes", 30))
-        self._bo3_wait         = int(cfg.get("bo3_wait_minutes", 80))
-        self._bo5_wait         = int(cfg.get("bo5_wait_minutes", 120))
-        # push_groups 和 remind_minutes 仍走 DataStore（支持 QQ 指令动态修改）
-        # min_tiers 同上
-        # 若 WebUI 配置了 push_groups，同步写入 DataStore
-        webui_groups = cfg.get("push_groups", [])
-        if webui_groups and isinstance(webui_groups, list):
-            logger.info(f"[CS] 从 WebUI 配置加载推送群: {webui_groups}")
+    def _load_config(self, config=None):
+        """从 AstrBot WebUI 插件配置读取参数（config 由 AstrBot 启动时注入）"""
+        cfg = config or {}
+        # AstrBotConfig 对象支持 .get() 方法
+        def _get(key, default):
+            try:
+                v = cfg.get(key)
+                return v if v not in (None, "", [], {}) else default
+            except Exception:
+                return default
+
+        self._token          = _get("pandascore_token", "")
+        self._fetch_interval = int(_get("fetch_interval_min", 10))
+        self._fetch_ahead    = int(_get("fetch_ahead_hours", 48))
+        self._bo1_wait       = int(_get("bo1_wait_minutes", 30))
+        self._bo3_wait       = int(_get("bo3_wait_minutes", 80))
+        self._bo5_wait       = int(_get("bo5_wait_minutes", 120))
+        if not self._token:
+            logger.warning("[CS] ⚠️ 未配置 PandaScore Token！请在 WebUI 插件配置中填写 pandascore_token")
+        else:
+            logger.info(f"[CS] 配置加载完成: 刷新间隔={self._fetch_interval}分钟, Token={self._token[:8]}...")
 
     async def initialize(self):
         self._loop_task = asyncio.create_task(self._poll_loop())
