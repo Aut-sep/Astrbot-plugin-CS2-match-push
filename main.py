@@ -207,38 +207,44 @@ class PandaScoreClient:
         }
         self._timeout = aiohttp.ClientTimeout(total=20)
 
+    async def _request(self, url: str, params: dict) -> Optional[dict | list]:
+        """带自动重试的请求，最多重试 3 次"""
+        for attempt in range(3):
+            try:
+                async with aiohttp.ClientSession() as s:
+                    async with s.get(
+                        url,
+                        headers=self.headers,
+                        params=params,
+                        timeout=self._timeout
+                    ) as r:
+                        if r.status == 200:
+                            return await r.json()
+                        logger.warning(f"[CS] 请求失败: HTTP {r.status} {url}")
+                        return None
+            except Exception as e:
+                if attempt < 2:
+                    logger.warning(f"[CS] 请求异常（第{attempt+1}次），5秒后重试: {type(e).__name__}")
+                    await asyncio.sleep(5)
+                else:
+                    logger.error(f"[CS] 请求失败（已重试3次）: {type(e).__name__} {url}")
+        return None
+
     async def get_upcoming_matches(self, per_page: int = 50) -> list:
-        try:
-            async with aiohttp.ClientSession() as s:
-                async with s.get(
-                    f"{API_BASE}/csgo/matches/upcoming",
-                    headers=self.headers,
-                    params={"per_page": per_page, "sort": "begin_at"},
-                    timeout=self._timeout
-                ) as r:
-                    if r.status == 200:
-                        return await r.json()
-                    logger.warning(f"[CS] upcoming 失败: HTTP {r.status}")
-        except Exception as e:
-            logger.error(f"[CS] upcoming 请求异常: {e}")
-        return []
+        result = await self._request(
+            f"{API_BASE}/csgo/matches/upcoming",
+            {"per_page": per_page, "sort": "begin_at"}
+        )
+        return result if isinstance(result, list) else []
 
     async def get_match_result(self, match_id: int) -> Optional[dict]:
         """用 past 接口查结果（免费 Token 单场详情接口 403）"""
-        try:
-            async with aiohttp.ClientSession() as s:
-                async with s.get(
-                    f"{API_BASE}/csgo/matches/past",
-                    headers=self.headers,
-                    params={"filter[id]": match_id, "per_page": 1},
-                    timeout=self._timeout
-                ) as r:
-                    if r.status == 200:
-                        data = await r.json()
-                        if data:
-                            return data[0]
-        except Exception as e:
-            logger.error(f"[CS] 查询赛果异常 id={match_id}: {e}")
+        result = await self._request(
+            f"{API_BASE}/csgo/matches/past",
+            {"filter[id]": match_id, "per_page": 1}
+        )
+        if isinstance(result, list) and result:
+            return result[0]
         return None
 
 
