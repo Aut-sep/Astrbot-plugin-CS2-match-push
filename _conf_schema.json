@@ -6,12 +6,6 @@
     "obvious_hint": true,
     "default": ""
   },
-  "push_groups": {
-    "description": "推送群号列表",
-    "type": "list",
-    "hint": "填入 QQ 群号，多个群用逗号分隔，如 [\"123456789\", \"987654321\"]",
-    "default": []
-  },
   "remind_minutes": {
     "description": "赛前提醒提前分钟数",
     "type": "int",
@@ -34,7 +28,10 @@
     "description": "自动推送的最低赛事等级",
     "type": "list",
     "hint": "填入等级列表，如 [\"s\", \"a\"]。等级说明：s=顶级（BLAST Premier），a=精英（BLAST Open/ESL Pro League），b/c/d=低级别",
-    "default": ["s", "a"]
+    "default": [
+      "s",
+      "a"
+    ]
   },
   "bo1_wait_minutes": {
     "description": "BO1 赛后开始查结果的等待时间（分钟）",
