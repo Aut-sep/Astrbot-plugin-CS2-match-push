@@ -1,5 +1,5 @@
 name: astrbot_plugin_cs_match
 desc: CS2 比赛推送插件，支持关注战队、赛前提醒、赛后数据推送
 version: 1.0.0
-author: Aut_sep
-repo: ""
+author: Aut-sep
+repo: "https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push"
