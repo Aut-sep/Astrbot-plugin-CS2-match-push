@@ -1,0 +1,57 @@
+{
+  "pandascore_token": {
+    "description": "PandaScore API Token",
+    "type": "string",
+    "hint": "在 pandascore.co 注册后获取，用于拉取 CS2 比赛数据",
+    "obvious_hint": true,
+    "default": ""
+  },
+  "push_groups": {
+    "description": "推送群号列表",
+    "type": "list",
+    "hint": "填入 QQ 群号，多个群用逗号分隔，如 [\"123456789\", \"987654321\"]",
+    "default": []
+  },
+  "remind_minutes": {
+    "description": "赛前提醒提前分钟数",
+    "type": "int",
+    "hint": "比赛开始前多少分钟推送提醒，范围 1~120",
+    "default": 10
+  },
+  "fetch_interval_min": {
+    "description": "自动刷新间隔（分钟）",
+    "type": "int",
+    "hint": "每隔多少分钟自动拉取一次比赛日程，建议 10~30，免费 Token 每小时限 1000 次请求",
+    "default": 10
+  },
+  "fetch_ahead_hours": {
+    "description": "提前拉取多少小时内的比赛",
+    "type": "int",
+    "hint": "拉取未来 N 小时内的比赛，建议 48",
+    "default": 48
+  },
+  "min_tiers": {
+    "description": "自动推送的最低赛事等级",
+    "type": "list",
+    "hint": "填入等级列表，如 [\"s\", \"a\"]。等级说明：s=顶级（BLAST Premier），a=精英（BLAST Open/ESL Pro League），b/c/d=低级别",
+    "default": ["s", "a"]
+  },
+  "bo1_wait_minutes": {
+    "description": "BO1 赛后开始查结果的等待时间（分钟）",
+    "type": "int",
+    "hint": "BO1 比赛开始后等待多少分钟才开始查询结果，节约 API 额度",
+    "default": 30
+  },
+  "bo3_wait_minutes": {
+    "description": "BO3 赛后开始查结果的等待时间（分钟）",
+    "type": "int",
+    "hint": "BO3 比赛开始后等待多少分钟才开始查询结果，节约 API 额度",
+    "default": 80
+  },
+  "bo5_wait_minutes": {
+    "description": "BO5 赛后开始查结果的等待时间（分钟）",
+    "type": "int",
+    "hint": "BO5 比赛开始后等待多少分钟才开始查询结果，节约 API 额度",
+    "default": 120
+  }
+}
