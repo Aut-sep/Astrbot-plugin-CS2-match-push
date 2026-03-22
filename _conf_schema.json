@@ -6,12 +6,6 @@
     "obvious_hint": true,
     "default": ""
   },
-  "remind_minutes": {
-    "description": "赛前提醒提前分钟数",
-    "type": "int",
-    "hint": "比赛开始前多少分钟推送提醒，范围 1~120",
-    "default": 10
-  },
   "fetch_interval_min": {
     "description": "自动刷新间隔（分钟）",
     "type": "int",
@@ -23,15 +17,6 @@
     "type": "int",
     "hint": "拉取未来 N 小时内的比赛，建议 48",
     "default": 48
-  },
-  "min_tiers": {
-    "description": "自动推送的最低赛事等级",
-    "type": "list",
-    "hint": "填入等级列表，如 [\"s\", \"a\"]。等级说明：s=顶级（BLAST Premier），a=精英（BLAST Open/ESL Pro League），b/c/d=低级别",
-    "default": [
-      "s",
-      "a"
-    ]
   },
   "bo1_wait_minutes": {
     "description": "BO1 赛后开始查结果的等待时间（分钟）",
