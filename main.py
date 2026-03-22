@@ -88,13 +88,14 @@ def _sched_str(match: dict) -> Optional[str]:
 
 class DataStore:
     _DEFAULTS = {
-        "followed_teams":    [],
-        "push_groups":       [],
-        "remind_minutes":    10,
-        "min_tiers":         ["s", "a"],
-        "notified_upcoming": [],
-        "notified_finished": [],
-        "match_schedules":   {},
+        "followed_teams":      [],
+        "push_groups":         [],
+        "remind_minutes":      10,
+        "min_tiers":           ["s", "a"],
+        "notified_upcoming":   [],
+        "notified_finished":   [],
+        "match_schedules":     {},
+        "reschedule_notify":   True,   # 是否推送延迟通知
     }
 
     def __init__(self, path: str):
@@ -192,6 +193,13 @@ class DataStore:
 
     def set_match_schedule(self, mid: int, sched: str):
         self._data["match_schedules"][str(mid)] = sched
+        self.save()
+
+    def get_reschedule_notify(self) -> bool:
+        return self._data.get("reschedule_notify", True)
+
+    def set_reschedule_notify(self, enabled: bool):
+        self._data["reschedule_notify"] = enabled
         self.save()
 
 
@@ -498,8 +506,9 @@ class CSMatchPlugin(Star):
                         self._match_tasks[mid].cancel()
                     self.store.clear_upcoming_notified(mid)
                     self._scheduled_mids.discard(mid)
-                    await self._push(fmt_reschedule(match, old_fmt, new_fmt))
                     self._notified_reschedule[mid] = new_sched
+                    if self.store.get_reschedule_notify():
+                        await self._push(fmt_reschedule(match, old_fmt, new_fmt))
 
             self.store.set_match_schedule(mid, new_sched)
 
@@ -710,6 +719,22 @@ class CSMatchPlugin(Star):
             f"🔄 自动刷新：每 {self._fetch_interval} 分钟一次"
         )
 
+    @filter.command("cs延迟通知")
+    async def cmd_reschedule_notify(self, event: AstrMessageEvent, arg: str = "") -> MessageEventResult:
+        arg = arg.strip()
+        if arg in ("开", "on", "1", "true"):
+            self.store.set_reschedule_notify(True)
+            return event.plain_result("✅ 已开启延迟通知，比赛时间变更时会推送提醒")
+        elif arg in ("关", "off", "0", "false"):
+            self.store.set_reschedule_notify(False)
+            return event.plain_result("✅ 已关闭延迟通知，比赛时间变更时不会推送提醒")
+        else:
+            status = "开启" if self.store.get_reschedule_notify() else "关闭"
+            return event.plain_result(
+                f"当前延迟通知：{status}\n开启：/cs延迟通知 开\n关闭：/cs延迟通知 关"
+            )
+
+    @filter.command("cs帮助")
     @filter.command("cs帮助")
     async def cmd_help(self, event: AstrMessageEvent) -> MessageEventResult:
         return event.plain_result(
