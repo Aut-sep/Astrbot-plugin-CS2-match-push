@@ -221,6 +221,9 @@ class PandaScoreClient:
                         if r.status == 200:
                             return await r.json()
                         logger.warning(f"[CS] 请求失败: HTTP {r.status} {url}")
+                        if r.status >= 500 and attempt < 2:
+                            await asyncio.sleep(5)
+                            continue
                         return None
             except Exception as e:
                 if attempt < 2:
@@ -289,9 +292,12 @@ def fmt_upcoming(match: dict, remind_min: int) -> str:
         f"🕒 {sched}",
         f"⚔️  {t1}  vs  {t2}",
         f"📋 BO{num} · {league}",
+        "📺 直播：",
+        "  🔴 斗鱼玩机器：https://www.douyu.com/6657",
+        "  🔵 B站259：https://live.bilibili.com/259",
     ]
     if stream:
-        lines.append(f"📺 直播：{stream}")
+        lines.append(f"  🌐 官方：{stream}")
     return "\n".join(lines)
 
 
@@ -391,7 +397,8 @@ class CSMatchPlugin(Star):
         self.client = PandaScoreClient(self._token)
         self._scheduled: list  = []
         self._loop_task        = None
-        self._match_tasks: dict = {}
+        self._match_tasks: dict   = {}
+        self._scheduled_mids: set = set()  # 已安排过的比赛 id，防止重复创建协程
 
     def _load_config(self, config=None):
         cfg = config or {}
@@ -409,6 +416,7 @@ class CSMatchPlugin(Star):
         self._bo1_wait       = int(_get("bo1_wait_minutes", 30))
         self._bo3_wait       = int(_get("bo3_wait_minutes", 80))
         self._bo5_wait       = int(_get("bo5_wait_minutes", 120))
+        # remind_minutes 和 min_tiers 由 QQ 指令管理，不从 WebUI 读取
 
         if not self._token:
             logger.warning("[CS] ⚠️ 未配置 PandaScore Token！请在 WebUI 插件配置中填写 pandascore_token")
@@ -485,20 +493,21 @@ class CSMatchPlugin(Star):
                 if mid in self._match_tasks and not self._match_tasks[mid].done():
                     self._match_tasks[mid].cancel()
                 self.store.clear_upcoming_notified(mid)
+                self._scheduled_mids.discard(mid)
                 await self._push(fmt_reschedule(match, old_fmt, new_fmt))
 
             self.store.set_match_schedule(mid, new_sched)
 
             if self.store.is_finished_notified(mid):
                 continue
-            if self.store.is_upcoming_notified(mid):
-                if mid in self._match_tasks and not self._match_tasks[mid].done():
-                    continue
+            # 只要安排过就不再重复创建（时间变更时 clear_upcoming_notified 会同时从集合移除）
+            if mid in self._scheduled_mids:
+                continue
 
-            if mid not in self._match_tasks or self._match_tasks[mid].done():
-                t = asyncio.create_task(self._schedule_match(match, remind_min))
-                self._match_tasks[mid] = t
-                logger.info(f"[CS] 已安排比赛 {mid} 的提醒任务")
+            t = asyncio.create_task(self._schedule_match(match, remind_min))
+            self._match_tasks[mid] = t
+            self._scheduled_mids.add(mid)
+            logger.info(f"[CS] 已安排比赛 {mid} 的提醒任务")
 
     async def _schedule_match(self, match: dict, remind_min: int):
         mid = match["id"]
@@ -641,6 +650,7 @@ class CSMatchPlugin(Star):
                 task.cancel()
                 self.store.clear_upcoming_notified(mid)
         self._match_tasks.clear()
+        self._scheduled_mids.clear()
         asyncio.create_task(self._fetch_and_schedule())
         return event.plain_result(f"✅ 已设置：比赛开始前 {m} 分钟推送提醒，已自动重建所有比赛提醒")
 
