@@ -399,6 +399,7 @@ class CSMatchPlugin(Star):
         self._loop_task        = None
         self._match_tasks: dict   = {}
         self._scheduled_mids: set = set()  # 已安排过的比赛 id，防止重复创建协程
+        self._notified_reschedule: dict = {}  # {mid: new_sched} 已推送变更通知的记录
 
     def _load_config(self, config=None):
         cfg = config or {}
@@ -489,12 +490,16 @@ class CSMatchPlugin(Star):
             if old_sched and old_sched != new_sched:
                 old_fmt = _fmt_time(old_sched)
                 new_fmt = _fmt_time(new_sched)
-                logger.info(f"[CS] 比赛 {mid} 时间变更：{old_fmt} -> {new_fmt}")
-                if mid in self._match_tasks and not self._match_tasks[mid].done():
-                    self._match_tasks[mid].cancel()
-                self.store.clear_upcoming_notified(mid)
-                self._scheduled_mids.discard(mid)
-                await self._push(fmt_reschedule(match, old_fmt, new_fmt))
+                # 防止同一次变更被重复推送
+                last_notified = self._notified_reschedule.get(mid)
+                if last_notified != new_sched:
+                    logger.info(f"[CS] 比赛 {mid} 时间变更：{old_fmt} -> {new_fmt}")
+                    if mid in self._match_tasks and not self._match_tasks[mid].done():
+                        self._match_tasks[mid].cancel()
+                    self.store.clear_upcoming_notified(mid)
+                    self._scheduled_mids.discard(mid)
+                    await self._push(fmt_reschedule(match, old_fmt, new_fmt))
+                    self._notified_reschedule[mid] = new_sched
 
             self.store.set_match_schedule(mid, new_sched)
 
@@ -532,8 +537,9 @@ class CSMatchPlugin(Star):
                 logger.info(f"[CS] 比赛 {mid} 提醒任务取消（时间变更）")
                 return
             if not self.store.is_upcoming_notified(mid):
-                await self._push(fmt_upcoming(match, remind_min))
+                # 先标记再推送，防止竞争导致重复推送
                 self.store.mark_upcoming_notified(mid)
+                await self._push(fmt_upcoming(match, remind_min))
                 logger.info(f"[CS] 已推送赛前提醒 比赛 {mid}")
 
         # 等赛后结果
@@ -566,8 +572,11 @@ class CSMatchPlugin(Star):
                 return
             result = await self.client.get_match_result(mid)
             if result and result.get("status") == "finished":
-                await self._push(fmt_finished(result))
+                # 先标记再推送，防止多个协程竞争导致重复推送
+                if self.store.is_finished_notified(mid):
+                    return
                 self.store.mark_finished_notified(mid)
+                await self._push(fmt_finished(result))
                 logger.info(f"[CS] 已推送赛后结果 比赛 {mid}")
                 return
             try:
