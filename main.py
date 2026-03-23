@@ -498,14 +498,15 @@ class CSMatchPlugin(Star):
             if old_sched and old_sched != new_sched:
                 old_fmt = _fmt_time(old_sched)
                 new_fmt = _fmt_time(new_sched)
-                # 防止同一次变更被重复推送
+                logger.info(f"[CS] 比赛 {mid} 时间变更：{old_fmt} -> {new_fmt}")
+                # 无论是否推送通知，都要重建倒计时协程
+                if mid in self._match_tasks and not self._match_tasks[mid].done():
+                    self._match_tasks[mid].cancel()
+                self.store.clear_upcoming_notified(mid)
+                self._scheduled_mids.discard(mid)
+                # 防止同一次变更重复推送通知
                 last_notified = self._notified_reschedule.get(mid)
                 if last_notified != new_sched:
-                    logger.info(f"[CS] 比赛 {mid} 时间变更：{old_fmt} -> {new_fmt}")
-                    if mid in self._match_tasks and not self._match_tasks[mid].done():
-                        self._match_tasks[mid].cancel()
-                    self.store.clear_upcoming_notified(mid)
-                    self._scheduled_mids.discard(mid)
                     self._notified_reschedule[mid] = new_sched
                     if self.store.get_reschedule_notify():
                         await self._push(fmt_reschedule(match, old_fmt, new_fmt))
