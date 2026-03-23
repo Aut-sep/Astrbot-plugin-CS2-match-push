@@ -82,6 +82,49 @@ def _sched_str(match: dict) -> Optional[str]:
     return match.get("scheduled_at") or match.get("begin_at")
 
 
+def _translate_match_name(name: str) -> str:
+    """将比赛阶段名翻译为中文"""
+    if not name:
+        return name
+
+    # 阶段关键词翻译
+    translations = {
+        "Grand final":              "总决赛",
+        "Grand Final":              "总决赛",
+        "Final":                    "决赛",
+        "Semifinal":                "半决赛",
+        "Semifinal 1":              "半决赛 1",
+        "Semifinal 2":              "半决赛 2",
+        "Quarterfinal":             "四分之一决赛",
+        "Upper bracket final":      "上半区决赛",
+        "Upper bracket semifinal":  "上半区半决赛",
+        "Upper bracket quarterfinal": "上半区四分之一决赛",
+        "Upper bracket round":      "上半区轮次",
+        "Lower bracket final":      "下半区决赛",
+        "Lower bracket semifinal":  "下半区半决赛",
+        "Lower bracket quarterfinal": "下半区四分之一决赛",
+        "Lower bracket round":      "下半区轮次",
+        "Winners match":            "胜者组比赛",
+        "Winners final":            "胜者组决赛",
+        "Losers match":             "败者组比赛",
+        "Losers final":             "败者组决赛",
+        "Decider match":            "决定赛",
+        "Elimination match":        "淘汰赛",
+        "Group stage":              "小组赛",
+        "Group Stage":              "小组赛",
+        "Playoffs":                 "季后赛",
+        "Play-in":                  "入围赛",
+        "Round":                    "轮次",
+        "match":                    "比赛",
+    }
+
+    result = name
+    # 先替换长词组，避免短词把长词组切断
+    for en, zh in sorted(translations.items(), key=lambda x: -len(x[0])):
+        result = result.replace(en, zh)
+    return result
+
+
 # ─────────────────────────────────────────
 # 数据持久化
 # ─────────────────────────────────────────
@@ -302,7 +345,7 @@ def fmt_upcoming(match: dict, remind_min: int) -> str:
         f"📋 BO{num} · {league}",
         "📺 直播：",
         "  🔴 斗鱼玩机器：https://www.douyu.com/6657",
-        "  🔵 B站259：https://live.bilibili.com/259",
+        "  🔵 B站259：https://live.bilibili.com/1883358196",
     ]
     if stream:
         lines.append(f"  🌐 官方：{stream}")
@@ -328,7 +371,7 @@ def fmt_finished(match: dict) -> str:
     t2     = _team_name(match, 1)
     league = (match.get("league") or {}).get("name", "未知联赛")
     tour   = (match.get("tournament") or {}).get("name", "")
-    name   = match.get("name", "")
+    name   = _translate_match_name(match.get("name", ""))
 
     score_map = {
         r["team_id"]: r["score"]
