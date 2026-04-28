@@ -1,5 +1,44 @@
-name: astrbot_plugin_cs_match
-desc: CS2 比赛推送插件，支持关注战队、赛前提醒、赛后数据推送
-version: 1.0.0
-author: Aut-sep
-repo: "https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push"
+name: astrbot_plugin_cs2_match_push
+desc: CS2 比赛推送插件，含 Web 管理面板
+version: 4.1.0
+author: user
+repo: ""
+main_module_path: main.py
+
+config_schema:
+  pandascore_token:
+    type: string
+    hint: "PandaScore API Token（必填）"
+    default: ""
+  web_panel_port:
+    type: int
+    hint: "Web 管理面板端口（默认 8765）"
+    default: 8765
+  web_panel_host:
+    type: string
+    hint: "Web 管理面板监听地址（默认 127.0.0.1，仅本机可访问）"
+    default: "127.0.0.1"
+  fetch_interval_min:
+    type: int
+    hint: "日程自动刷新间隔（分钟）"
+    default: 10
+  fetch_ahead_days:
+    type: int
+    hint: "提前获取多少天内的赛程"
+    default: 2
+  image_push_enabled:
+    type: bool
+    hint: "是否启用图片版推送（赛前提醒 / 赛后结果）"
+    default: true
+  bo1_wait_minutes:
+    type: int
+    hint: "BO1 赛后等待多久开始查结果（分钟）"
+    default: 30
+  bo3_wait_minutes:
+    type: int
+    hint: "BO3 赛后等待多久开始查结果（分钟）"
+    default: 80
+  bo5_wait_minutes:
+    type: int
+    hint: "BO5 赛后等待多久开始查结果（分钟）"
+    default: 120
