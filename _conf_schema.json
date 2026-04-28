@@ -12,11 +12,23 @@
     "hint": "每隔多少分钟自动拉取一次比赛日程，建议 10~30，免费 Token 每小时限 1000 次请求",
     "default": 10
   },
-  "fetch_ahead_hours": {
-    "description": "提前拉取多少小时内的比赛",
+  "web_panel_host": {
+    "description": "Web 面板监听地址",
+    "type": "string",
+    "hint": "默认 127.0.0.1，仅本机可访问；如需局域网访问可改为 0.0.0.0",
+    "default": "127.0.0.1"
+  },
+  "fetch_ahead_days": {
+    "description": "提前拉取多少天内的比赛",
     "type": "int",
-    "hint": "拉取未来 N 小时内的比赛，建议 48",
-    "default": 48
+    "hint": "拉取未来 N 天内的比赛，建议 2",
+    "default": 2
+  },
+  "image_push_enabled": {
+    "description": "是否启用图片版推送",
+    "type": "bool",
+    "hint": "开启后，赛前提醒和赛后结果使用图片版式；关闭则使用纯文字",
+    "default": true
   },
   "bo1_wait_minutes": {
     "description": "BO1 赛后开始查结果的等待时间（分钟）",
