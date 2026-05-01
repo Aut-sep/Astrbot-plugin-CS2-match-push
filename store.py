@@ -5,7 +5,11 @@ store.py — 数据持久化层
 
 import json
 import os
+import shutil
+from datetime import datetime
 from typing import Optional
+
+from astrbot.api import logger
 
 
 class DataStore:
@@ -31,6 +35,7 @@ class DataStore:
         "reschedule_notify":           True,
         "web_panel_port":              8765,
         "web_panel_enabled":           True,
+        "web_panel_token":             "",
         "fetch_interval_min":          10,
         "fetch_ahead_days":            2,
         "custom_streams":              [],
@@ -57,8 +62,17 @@ class DataStore:
     def _hours_to_days(hours, default: int = 2) -> int:
         try:
             return max(1, (int(hours) + 23) // 24)
-        except Exception:
+        except (TypeError, ValueError):
             return default
+
+    def _backup_corrupt_file(self):
+        ts = datetime.now().strftime("%Y%m%d%H%M%S")
+        backup_path = f"{self.path}.invalid-{ts}"
+        try:
+            shutil.copy2(self.path, backup_path)
+            logger.warning(f"[CS] 配置 JSON 无法解析，已备份到 {backup_path}")
+        except OSError as e:
+            logger.error(f"[CS] 配置备份失败: {e}")
 
     def _load(self) -> dict:
         if os.path.exists(self.path):
@@ -72,8 +86,11 @@ class DataStore:
                 for k, v in self._DEFAULTS.items():
                     data.setdefault(k, v)
                 return data
-            except Exception:
-                pass
+            except json.JSONDecodeError as e:
+                logger.error(f"[CS] 配置 JSON 解析失败: {e}")
+                self._backup_corrupt_file()
+            except OSError as e:
+                logger.error(f"[CS] 读取配置文件失败: {e}")
         return dict(self._DEFAULTS)
 
     def save(self):
@@ -258,6 +275,7 @@ class DataStore:
         """导出所有配置（排除通知记录）"""
         d = dict(self._data)
         d.pop("pandascore_token", None)
+        d.pop("web_panel_token", None)
         d.pop("notified_upcoming", None)
         d.pop("notified_finished", None)
         d.pop("notified_tournaments", None)
@@ -273,6 +291,7 @@ class DataStore:
             "pandascore_token",
             "followed_teams", "push_groups", "remind_minutes", "min_tiers",
             "web_panel_host", "reschedule_notify", "web_panel_port", "web_panel_enabled",
+            "web_panel_token",
             "fetch_interval_min", "fetch_ahead_days",
             "custom_streams", "blacklist_teams", "blacklist_leagues",
             "notify_all_followed",
