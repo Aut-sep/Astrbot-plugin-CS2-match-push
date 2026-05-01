@@ -19,24 +19,37 @@ class PandaScoreClient:
             "Authorization": f"Bearer {token}",
         }
         self._timeout = aiohttp.ClientTimeout(total=20)
+        self._session: aiohttp.ClientSession | None = None
+
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """获取或创建复用的 ClientSession"""
+        if self._session is None or self._session.closed:
+            self._session = aiohttp.ClientSession()
+        return self._session
+
+    async def close(self):
+        """关闭 ClientSession"""
+        if self._session and not self._session.closed:
+            await self._session.close()
+            self._session = None
 
     async def _request(self, url: str, params: dict) -> Optional[dict | list]:
         for attempt in range(3):
             try:
-                async with aiohttp.ClientSession() as s:
-                    async with s.get(
-                        url,
-                        headers=self.headers,
-                        params=params,
-                        timeout=self._timeout,
-                    ) as r:
-                        if r.status == 200:
-                            return await r.json()
-                        logger.warning(f"[CS] 请求失败: HTTP {r.status} {url}")
-                        if r.status >= 500 and attempt < 2:
-                            await asyncio.sleep(5)
-                            continue
-                        return None
+                s = await self._get_session()
+                async with s.get(
+                    url,
+                    headers=self.headers,
+                    params=params,
+                    timeout=self._timeout,
+                ) as r:
+                    if r.status == 200:
+                        return await r.json()
+                    logger.warning(f"[CS] 请求失败: HTTP {r.status} {url}")
+                    if r.status >= 500 and attempt < 2:
+                        await asyncio.sleep(5)
+                        continue
+                    return None
             except Exception as e:
                 if attempt < 2:
                     logger.warning(
