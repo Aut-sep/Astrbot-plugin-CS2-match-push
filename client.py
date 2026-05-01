@@ -5,7 +5,6 @@ client.py — PandaScore API 封装
 
 import asyncio
 import aiohttp
-from typing import Optional
 
 from astrbot.api import logger
 
@@ -33,7 +32,7 @@ class PandaScoreClient:
             await self._session.close()
             self._session = None
 
-    async def _request(self, url: str, params: dict) -> Optional[dict | list]:
+    async def _request(self, url: str, params: dict) -> dict | list | None:
         for attempt in range(3):
             try:
                 s = await self._get_session()
@@ -50,7 +49,7 @@ class PandaScoreClient:
                         await asyncio.sleep(5)
                         continue
                     return None
-            except Exception as e:
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 if attempt < 2:
                     logger.warning(
                         f"[CS] 请求异常（第{attempt+1}次），5秒后重试: {type(e).__name__}"
@@ -61,6 +60,28 @@ class PandaScoreClient:
                         f"[CS] 请求失败（已重试3次）: {type(e).__name__} {url}"
                     )
         return None
+
+    async def fetch_bytes(self, url: str, max_bytes: int = 2 * 1024 * 1024) -> bytes | None:
+        if not url.startswith(("http://", "https://")):
+            return None
+        try:
+            s = await self._get_session()
+            async with s.get(url, headers={"accept": "*/*"}, timeout=self._timeout) as r:
+                if r.status != 200:
+                    logger.warning(f"[CS] 图片下载失败: HTTP {r.status} {url}")
+                    return None
+                chunks = []
+                total = 0
+                async for chunk in r.content.iter_chunked(64 * 1024):
+                    total += len(chunk)
+                    if total > max_bytes:
+                        logger.warning(f"[CS] 图片过大，已跳过: {url}")
+                        return None
+                    chunks.append(chunk)
+                return b"".join(chunks)
+        except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+            logger.warning(f"[CS] 图片下载异常: {type(e).__name__} {url}")
+            return None
 
     async def get_upcoming_matches(self, per_page: int = 50) -> list:
         """获取即将开始的比赛列表"""
@@ -78,7 +99,7 @@ class PandaScoreClient:
         )
         return result if isinstance(result, list) else []
 
-    async def get_team(self, team_id_or_slug: int | str) -> Optional[dict]:
+    async def get_team(self, team_id_or_slug: int | str) -> dict | None:
         result = await self._request(f"{API_BASE}/teams/{team_id_or_slug}", {})
         return result if isinstance(result, dict) else None
 
@@ -90,7 +111,7 @@ class PandaScoreClient:
         )
         return result if isinstance(result, list) else []
 
-    async def get_match_result(self, match_id: int) -> Optional[dict]:
+    async def get_match_result(self, match_id: int) -> dict | None:
         """查询单场比赛结果"""
         result = await self._request(
             f"{API_BASE}/csgo/matches/past",
