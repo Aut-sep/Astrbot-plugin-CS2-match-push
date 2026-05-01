@@ -210,6 +210,11 @@ class DataStore:
             self._data["notified_finished"] = self._data["notified_finished"][-500:]
             self.save()
 
+    def clear_match_notifications(self):
+        self._data["notified_upcoming"] = []
+        self._data["notified_finished"] = []
+        self.save()
+
     # ── 赛程时间记录 ──────────────────────
 
     def get_match_schedule(self, mid: int) -> Optional[str]:

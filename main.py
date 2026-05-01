@@ -241,6 +241,182 @@ class CSMatchPlugin(Star):
     async def terminate(self):
         await self.destroy()
 
+    def schedule_refresh(self, label: str = "background") -> asyncio.Task:
+        return self._create_background_task(self._fetch_and_schedule(), label)
+
+    def schedule_instant_push(self, days: int, label: str = "background") -> asyncio.Task:
+        return self._create_background_task(self._do_instant_push(days), label)
+
+    def has_daily_matches_to_push(self, days: int) -> bool:
+        return self._has_daily_matches_to_push(days)
+
+    def is_test_mode_enabled(self) -> bool:
+        return self._is_test_mode_enabled()
+
+    def has_test_target(self) -> bool:
+        return self._get_test_target() is not None
+
+    async def run_test_push(self, action: str, days: int = 1) -> str:
+        return await self._run_test_push(action, days)
+
+    def clear_match_notifications(self):
+        self.store.clear_match_notifications()
+
+    def rebuild_all_match_tasks(self):
+        for task in self._match_tasks.values():
+            task.cancel()
+        self._match_tasks.clear()
+        self._scheduled_mids.clear()
+        self.schedule_refresh("web_rebuild_tasks")
+
+    def get_panel_matches(self) -> list[dict]:
+        now = now_utc()
+        result = []
+        seen = set()
+
+        def _build_entry(m: dict, status: str, remind_min: int, custom_rem: int | None,
+                         countdown: int | None, attempt: int | None = None,
+                         deadline_sec: int | None = None) -> dict:
+            snap = self.store.get_match_snapshot(m["id"]) or {}
+            entry = dict(m)
+            entry["_task_status"] = status
+            entry["_remind_min"] = remind_min
+            entry["_custom_remind"] = custom_rem
+            entry["_countdown_sec"] = countdown
+            entry["_t1"] = snap.get("t1") or "TBD"
+            entry["_t2"] = snap.get("t2") or "TBD"
+            entry["_attempt"] = attempt
+            entry["_deadline_sec"] = deadline_sec
+            return entry
+
+        def _countdown(sched_iso: str | None) -> int | None:
+            if not sched_iso:
+                return None
+            try:
+                return int((parse_dt(sched_iso) - now).total_seconds())
+            except Exception:
+                return None
+
+        for match in self._scheduled:
+            mid = match["id"]
+            seen.add(mid)
+            snap = self.store.get_match_snapshot(mid) or {}
+            sched_iso = snap.get("sched") or match.get("scheduled_at") or match.get("begin_at")
+            custom_rem = self.store.get_custom_remind(mid)
+            remind_min = custom_rem if custom_rem is not None else self.store.get_remind_minutes()
+            countdown = _countdown(sched_iso)
+
+            task = self._match_tasks.get(mid)
+            if self.store.is_finished_notified(mid):
+                status = "finished"
+            elif task and not task.done():
+                status = "waiting_remind" if not self.store.is_upcoming_notified(mid) else "waiting_result"
+            else:
+                status = "scheduled"
+
+            result.append(_build_entry(match, status, remind_min, custom_rem, countdown))
+
+        for mid, task in list(self._result_tasks.items()):
+            if mid in seen:
+                continue
+            seen.add(mid)
+            meta = self._result_meta.get(mid, {})
+            match = meta.get("match", {})
+            attempt = meta.get("attempt", 0)
+            snap = self.store.get_match_snapshot(mid) or {}
+            sched_iso = snap.get("sched") or match.get("scheduled_at") or match.get("begin_at")
+            custom_rem = self.store.get_custom_remind(mid)
+            remind_min = custom_rem if custom_rem is not None else self.store.get_remind_minutes()
+            countdown = _countdown(sched_iso)
+
+            deadline_sec = None
+            if meta.get("deadline"):
+                try:
+                    deadline_sec = max(0, int((parse_dt(meta["deadline"]) - now).total_seconds()))
+                except Exception:
+                    deadline_sec = None
+
+            if self.store.is_finished_notified(mid):
+                status = "finished"
+            elif task and not task.done():
+                status = "polling_result"
+            else:
+                status = "finished"
+
+            result.append(_build_entry(match, status, remind_min, custom_rem, countdown, attempt, deadline_sec))
+
+        return result
+
+    def _find_scheduled_match(self, mid: int) -> dict | None:
+        return next((match for match in self._scheduled if match["id"] == mid), None)
+
+    def _find_known_match(self, mid: int) -> dict | None:
+        match = self._find_scheduled_match(mid)
+        if match is not None:
+            return match
+        meta = self._result_meta.get(mid, {})
+        return meta.get("match")
+
+    def _cancel_match_remind_task(self, mid: int):
+        task = self._match_tasks.get(mid)
+        if task and not task.done():
+            task.cancel()
+        self._match_tasks.pop(mid, None)
+        self._scheduled_mids.discard(mid)
+
+    def _cancel_match_result_task(self, mid: int):
+        task = self._result_tasks.get(mid)
+        if task and not task.done():
+            task.cancel()
+        self._result_tasks.pop(mid, None)
+        self._result_meta.pop(mid, None)
+
+    def _start_match_remind_task(self, match: dict, remind_min: int):
+        mid = match["id"]
+        task = asyncio.create_task(self._schedule_match(match, remind_min))
+        self._match_tasks[mid] = task
+        self._scheduled_mids.add(mid)
+        return task
+
+    def update_match_remind(self, mid: int, remind_minutes: int | None) -> str:
+        if remind_minutes is None:
+            self.store.del_custom_remind(mid)
+            msg = f"已恢复比赛 {mid} 为全局提醒时间"
+        else:
+            self.store.set_custom_remind(mid, remind_minutes)
+            msg = f"已设置比赛 {mid} 自定义提醒：{remind_minutes} 分钟"
+
+        self.store.clear_upcoming_notified(mid)
+        self._cancel_match_remind_task(mid)
+
+        match = self._find_scheduled_match(mid)
+        if match:
+            next_remind = self.store.get_custom_remind(mid)
+            if next_remind is None:
+                next_remind = self.store.get_remind_minutes()
+            self._start_match_remind_task(match, next_remind)
+
+        self.panel.push_log("OK", msg)
+        return msg
+
+    def rebuild_match_task(self, mid: int) -> str | None:
+        match = self._find_known_match(mid)
+        if not match:
+            return None
+
+        self.store.clear_upcoming_notified(mid)
+        self._cancel_match_remind_task(mid)
+        self._cancel_match_result_task(mid)
+
+        remind_min = self.store.get_custom_remind(mid)
+        if remind_min is None:
+            remind_min = self.store.get_remind_minutes()
+
+        self._start_match_remind_task(match, remind_min)
+        msg = f"已手动重建比赛 {mid} 任务（{remind_min} 分钟）"
+        self.panel.push_log("OK", msg)
+        return msg
+
     # ── 主轮询循环 ────────────────────────
 
     async def _poll_loop(self):
