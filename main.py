@@ -377,7 +377,8 @@ class CSMatchPlugin(Star):
                 try:
                     await asyncio.sleep(wait_secs)
                 except asyncio.CancelledError:
-                    return
+                    logger.info(f"[CS] 赛事 {tid} 开幕通知任务已取消")
+                    raise
 
             # 推送前再次检查是否已通知
             if self.store.is_tournament_notified(tid):
@@ -581,13 +582,21 @@ class CSMatchPlugin(Star):
 
     async def _schedule_match(self, match: dict, remind_min: int):
         mid = match["id"]
+        cancelled = False
         try:
             await self._run_remind(match, remind_min)
+        except asyncio.CancelledError:
+            cancelled = True
+            raise
         finally:
             self._match_tasks.pop(mid, None)
             self._scheduled_mids.discard(mid)
             # 若比赛未结束，交给独立的结果轮询任务
-            if not self.store.is_finished_notified(mid) and mid not in self._result_tasks:
+            if (
+                not cancelled
+                and not self.store.is_finished_notified(mid)
+                and mid not in self._result_tasks
+            ):
                 t = asyncio.create_task(self._run_result_poll(match))
                 self._result_tasks[mid] = t
 
@@ -606,7 +615,7 @@ class CSMatchPlugin(Star):
                 await asyncio.sleep(wait_remind)
             except asyncio.CancelledError:
                 logger.info(f"[CS] 比赛 {mid} 提醒任务取消（时间变更）")
-                return
+                raise
             if not self.store.is_upcoming_notified(mid):
                 self.store.mark_upcoming_notified(mid)
                 custom_streams = self.store.get("custom_streams") or []
@@ -624,7 +633,8 @@ class CSMatchPlugin(Star):
             try:
                 await asyncio.sleep(wait_start)
             except asyncio.CancelledError:
-                return
+                logger.info(f"[CS] 比赛 {mid} 开赛等待任务取消")
+                raise
 
     async def _run_result_poll(self, match: dict):
         """阶段2：开赛后独立轮询结果，记录进度供 Web 面板展示"""
@@ -674,7 +684,7 @@ class CSMatchPlugin(Star):
                 try:
                     await asyncio.sleep(min(interval, remaining))
                 except asyncio.CancelledError:
-                    return
+                    raise
         finally:
             self._result_tasks.pop(mid, None)
             self._result_meta.pop(mid, None)
@@ -1239,11 +1249,11 @@ class CSMatchPlugin(Star):
                 if message_id:
                     ref["message_id"] = message_id
                 sent_refs.append(ref)
-                logger.info(f"[CS] 宸叉帹閫?-> {label}")
-                self.panel.push_log("OK", f"娑堟伅宸叉帹閫佸埌 {label}")
+                logger.info(f"[CS] 已推送 -> {label}")
+                self.panel.push_log("OK", f"消息已推送到 {label}")
             except Exception as e:
-                logger.error(f"[CS] 鎺ㄩ€佸け璐?{label}: {e}")
-                self.panel.push_log("ERROR", f"鎺ㄩ€佸け璐?{label}: {e}")
+                logger.error(f"[CS] 推送失败 {label}: {e}")
+                self.panel.push_log("ERROR", f"推送失败 {label}: {e}")
         return sent_refs
 
     def _is_test_mode_enabled(self) -> bool:
