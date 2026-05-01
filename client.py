@@ -19,17 +19,21 @@ class PandaScoreClient:
         }
         self._timeout = aiohttp.ClientTimeout(total=20)
         self._session: aiohttp.ClientSession | None = None
+        self._session_lock = asyncio.Lock()
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """获取或创建复用的 ClientSession"""
         if self._session is None or self._session.closed:
-            self._session = aiohttp.ClientSession()
+            async with self._session_lock:
+                if self._session is None or self._session.closed:
+                    self._session = aiohttp.ClientSession()
         return self._session
 
     async def close(self):
         """关闭 ClientSession"""
-        if self._session and not self._session.closed:
-            await self._session.close()
+        async with self._session_lock:
+            if self._session and not self._session.closed:
+                await self._session.close()
             self._session = None
 
     async def _request(self, url: str, params: dict) -> dict | list | None:

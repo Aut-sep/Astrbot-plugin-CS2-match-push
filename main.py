@@ -238,6 +238,185 @@ class CSMatchPlugin(Star):
         await self.client.close()
         logger.info("[CS] 插件已停止")
 
+    async def terminate(self):
+        await self.destroy()
+
+    def schedule_refresh(self, label: str = "background") -> asyncio.Task:
+        return self._create_background_task(self._fetch_and_schedule(), label)
+
+    def schedule_instant_push(self, days: int, label: str = "background") -> asyncio.Task:
+        return self._create_background_task(self._do_instant_push(days), label)
+
+    def has_daily_matches_to_push(self, days: int) -> bool:
+        return self._has_daily_matches_to_push(days)
+
+    def is_test_mode_enabled(self) -> bool:
+        return self._is_test_mode_enabled()
+
+    def has_test_target(self) -> bool:
+        return self._get_test_target() is not None
+
+    async def run_test_push(self, action: str, days: int = 1) -> str:
+        return await self._run_test_push(action, days)
+
+    def clear_match_notifications(self):
+        self.store.clear_match_notifications()
+
+    def rebuild_all_match_tasks(self):
+        for task in self._match_tasks.values():
+            task.cancel()
+        self._match_tasks.clear()
+        self._scheduled_mids.clear()
+        self.schedule_refresh("web_rebuild_tasks")
+
+    def get_panel_matches(self) -> list[dict]:
+        now = now_utc()
+        result = []
+        seen = set()
+
+        def _build_entry(m: dict, status: str, remind_min: int, custom_rem: int | None,
+                         countdown: int | None, attempt: int | None = None,
+                         deadline_sec: int | None = None) -> dict:
+            snap = self.store.get_match_snapshot(m["id"]) or {}
+            entry = dict(m)
+            entry["_task_status"] = status
+            entry["_remind_min"] = remind_min
+            entry["_custom_remind"] = custom_rem
+            entry["_countdown_sec"] = countdown
+            entry["_t1"] = snap.get("t1") or "TBD"
+            entry["_t2"] = snap.get("t2") or "TBD"
+            entry["_attempt"] = attempt
+            entry["_deadline_sec"] = deadline_sec
+            return entry
+
+        def _countdown(sched_iso: str | None) -> int | None:
+            if not sched_iso:
+                return None
+            try:
+                return int((parse_dt(sched_iso) - now).total_seconds())
+            except Exception:
+                return None
+
+        for match in self._scheduled:
+            mid = match["id"]
+            seen.add(mid)
+            snap = self.store.get_match_snapshot(mid) or {}
+            sched_iso = snap.get("sched") or match.get("scheduled_at") or match.get("begin_at")
+            custom_rem = self.store.get_custom_remind(mid)
+            remind_min = custom_rem if custom_rem is not None else self.store.get_remind_minutes()
+            countdown = _countdown(sched_iso)
+
+            task = self._match_tasks.get(mid)
+            if self.store.is_finished_notified(mid):
+                status = "finished"
+            elif task and not task.done():
+                status = "waiting_remind" if not self.store.is_upcoming_notified(mid) else "waiting_result"
+            else:
+                status = "scheduled"
+
+            result.append(_build_entry(match, status, remind_min, custom_rem, countdown))
+
+        for mid, task in list(self._result_tasks.items()):
+            if mid in seen:
+                continue
+            seen.add(mid)
+            meta = self._result_meta.get(mid, {})
+            match = meta.get("match", {})
+            attempt = meta.get("attempt", 0)
+            snap = self.store.get_match_snapshot(mid) or {}
+            sched_iso = snap.get("sched") or match.get("scheduled_at") or match.get("begin_at")
+            custom_rem = self.store.get_custom_remind(mid)
+            remind_min = custom_rem if custom_rem is not None else self.store.get_remind_minutes()
+            countdown = _countdown(sched_iso)
+
+            deadline_sec = None
+            if meta.get("deadline"):
+                try:
+                    deadline_sec = max(0, int((parse_dt(meta["deadline"]) - now).total_seconds()))
+                except Exception:
+                    deadline_sec = None
+
+            if self.store.is_finished_notified(mid):
+                status = "finished"
+            elif task and not task.done():
+                status = "polling_result"
+            else:
+                status = "finished"
+
+            result.append(_build_entry(match, status, remind_min, custom_rem, countdown, attempt, deadline_sec))
+
+        return result
+
+    def _find_scheduled_match(self, mid: int) -> dict | None:
+        return next((match for match in self._scheduled if match["id"] == mid), None)
+
+    def _find_known_match(self, mid: int) -> dict | None:
+        match = self._find_scheduled_match(mid)
+        if match is not None:
+            return match
+        meta = self._result_meta.get(mid, {})
+        return meta.get("match")
+
+    def _cancel_match_remind_task(self, mid: int):
+        task = self._match_tasks.get(mid)
+        if task and not task.done():
+            task.cancel()
+        self._match_tasks.pop(mid, None)
+        self._scheduled_mids.discard(mid)
+
+    def _cancel_match_result_task(self, mid: int):
+        task = self._result_tasks.get(mid)
+        if task and not task.done():
+            task.cancel()
+        self._result_tasks.pop(mid, None)
+        self._result_meta.pop(mid, None)
+
+    def _start_match_remind_task(self, match: dict, remind_min: int):
+        mid = match["id"]
+        task = asyncio.create_task(self._schedule_match(match, remind_min))
+        self._match_tasks[mid] = task
+        self._scheduled_mids.add(mid)
+        return task
+
+    def update_match_remind(self, mid: int, remind_minutes: int | None) -> str:
+        if remind_minutes is None:
+            self.store.del_custom_remind(mid)
+            msg = f"已恢复比赛 {mid} 为全局提醒时间"
+        else:
+            self.store.set_custom_remind(mid, remind_minutes)
+            msg = f"已设置比赛 {mid} 自定义提醒：{remind_minutes} 分钟"
+
+        self.store.clear_upcoming_notified(mid)
+        self._cancel_match_remind_task(mid)
+
+        match = self._find_scheduled_match(mid)
+        if match:
+            next_remind = self.store.get_custom_remind(mid)
+            if next_remind is None:
+                next_remind = self.store.get_remind_minutes()
+            self._start_match_remind_task(match, next_remind)
+
+        self.panel.push_log("OK", msg)
+        return msg
+
+    def rebuild_match_task(self, mid: int) -> str | None:
+        match = self._find_known_match(mid)
+        if not match:
+            return None
+
+        self.store.clear_upcoming_notified(mid)
+        self._cancel_match_remind_task(mid)
+        self._cancel_match_result_task(mid)
+
+        remind_min = self.store.get_custom_remind(mid)
+        if remind_min is None:
+            remind_min = self.store.get_remind_minutes()
+
+        self._start_match_remind_task(match, remind_min)
+        msg = f"已手动重建比赛 {mid} 任务（{remind_min} 分钟）"
+        self.panel.push_log("OK", msg)
+        return msg
+
     # ── 主轮询循环 ────────────────────────
 
     async def _poll_loop(self):
@@ -377,7 +556,8 @@ class CSMatchPlugin(Star):
                 try:
                     await asyncio.sleep(wait_secs)
                 except asyncio.CancelledError:
-                    return
+                    logger.info(f"[CS] 赛事 {tid} 开幕通知任务已取消")
+                    raise
 
             # 推送前再次检查是否已通知
             if self.store.is_tournament_notified(tid):
@@ -581,13 +761,21 @@ class CSMatchPlugin(Star):
 
     async def _schedule_match(self, match: dict, remind_min: int):
         mid = match["id"]
+        cancelled = False
         try:
             await self._run_remind(match, remind_min)
+        except asyncio.CancelledError:
+            cancelled = True
+            raise
         finally:
             self._match_tasks.pop(mid, None)
             self._scheduled_mids.discard(mid)
             # 若比赛未结束，交给独立的结果轮询任务
-            if not self.store.is_finished_notified(mid) and mid not in self._result_tasks:
+            if (
+                not cancelled
+                and not self.store.is_finished_notified(mid)
+                and mid not in self._result_tasks
+            ):
                 t = asyncio.create_task(self._run_result_poll(match))
                 self._result_tasks[mid] = t
 
@@ -606,7 +794,7 @@ class CSMatchPlugin(Star):
                 await asyncio.sleep(wait_remind)
             except asyncio.CancelledError:
                 logger.info(f"[CS] 比赛 {mid} 提醒任务取消（时间变更）")
-                return
+                raise
             if not self.store.is_upcoming_notified(mid):
                 self.store.mark_upcoming_notified(mid)
                 custom_streams = self.store.get("custom_streams") or []
@@ -624,7 +812,8 @@ class CSMatchPlugin(Star):
             try:
                 await asyncio.sleep(wait_start)
             except asyncio.CancelledError:
-                return
+                logger.info(f"[CS] 比赛 {mid} 开赛等待任务取消")
+                raise
 
     async def _run_result_poll(self, match: dict):
         """阶段2：开赛后独立轮询结果，记录进度供 Web 面板展示"""
@@ -674,7 +863,7 @@ class CSMatchPlugin(Star):
                 try:
                     await asyncio.sleep(min(interval, remaining))
                 except asyncio.CancelledError:
-                    return
+                    raise
         finally:
             self._result_tasks.pop(mid, None)
             self._result_meta.pop(mid, None)
@@ -1077,14 +1266,9 @@ class CSMatchPlugin(Star):
         return f"{head}/thumb_{tail}"
 
     def _message_component_types(self):
-        try:
-            from astrbot.core.message.message_event_result import MessageChain
-            from astrbot.core.message.components import Plain, Image
-            return MessageChain, Plain, Image
-        except Exception:
-            from astrbot.api.event import MessageChain
-            import astrbot.api.message_components as Comp
-            return MessageChain, Comp.Plain, Comp.Image
+        from astrbot.api.event import MessageChain
+        import astrbot.api.message_components as Comp
+        return MessageChain, Comp.Plain, Comp.Image
 
     def _make_plain_component(self, Plain, text: str):
         try:
@@ -1239,11 +1423,11 @@ class CSMatchPlugin(Star):
                 if message_id:
                     ref["message_id"] = message_id
                 sent_refs.append(ref)
-                logger.info(f"[CS] 宸叉帹閫?-> {label}")
-                self.panel.push_log("OK", f"娑堟伅宸叉帹閫佸埌 {label}")
+                logger.info(f"[CS] 已推送 -> {label}")
+                self.panel.push_log("OK", f"消息已推送到 {label}")
             except Exception as e:
-                logger.error(f"[CS] 鎺ㄩ€佸け璐?{label}: {e}")
-                self.panel.push_log("ERROR", f"鎺ㄩ€佸け璐?{label}: {e}")
+                logger.error(f"[CS] 推送失败 {label}: {e}")
+                self.panel.push_log("ERROR", f"推送失败 {label}: {e}")
         return sent_refs
 
     def _is_test_mode_enabled(self) -> bool:
@@ -1366,11 +1550,13 @@ class CSMatchPlugin(Star):
             return event.plain_result("📭 当前没有已安排的比赛\n发送 ~cs刷新 更新日程")
         return event.plain_result(fmt_schedule(self._scheduled, followed))
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs刷新")
     async def cmd_refresh(self, event: AstrMessageEvent) -> MessageEventResult:
         self._create_background_task(self._fetch_and_schedule(), "cmd_refresh")
         return event.plain_result("✅ 正在刷新日程，发送 ~cs比赛 查看最新赛程")
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs设置群")
     async def cmd_add_group(self, event: AstrMessageEvent, gid: str = "") -> MessageEventResult:
         gid = gid.strip()
@@ -1380,6 +1566,7 @@ class CSMatchPlugin(Star):
             return event.plain_result(f"✅ 已添加推送群：{gid}")
         return event.plain_result(f"ℹ️ 群 {gid} 已在推送列表中")
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs移除群")
     async def cmd_remove_group(self, event: AstrMessageEvent, gid: str = "") -> MessageEventResult:
         gid = gid.strip()
@@ -1394,6 +1581,7 @@ class CSMatchPlugin(Star):
             return event.plain_result("📭 当前没有推送群\n使用 ~cs设置群 <群号> 添加")
         return event.plain_result("📢 当前推送群：\n" + "\n".join(f"  · {g}" for g in groups))
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs提醒")
     async def cmd_remind(self, event: AstrMessageEvent, minutes: str = "") -> MessageEventResult:
         try:
@@ -1413,6 +1601,7 @@ class CSMatchPlugin(Star):
         self._create_background_task(self._fetch_and_schedule(), "cmd_remind")
         return event.plain_result(f"✅ 已设置：比赛开始前 {m} 分钟推送提醒，已自动重建所有比赛提醒")
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs关注")
     async def cmd_follow(self, event: AstrMessageEvent, name: str = "") -> MessageEventResult:
         """QQ 指令关注：通过名称搜索并关注（建议使用 Web 面板精确搜索）"""
@@ -1444,6 +1633,7 @@ class CSMatchPlugin(Star):
             return event.plain_result(msg)
         return event.plain_result(f"ℹ️ 已经关注过 {tname} 了")
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs取消")
     async def cmd_unfollow(self, event: AstrMessageEvent, name: str = "") -> MessageEventResult:
         name = name.strip()
@@ -1517,6 +1707,7 @@ class CSMatchPlugin(Star):
             f"🌐 Web 面板：{self._web_panel_url()}"
         )
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs延迟通知")
     async def cmd_reschedule_notify(self, event: AstrMessageEvent, arg: str = "") -> MessageEventResult:
         arg = arg.strip()
@@ -1532,6 +1723,8 @@ class CSMatchPlugin(Star):
                 f"当前延迟通知：{status}\n开启：~cs延迟通知 开\n关闭：~cs延迟通知 关"
             )
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    @filter.event_message_type(filter.EventMessageType.PRIVATE_MESSAGE)
     @filter.command("cs面板")
     async def cmd_panel(self, event: AstrMessageEvent) -> MessageEventResult:
         token = str(self.store.get("web_panel_token") or "").strip()
@@ -1544,6 +1737,7 @@ class CSMatchPlugin(Star):
             f"（非本机访问需要令牌，请勿公开分享）"
         )
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs测试")
     async def cmd_test_mode(self, event: AstrMessageEvent, arg: str = "") -> MessageEventResult:
         arg = arg.strip()
@@ -1600,6 +1794,7 @@ class CSMatchPlugin(Star):
         msg = await self._run_test_push(action, days, event)
         return event.plain_result(f"✅ {msg}")
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs推送")
     async def cmd_push_now(self, event: AstrMessageEvent, arg: str = "") -> MessageEventResult:
         """立即推送赛程到所有群"""
@@ -1615,6 +1810,7 @@ class CSMatchPlugin(Star):
         self._create_background_task(self._do_instant_push(days), "cmd_push_now")
         return event.plain_result(f"✅ 已向所有推送群发送 {days} 天内的赛程日报")
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs日报")
     async def cmd_daily_push(self, event: AstrMessageEvent, arg: str = "") -> MessageEventResult:
         """配置或查看每日定时推送"""
@@ -1688,6 +1884,7 @@ class CSMatchPlugin(Star):
 
         return event.plain_result("未知参数，发送 ~cs日报 查看帮助")
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs赛事提醒")
     async def cmd_tournament_announce(self, event: AstrMessageEvent, arg: str = "") -> MessageEventResult:
         """查看或设置赛事开幕提前推送时间"""

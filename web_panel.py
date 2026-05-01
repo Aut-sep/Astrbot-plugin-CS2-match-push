@@ -2462,7 +2462,7 @@ class WebPanel:
         if any(k in body for k in (
             "pandascore_token", "fetch_ahead_days", "fetch_ahead_hours",
         )):
-            self.plugin._create_background_task(self.plugin._fetch_and_schedule(), "web_patch_config")
+            self.plugin.schedule_refresh("web_patch_config")
         restart_required = any(k in body for k in ("web_panel_host", "web_panel_port", "web_panel_enabled"))
         return self._json({"ok": True, "restart_required": restart_required})
 
@@ -2477,97 +2477,15 @@ class WebPanel:
             return self._json({"ok": False, "msg": "invalid json"}, 400)
         self.plugin.store.import_config(body)
         await self.plugin.reload_runtime_config()
-        self.plugin._create_background_task(self.plugin._fetch_and_schedule(), "web_import_config")
+        self.plugin.schedule_refresh("web_import_config")
         restart_required = any(k in body for k in ("web_panel_host", "web_panel_port", "web_panel_enabled"))
         return self._json({"ok": True, "restart_required": restart_required})
 
     async def get_matches(self, req):
-        from datetime import timezone as _tz
-        now    = datetime.now(_tz.utc)
-        plugin = self.plugin
-        result = []
-        seen   = set()
-
-        def _build_entry(m, status, remind_min, custom_rem, countdown,
-                         attempt=None, deadline_sec=None):
-            snap  = plugin.store.get_match_snapshot(m["id"]) or {}
-            entry = dict(m)
-            entry["_task_status"]   = status
-            entry["_remind_min"]    = remind_min
-            entry["_custom_remind"] = custom_rem
-            entry["_countdown_sec"] = countdown
-            entry["_t1"]            = snap.get("t1") or "TBD"
-            entry["_t2"]            = snap.get("t2") or "TBD"
-            entry["_attempt"]       = attempt       # 已查询结果次数
-            entry["_deadline_sec"]  = deadline_sec  # 距截止还剩秒数
-            return entry
-
-        def _countdown(sched_iso):
-            if not sched_iso:
-                return None
-            try:
-                dt = datetime.fromisoformat(sched_iso.replace("Z", "+00:00"))
-                return int((dt - now).total_seconds())
-            except Exception:
-                return None
-
-        # ── 1. 已安排但未开赛的比赛（_scheduled 列表）──────────────────────
-        for m in plugin._scheduled:
-            mid        = m["id"]
-            seen.add(mid)
-            snap       = plugin.store.get_match_snapshot(mid) or {}
-            sched_iso  = snap.get("sched") or m.get("scheduled_at") or m.get("begin_at")
-            custom_rem = plugin.store.get_custom_remind(mid)
-            remind_min = custom_rem if custom_rem is not None else plugin.store.get_remind_minutes()
-            countdown  = _countdown(sched_iso)
-
-            task = plugin._match_tasks.get(mid)
-            if plugin.store.is_finished_notified(mid):
-                status = "finished"
-            elif task and not task.done():
-                status = "waiting_remind" if not plugin.store.is_upcoming_notified(mid) else "waiting_result"
-            else:
-                status = "scheduled"
-
-            result.append(_build_entry(m, status, remind_min, custom_rem, countdown))
-
-        # ── 2. 正在轮询结果的比赛（已离开 _scheduled，但任务仍运行）──────────
-        for mid, task in list(plugin._result_tasks.items()):
-            if mid in seen:
-                continue
-            seen.add(mid)
-            meta       = plugin._result_meta.get(mid, {})
-            match      = meta.get("match", {})
-            attempt    = meta.get("attempt", 0)
-            snap       = plugin.store.get_match_snapshot(mid) or {}
-            sched_iso  = snap.get("sched") or match.get("scheduled_at") or match.get("begin_at")
-            custom_rem = plugin.store.get_custom_remind(mid)
-            remind_min = custom_rem if custom_rem is not None else plugin.store.get_remind_minutes()
-            countdown  = _countdown(sched_iso)
-
-            # 截止时间剩余秒数
-            deadline_sec = None
-            if meta.get("deadline"):
-                try:
-                    dl = datetime.fromisoformat(meta["deadline"].replace("Z", "+00:00"))
-                    deadline_sec = max(0, int((dl - now).total_seconds()))
-                except Exception:
-                    pass
-
-            if plugin.store.is_finished_notified(mid):
-                status = "finished"
-            elif task and not task.done():
-                status = "polling_result"
-            else:
-                status = "finished"
-
-            result.append(_build_entry(match, status, remind_min, custom_rem,
-                                       countdown, attempt, deadline_sec))
-
-        return self._json({"ok": True, "matches": result})
+        return self._json({"ok": True, "matches": self.plugin.get_panel_matches()})
 
     async def refresh(self, req):
-        self.plugin._create_background_task(self.plugin._fetch_and_schedule(), "web_refresh")
+        self.plugin.schedule_refresh("web_refresh")
         return self._json({"ok": True})
 
     async def push_now(self, req):
@@ -2577,9 +2495,9 @@ class WebPanel:
         except Exception:
             body = {}
         days = int(body.get("days", 1))
-        if not self.plugin._has_daily_matches_to_push(days):
+        if not self.plugin.has_daily_matches_to_push(days):
             return self._json({"ok": True, "skipped": True, "msg": "no matches to push"})
-        self.plugin._create_background_task(self.plugin._do_instant_push(days), "web_push_now")
+        self.plugin.schedule_instant_push(days, "web_push_now")
         return self._json({"ok": True})
 
     async def send_test(self, req):
@@ -2588,14 +2506,14 @@ class WebPanel:
         except Exception:
             body = {}
         action = str(body.get("action", "")).strip() or "赛前"
-        if not self.plugin._is_test_mode_enabled():
+        if not self.plugin.is_test_mode_enabled():
             return self._json({"ok": False, "msg": "测试模式未开启"}, 400)
-        if not self.plugin._get_test_target():
+        if not self.plugin.has_test_target():
             return self._json({"ok": False, "msg": "请先配置测试 QQ 或群号"}, 400)
         valid = {"赛前", "赛果", "变更", "开幕", "日报", "全部"}
         if action not in valid:
             return self._json({"ok": False, "msg": "未知测试动作"}, 400)
-        msg = await self.plugin._run_test_push(action, 1)
+        msg = await self.plugin.run_test_push(action, 1)
         return self._json({"ok": True, "msg": msg})
 
     async def add_group(self, req):
@@ -2624,7 +2542,7 @@ class WebPanel:
             return self._json({"ok": False, "msg": "id and name required"}, 400)
         added = self.plugin.store.follow_team(int(team_id), name, slug)
         if added:
-            self.plugin._create_background_task(self.plugin._fetch_and_schedule(), "web_add_team")
+            self.plugin.schedule_refresh("web_add_team")
         return self._json({"ok": True, "added": added})
 
     async def remove_team(self, req):
@@ -2653,7 +2571,7 @@ class WebPanel:
             return self._json({"ok": False, "msg": "team id not found"}, 400)
 
         self.plugin.store.unfollow_team(team_id)
-        self.plugin._create_background_task(self.plugin._fetch_and_schedule(), "web_remove_team")
+        self.plugin.schedule_refresh("web_remove_team")
         return self._json({"ok": True})
 
     async def search_teams(self, req):
@@ -2677,17 +2595,11 @@ class WebPanel:
         return self._json({"ok": True, "logs": self._logs[-100:]})
 
     async def clear_notified(self, req):
-        self.plugin.store._data["notified_upcoming"] = []
-        self.plugin.store._data["notified_finished"] = []
-        self.plugin.store.save()
+        self.plugin.clear_match_notifications()
         return self._json({"ok": True})
 
     async def rebuild_tasks(self, req):
-        for t in self.plugin._match_tasks.values():
-            t.cancel()
-        self.plugin._match_tasks.clear()
-        self.plugin._scheduled_mids.clear()
-        self.plugin._create_background_task(self.plugin._fetch_and_schedule(), "web_rebuild_tasks")
+        self.plugin.rebuild_all_match_tasks()
         return self._json({"ok": True})
 
     async def patch_match(self, req):
@@ -2701,40 +2613,17 @@ class WebPanel:
         except Exception:
             return self._json({"ok": False, "msg": "invalid json"}, 400)
 
-        plugin = self.plugin
-
         if "remind_minutes" not in body:
             return self._json({"ok": False, "msg": "no supported fields"}, 400)
 
         val = body["remind_minutes"]
-        if val is None:
-            plugin.store.del_custom_remind(mid)
-            msg = f"已恢复比赛 {mid} 为全局提醒时间"
-        else:
+        minutes = None
+        if val is not None:
             minutes = int(val)
             if not 1 <= minutes <= 120:
                 return self._json({"ok": False, "msg": "remind_minutes must be 1~120"}, 400)
-            plugin.store.set_custom_remind(mid, minutes)
-            msg = f"已设置比赛 {mid} 自定义提醒：{minutes} 分钟"
 
-        # 立即重建该场任务使新时间生效
-        task = plugin._match_tasks.get(mid)
-        if task and not task.done():
-            task.cancel()
-        plugin.store.clear_upcoming_notified(mid)
-        plugin._scheduled_mids.discard(mid)
-        plugin._match_tasks.pop(mid, None)
-
-        match = next((m for m in plugin._scheduled if m["id"] == mid), None)
-        if match:
-            remind_min = plugin.store.get_custom_remind(mid)
-            if remind_min is None:
-                remind_min = plugin.store.get_remind_minutes()
-            t = asyncio.create_task(plugin._schedule_match(match, remind_min))
-            plugin._match_tasks[mid] = t
-            plugin._scheduled_mids.add(mid)
-
-        self.push_log("OK", msg)
+        msg = self.plugin.update_match_remind(mid, minutes)
         return self._json({"ok": True, "msg": msg})
 
     async def rebuild_match(self, req):
@@ -2744,36 +2633,10 @@ class WebPanel:
         except ValueError:
             return self._json({"ok": False, "msg": "invalid match id"}, 400)
 
-        plugin = self.plugin
-
-        # 先从 _scheduled 或 _result_meta 里找到比赛数据
-        match = next((m for m in plugin._scheduled if m["id"] == mid), None)
-        if match is None:
-            meta  = plugin._result_meta.get(mid, {})
-            match = meta.get("match")
-        if not match:
+        msg = self.plugin.rebuild_match_task(mid)
+        if msg is None:
             return self._json({"ok": False, "msg": "match not found"}, 404)
-
-        # 取消所有相关任务
-        for tasks_dict in (plugin._match_tasks, plugin._result_tasks):
-            task = tasks_dict.get(mid)
-            if task and not task.done():
-                task.cancel()
-        plugin.store.clear_upcoming_notified(mid)
-        plugin._scheduled_mids.discard(mid)
-        plugin._match_tasks.pop(mid, None)
-        plugin._result_tasks.pop(mid, None)
-        plugin._result_meta.pop(mid, None)
-
-        remind_min = plugin.store.get_custom_remind(mid)
-        if remind_min is None:
-            remind_min = plugin.store.get_remind_minutes()
-
-        t = asyncio.create_task(plugin._schedule_match(match, remind_min))
-        plugin._match_tasks[mid] = t
-        plugin._scheduled_mids.add(mid)
-        self.push_log("OK", f"已手动重建比赛 {mid} 任务（{remind_min} 分钟）")
-        return self._json({"ok": True})
+        return self._json({"ok": True, "msg": msg})
 
     def push_log(self, level: str, msg: str):
         now = datetime.now(CST).strftime("%H:%M:%S")
