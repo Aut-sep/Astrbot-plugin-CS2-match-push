@@ -18,6 +18,10 @@ config_schema:
     type: string
     hint: "Web 管理面板监听地址（默认 127.0.0.1，仅本机可访问）"
     default: "127.0.0.1"
+  web_panel_enabled:
+    type: bool
+    hint: "是否启用 Web 管理面板"
+    default: true
   fetch_interval_min:
     type: int
     hint: "日程自动刷新间隔（分钟）"
@@ -30,15 +34,3 @@ config_schema:
     type: bool
     hint: "是否启用图片版推送（赛前提醒 / 赛后结果）"
     default: true
-  bo1_wait_minutes:
-    type: int
-    hint: "BO1 赛后等待多久开始查结果（分钟）"
-    default: 30
-  bo3_wait_minutes:
-    type: int
-    hint: "BO3 赛后等待多久开始查结果（分钟）"
-    default: 80
-  bo5_wait_minutes:
-    type: int
-    hint: "BO5 赛后等待多久开始查结果（分钟）"
-    default: 120

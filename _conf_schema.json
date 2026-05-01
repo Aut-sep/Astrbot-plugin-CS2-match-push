@@ -18,6 +18,18 @@
     "hint": "默认 127.0.0.1，仅本机可访问；如需局域网访问可改为 0.0.0.0",
     "default": "127.0.0.1"
   },
+  "web_panel_port": {
+    "description": "Web 面板端口",
+    "type": "int",
+    "hint": "Web 管理面板监听端口，默认 8765",
+    "default": 8765
+  },
+  "web_panel_enabled": {
+    "description": "启用 Web 面板",
+    "type": "bool",
+    "hint": "关闭后仅保留 QQ 指令和后台推送能力",
+    "default": true
+  },
   "fetch_ahead_days": {
     "description": "提前拉取多少天内的比赛",
     "type": "int",
@@ -29,23 +41,5 @@
     "type": "bool",
     "hint": "开启后，赛前提醒和赛后结果使用图片版式；关闭则使用纯文字",
     "default": true
-  },
-  "bo1_wait_minutes": {
-    "description": "BO1 赛后开始查结果的等待时间（分钟）",
-    "type": "int",
-    "hint": "BO1 比赛开始后等待多少分钟才开始查询结果，节约 API 额度",
-    "default": 30
-  },
-  "bo3_wait_minutes": {
-    "description": "BO3 赛后开始查结果的等待时间（分钟）",
-    "type": "int",
-    "hint": "BO3 比赛开始后等待多少分钟才开始查询结果，节约 API 额度",
-    "default": 80
-  },
-  "bo5_wait_minutes": {
-    "description": "BO5 赛后开始查结果的等待时间（分钟）",
-    "type": "int",
-    "hint": "BO5 比赛开始后等待多少分钟才开始查询结果，节约 API 额度",
-    "default": 120
   }
 }

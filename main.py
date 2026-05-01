@@ -238,6 +238,9 @@ class CSMatchPlugin(Star):
         await self.client.close()
         logger.info("[CS] 插件已停止")
 
+    async def terminate(self):
+        await self.destroy()
+
     # ── 主轮询循环 ────────────────────────
 
     async def _poll_loop(self):
@@ -1087,14 +1090,9 @@ class CSMatchPlugin(Star):
         return f"{head}/thumb_{tail}"
 
     def _message_component_types(self):
-        try:
-            from astrbot.core.message.message_event_result import MessageChain
-            from astrbot.core.message.components import Plain, Image
-            return MessageChain, Plain, Image
-        except Exception:
-            from astrbot.api.event import MessageChain
-            import astrbot.api.message_components as Comp
-            return MessageChain, Comp.Plain, Comp.Image
+        from astrbot.api.event import MessageChain
+        import astrbot.api.message_components as Comp
+        return MessageChain, Comp.Plain, Comp.Image
 
     def _make_plain_component(self, Plain, text: str):
         try:
@@ -1376,11 +1374,13 @@ class CSMatchPlugin(Star):
             return event.plain_result("📭 当前没有已安排的比赛\n发送 ~cs刷新 更新日程")
         return event.plain_result(fmt_schedule(self._scheduled, followed))
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs刷新")
     async def cmd_refresh(self, event: AstrMessageEvent) -> MessageEventResult:
         self._create_background_task(self._fetch_and_schedule(), "cmd_refresh")
         return event.plain_result("✅ 正在刷新日程，发送 ~cs比赛 查看最新赛程")
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs设置群")
     async def cmd_add_group(self, event: AstrMessageEvent, gid: str = "") -> MessageEventResult:
         gid = gid.strip()
@@ -1390,6 +1390,7 @@ class CSMatchPlugin(Star):
             return event.plain_result(f"✅ 已添加推送群：{gid}")
         return event.plain_result(f"ℹ️ 群 {gid} 已在推送列表中")
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs移除群")
     async def cmd_remove_group(self, event: AstrMessageEvent, gid: str = "") -> MessageEventResult:
         gid = gid.strip()
@@ -1404,6 +1405,7 @@ class CSMatchPlugin(Star):
             return event.plain_result("📭 当前没有推送群\n使用 ~cs设置群 <群号> 添加")
         return event.plain_result("📢 当前推送群：\n" + "\n".join(f"  · {g}" for g in groups))
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs提醒")
     async def cmd_remind(self, event: AstrMessageEvent, minutes: str = "") -> MessageEventResult:
         try:
@@ -1423,6 +1425,7 @@ class CSMatchPlugin(Star):
         self._create_background_task(self._fetch_and_schedule(), "cmd_remind")
         return event.plain_result(f"✅ 已设置：比赛开始前 {m} 分钟推送提醒，已自动重建所有比赛提醒")
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs关注")
     async def cmd_follow(self, event: AstrMessageEvent, name: str = "") -> MessageEventResult:
         """QQ 指令关注：通过名称搜索并关注（建议使用 Web 面板精确搜索）"""
@@ -1454,6 +1457,7 @@ class CSMatchPlugin(Star):
             return event.plain_result(msg)
         return event.plain_result(f"ℹ️ 已经关注过 {tname} 了")
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs取消")
     async def cmd_unfollow(self, event: AstrMessageEvent, name: str = "") -> MessageEventResult:
         name = name.strip()
@@ -1527,6 +1531,7 @@ class CSMatchPlugin(Star):
             f"🌐 Web 面板：{self._web_panel_url()}"
         )
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs延迟通知")
     async def cmd_reschedule_notify(self, event: AstrMessageEvent, arg: str = "") -> MessageEventResult:
         arg = arg.strip()
@@ -1542,6 +1547,8 @@ class CSMatchPlugin(Star):
                 f"当前延迟通知：{status}\n开启：~cs延迟通知 开\n关闭：~cs延迟通知 关"
             )
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
+    @filter.event_message_type(filter.EventMessageType.PRIVATE_MESSAGE)
     @filter.command("cs面板")
     async def cmd_panel(self, event: AstrMessageEvent) -> MessageEventResult:
         token = str(self.store.get("web_panel_token") or "").strip()
@@ -1554,6 +1561,7 @@ class CSMatchPlugin(Star):
             f"（非本机访问需要令牌，请勿公开分享）"
         )
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs测试")
     async def cmd_test_mode(self, event: AstrMessageEvent, arg: str = "") -> MessageEventResult:
         arg = arg.strip()
@@ -1610,6 +1618,7 @@ class CSMatchPlugin(Star):
         msg = await self._run_test_push(action, days, event)
         return event.plain_result(f"✅ {msg}")
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs推送")
     async def cmd_push_now(self, event: AstrMessageEvent, arg: str = "") -> MessageEventResult:
         """立即推送赛程到所有群"""
@@ -1625,6 +1634,7 @@ class CSMatchPlugin(Star):
         self._create_background_task(self._do_instant_push(days), "cmd_push_now")
         return event.plain_result(f"✅ 已向所有推送群发送 {days} 天内的赛程日报")
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs日报")
     async def cmd_daily_push(self, event: AstrMessageEvent, arg: str = "") -> MessageEventResult:
         """配置或查看每日定时推送"""
@@ -1698,6 +1708,7 @@ class CSMatchPlugin(Star):
 
         return event.plain_result("未知参数，发送 ~cs日报 查看帮助")
 
+    @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs赛事提醒")
     async def cmd_tournament_announce(self, event: AstrMessageEvent, arg: str = "") -> MessageEventResult:
         """查看或设置赛事开幕提前推送时间"""
