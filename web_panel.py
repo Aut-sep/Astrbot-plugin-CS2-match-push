@@ -2315,7 +2315,7 @@ class WebPanel:
         except Exception:
             return self._json({"ok": False, "msg": "invalid json"}, 400)
         self.plugin.store.import_config(body)
-        self.plugin.reload_runtime_config()
+        await self.plugin.reload_runtime_config()
         # 同步运行时配置
         if "remind_minutes" in body:
             self.plugin.store.set_remind_minutes(int(body["remind_minutes"]))
@@ -2338,7 +2338,7 @@ class WebPanel:
         except Exception:
             return self._json({"ok": False, "msg": "invalid json"}, 400)
         self.plugin.store.import_config(body)
-        self.plugin.reload_runtime_config()
+        await self.plugin.reload_runtime_config()
         asyncio.create_task(self.plugin._fetch_and_schedule())
         restart_required = any(k in body for k in ("web_panel_host", "web_panel_port", "web_panel_enabled"))
         return self._json({"ok": True, "restart_required": restart_required})

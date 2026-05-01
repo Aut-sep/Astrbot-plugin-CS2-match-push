@@ -141,9 +141,11 @@ class CSMatchPlugin(Star):
         except Exception:
             pass
 
-    def reload_runtime_config(self):
+    async def reload_runtime_config(self):
         self._sync_runtime_config_from_store()
+        old_client = self.client
         self.client = PandaScoreClient(self._token)
+        await old_client.close()
 
     def _running_in_container(self) -> bool:
         return os.path.exists("/.dockerenv")
@@ -193,8 +195,11 @@ class CSMatchPlugin(Star):
             t.cancel()
         self._match_tasks.clear()
         self._result_tasks.clear()
+        self._result_meta.clear()
         self._tournament_tasks.clear()
+        self._scheduled_mids.clear()
         await self.panel.stop()
+        await self.client.close()
         logger.info("[CS] 插件已停止")
 
     # ── 主轮询循环 ────────────────────────
@@ -326,27 +331,31 @@ class CSMatchPlugin(Star):
                                             is_followed: bool):
         """等待到开赛前 announce_hours 小时，然后推送开幕通知"""
         tid      = tour.get("id")
-        begin_dt = parse_dt(tour.get("begin_at"))
-        announce_dt = begin_dt - timedelta(hours=announce_hours)
-        wait_secs   = (announce_dt - now_utc()).total_seconds()
+        try:
+            begin_dt = parse_dt(tour.get("begin_at"))
+            announce_dt = begin_dt - timedelta(hours=announce_hours)
+            wait_secs   = (announce_dt - now_utc()).total_seconds()
 
-        if wait_secs > 0:
-            logger.info(f"[CS] 赛事 {tid} 将在 {wait_secs/3600:.1f} 小时后推送开幕通知")
-            try:
-                await asyncio.sleep(wait_secs)
-            except asyncio.CancelledError:
+            if wait_secs > 0:
+                logger.info(f"[CS] 赛事 {tid} 将在 {wait_secs/3600:.1f} 小时后推送开幕通知")
+                try:
+                    await asyncio.sleep(wait_secs)
+                except asyncio.CancelledError:
+                    return
+
+            # 推送前再次检查是否已通知
+            if self.store.is_tournament_notified(tid):
                 return
 
-        # 推送前再次检查是否已通知
-        if self.store.is_tournament_notified(tid):
-            return
-
-        self.store.mark_tournament_notified(tid)
-        followed = self.store.get_followed_team_names()
-        msg = fmt_tournament_announce(tour, followed, announce_hours, is_followed)
-        await self._push(msg)
-        self.panel.push_log("OK", f"已推送赛事开幕通知：{tour.get('name')} (id={tid})")
-        logger.info(f"[CS] 已推送赛事开幕通知：{tour.get('name')}")
+            self.store.mark_tournament_notified(tid)
+            followed = self.store.get_followed_team_names()
+            msg = fmt_tournament_announce(tour, followed, announce_hours, is_followed)
+            await self._push(msg)
+            self.panel.push_log("OK", f"已推送赛事开幕通知：{tour.get('name')} (id={tid})")
+            logger.info(f"[CS] 已推送赛事开幕通知：{tour.get('name')}")
+        finally:
+            if tid is not None:
+                self._tournament_tasks.pop(tid, None)
 
     async def _do_instant_push(self, days: int = 1):
         """立即将赛程推送到所有群"""
