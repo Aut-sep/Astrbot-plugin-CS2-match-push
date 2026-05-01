@@ -6,6 +6,8 @@ web_panel.py — Web 管理面板
 """
 
 import asyncio
+import hmac
+import ipaddress
 import json
 from datetime import datetime, timezone, timedelta
 
@@ -1226,8 +1228,17 @@ let STATE = {
 // ══════════════════════════════════════════
 async function api(path, method='GET', body=null) {
   const opts = { method, headers: {'Content-Type':'application/json'} };
+  const token = localStorage.getItem('cs_panel_token') || '';
+  if (token) opts.headers.Authorization = 'Bearer ' + token;
   if (body) opts.body = JSON.stringify(body);
   const r = await fetch('/api' + path, opts);
+  if (r.status === 401) {
+    const token = prompt('请输入 Web 面板管理令牌');
+    if (token) {
+      localStorage.setItem('cs_panel_token', token.trim());
+      return api(path, method, body);
+    }
+  }
   return r.json();
 }
 
@@ -2254,6 +2265,80 @@ async function loadLogs() {
 """
 
 
+WEB_PANEL_LOGIN_HTML = r"""<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CS2 推送插件管理面板</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background: #0d0f14;
+    color: #e8eaf2;
+    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  .box {
+    width: min(420px, calc(100vw - 32px));
+    border: 1px solid rgba(255,255,255,.13);
+    border-radius: 8px;
+    background: #13161e;
+    padding: 24px;
+  }
+  h1 { margin: 0 0 14px; font-size: 18px; }
+  p { margin: 0 0 18px; color: #8b90a8; font-size: 13px; line-height: 1.6; }
+  input {
+    width: 100%;
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid rgba(255,255,255,.13);
+    background: #1a1e2a;
+    color: #e8eaf2;
+    outline: none;
+  }
+  button {
+    margin-top: 12px;
+    width: 100%;
+    padding: 10px 14px;
+    border-radius: 8px;
+    border: 1px solid #e8973a;
+    background: #e8973a;
+    color: #000;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .err { min-height: 18px; margin-top: 10px; color: #f16868; font-size: 12px; }
+</style>
+</head>
+<body>
+  <form class="box" onsubmit="login(event)">
+    <h1>CS2 推送插件管理面板</h1>
+    <p>请输入管理令牌。令牌可通过机器人指令 <code>~cs面板</code> 获取。</p>
+    <input id="token" type="password" autocomplete="current-password" autofocus>
+    <button type="submit">进入面板</button>
+    <div class="err" id="err"></div>
+  </form>
+<script>
+function login(e) {
+  e.preventDefault();
+  const token = document.getElementById('token').value.trim();
+  if (!token) {
+    document.getElementById('err').textContent = '请输入令牌';
+    return;
+  }
+  localStorage.setItem('cs_panel_token', token);
+  location.href = '/?token=' + encodeURIComponent(token);
+}
+</script>
+</body>
+</html>
+"""
+
+
 # ─────────────────────────────────────────
 # Web 面板服务器
 # ─────────────────────────────────────────
@@ -2261,11 +2346,55 @@ async function loadLogs() {
 class WebPanel:
     def __init__(self, plugin: "CSMatchPlugin"):
         self.plugin = plugin
-        self.app    = web.Application()
+        self.app    = web.Application(middlewares=[self._auth_middleware])
         self._runner = None
         self._site   = None
         self._logs: list = []  # 内存日志缓冲
         self._setup_routes()
+
+    @web.middleware
+    async def _auth_middleware(self, req, handler):
+        path = req.path
+        if path == "/" or path.startswith("/api/"):
+            token = self._request_token(req)
+            token_ok = self._token_matches(token)
+            if token_ok or self._is_local_request(req):
+                resp = await handler(req)
+                if token_ok:
+                    resp.set_cookie(
+                        "cs_panel_token",
+                        token,
+                        httponly=True,
+                        samesite="Lax",
+                        max_age=30 * 24 * 3600,
+                    )
+                return resp
+            if path == "/":
+                return web.Response(text=WEB_PANEL_LOGIN_HTML, content_type="text/html", charset="utf-8")
+            return self._json({"ok": False, "msg": "unauthorized"}, 401)
+        return await handler(req)
+
+    def _request_token(self, req) -> str:
+        auth = req.headers.get("Authorization", "")
+        if auth.lower().startswith("bearer "):
+            return auth[7:].strip()
+        query_token = req.rel_url.query.get("token", "")
+        if query_token:
+            return query_token.strip()
+        return (req.cookies.get("cs_panel_token") or "").strip()
+
+    def _token_matches(self, token: str) -> bool:
+        expected = str(self.plugin.store.get("web_panel_token") or "").strip()
+        return bool(token and expected and hmac.compare_digest(token, expected))
+
+    def _is_local_request(self, req) -> bool:
+        remote = req.remote or ""
+        if remote in {"localhost", "127.0.0.1", "::1"}:
+            return True
+        try:
+            return ipaddress.ip_address(remote).is_loopback
+        except ValueError:
+            return False
 
     def _setup_routes(self):
         a = self.app.router
@@ -2303,7 +2432,16 @@ class WebPanel:
         return resp
 
     async def index(self, req):
-        return web.Response(text=WEB_PANEL_HTML, content_type="text/html", charset="utf-8")
+        html = WEB_PANEL_HTML
+        token = req.rel_url.query.get("token", "").strip()
+        if self._token_matches(token):
+            bootstrap = (
+                "<script>\n"
+                f"localStorage.setItem('cs_panel_token', {json.dumps(token)});\n"
+                "history.replaceState(null, '', location.pathname);\n"
+            )
+            html = html.replace("<script>", bootstrap, 1)
+        return web.Response(text=html, content_type="text/html", charset="utf-8")
 
     async def get_config(self, req):
         data = self.plugin.store.export_all()
@@ -2324,7 +2462,7 @@ class WebPanel:
         if any(k in body for k in (
             "pandascore_token", "fetch_ahead_days", "fetch_ahead_hours",
         )):
-            asyncio.create_task(self.plugin._fetch_and_schedule())
+            self.plugin._create_background_task(self.plugin._fetch_and_schedule(), "web_patch_config")
         restart_required = any(k in body for k in ("web_panel_host", "web_panel_port", "web_panel_enabled"))
         return self._json({"ok": True, "restart_required": restart_required})
 
@@ -2339,7 +2477,7 @@ class WebPanel:
             return self._json({"ok": False, "msg": "invalid json"}, 400)
         self.plugin.store.import_config(body)
         await self.plugin.reload_runtime_config()
-        asyncio.create_task(self.plugin._fetch_and_schedule())
+        self.plugin._create_background_task(self.plugin._fetch_and_schedule(), "web_import_config")
         restart_required = any(k in body for k in ("web_panel_host", "web_panel_port", "web_panel_enabled"))
         return self._json({"ok": True, "restart_required": restart_required})
 
@@ -2429,7 +2567,7 @@ class WebPanel:
         return self._json({"ok": True, "matches": result})
 
     async def refresh(self, req):
-        asyncio.create_task(self.plugin._fetch_and_schedule())
+        self.plugin._create_background_task(self.plugin._fetch_and_schedule(), "web_refresh")
         return self._json({"ok": True})
 
     async def push_now(self, req):
@@ -2441,7 +2579,7 @@ class WebPanel:
         days = int(body.get("days", 1))
         if not self.plugin._has_daily_matches_to_push(days):
             return self._json({"ok": True, "skipped": True, "msg": "no matches to push"})
-        asyncio.create_task(self.plugin._do_instant_push(days))
+        self.plugin._create_background_task(self.plugin._do_instant_push(days), "web_push_now")
         return self._json({"ok": True})
 
     async def send_test(self, req):
@@ -2486,7 +2624,7 @@ class WebPanel:
             return self._json({"ok": False, "msg": "id and name required"}, 400)
         added = self.plugin.store.follow_team(int(team_id), name, slug)
         if added:
-            asyncio.create_task(self.plugin._fetch_and_schedule())
+            self.plugin._create_background_task(self.plugin._fetch_and_schedule(), "web_add_team")
         return self._json({"ok": True, "added": added})
 
     async def remove_team(self, req):
@@ -2515,7 +2653,7 @@ class WebPanel:
             return self._json({"ok": False, "msg": "team id not found"}, 400)
 
         self.plugin.store.unfollow_team(team_id)
-        asyncio.create_task(self.plugin._fetch_and_schedule())
+        self.plugin._create_background_task(self.plugin._fetch_and_schedule(), "web_remove_team")
         return self._json({"ok": True})
 
     async def search_teams(self, req):
@@ -2549,7 +2687,7 @@ class WebPanel:
             t.cancel()
         self.plugin._match_tasks.clear()
         self.plugin._scheduled_mids.clear()
-        asyncio.create_task(self.plugin._fetch_and_schedule())
+        self.plugin._create_background_task(self.plugin._fetch_and_schedule(), "web_rebuild_tasks")
         return self._json({"ok": True})
 
     async def patch_match(self, req):
