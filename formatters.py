@@ -79,16 +79,9 @@ def followed_terms(followed: Optional[list]) -> list[str]:
     return terms
 
 
-def translate_match_stage(name: str) -> str:
-    """Translate common bracket/stage names and drop duplicated matchup suffix."""
-    if not name:
-        return ""
-
-    stage = re.split(r"\s*[:：]\s*", name, maxsplit=1)[0].strip()
-    if not stage:
-        return ""
-
-    replacements = [
+_MATCH_STAGE_REPLACEMENTS = [
+    (re.compile(src, re.IGNORECASE), dst)
+    for src, dst in [
         ("grand final", "总决赛"),
         ("consolidation final", "季军赛"),
         ("lower bracket final", "败者组决赛"),
@@ -122,13 +115,26 @@ def translate_match_stage(name: str) -> str:
         ("lower bracket", "败者组"),
         ("upper bracket", "胜者组"),
     ]
+]
+_ROUND_RE = re.compile(r"\bround\s+(\d+)\b", re.IGNORECASE)
+_SPACES_RE = re.compile(r"\s+")
+
+
+def translate_match_stage(name: str) -> str:
+    """Translate common bracket/stage names and drop duplicated matchup suffix."""
+    if not name:
+        return ""
+
+    stage = re.split(r"\s*[:：]\s*", name, maxsplit=1)[0].strip()
+    if not stage:
+        return ""
 
     translated = stage
-    for src, dst in replacements:
-        translated = re.sub(src, dst, translated, flags=re.IGNORECASE)
+    for pattern, dst in _MATCH_STAGE_REPLACEMENTS:
+        translated = pattern.sub(dst, translated)
 
-    translated = re.sub(r"\bround\s+(\d+)\b", r"第\1轮", translated, flags=re.IGNORECASE)
-    translated = re.sub(r"\s+", " ", translated).strip()
+    translated = _ROUND_RE.sub(r"第\1轮", translated)
+    translated = _SPACES_RE.sub(" ", translated).strip()
     return translated
 
 
