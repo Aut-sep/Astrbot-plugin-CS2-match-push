@@ -1940,7 +1940,7 @@ async function saveAdvanced(silent = false) {
   const d = await api('/config', 'PATCH', body);
   if (!silent) {
     const msg = d.ok
-      ? (d.restart_required ? '\u9ad8\u7ea7\u8bbe\u7f6e\u5df2\u4fdd\u5b58\uff0cWeb \u9762\u677f\u5730\u5740/\u7aef\u53e3\u53d8\u66f4\u9700\u91cd\u542f\u63d2\u4ef6' : '\u9ad8\u7ea7\u8bbe\u7f6e\u5df2\u4fdd\u5b58')
+      ? (d.web_reconfigured ? '\u9ad8\u7ea7\u8bbe\u7f6e\u5df2\u4fdd\u5b58\uff0cWeb \u9762\u677f\u5df2\u81ea\u52a8\u5e94\u7528\u65b0\u5730\u5740/\u7aef\u53e3' : '\u9ad8\u7ea7\u8bbe\u7f6e\u5df2\u4fdd\u5b58')
       : '\u4fdd\u5b58\u5931\u8d25';
     toast(msg, d.ok ? 'success' : 'error');
   }
@@ -2150,7 +2150,7 @@ async function saveAll() {
   };
   const d = await api('/config', 'PATCH', body);
   const msg = d.ok
-    ? (d.restart_required ? '全部配置已保存，Web 面板地址/端口变更需重启插件' : '全部配置已保存')
+    ? (d.web_reconfigured ? '全部配置已保存，Web 面板已自动应用新地址/端口' : '全部配置已保存')
     : '保存失败';
   toast(msg, d.ok ? 'success' : 'error');
   if (d.ok) await loadConfig();
@@ -2349,6 +2349,10 @@ class WebPanel:
         self.app    = web.Application(middlewares=[self._auth_middleware])
         self._runner = None
         self._site   = None
+        self._bind_host = None
+        self._bind_port = None
+        self._reconfigure_lock = asyncio.Lock()
+        self._cleanup_tasks: set[asyncio.Task] = set()
         self._logs: list = []  # 内存日志缓冲
         self._setup_routes()
 
@@ -2452,6 +2456,7 @@ class WebPanel:
             body = await req.json()
         except Exception:
             return self._json({"ok": False, "msg": "invalid json"}, 400)
+        web_changed = any(k in body for k in ("web_panel_host", "web_panel_port", "web_panel_enabled"))
         self.plugin.store.import_config(body)
         await self.plugin.reload_runtime_config()
         # 同步运行时配置
@@ -2463,8 +2468,14 @@ class WebPanel:
             "pandascore_token", "fetch_ahead_days", "fetch_ahead_hours",
         )):
             self.plugin.schedule_refresh("web_patch_config")
-        restart_required = any(k in body for k in ("web_panel_host", "web_panel_port", "web_panel_enabled"))
-        return self._json({"ok": True, "restart_required": restart_required})
+        web_reconfigured = False
+        if web_changed:
+            try:
+                web_reconfigured = await self.plugin.apply_web_panel_config()
+            except Exception as e:
+                logger.error(f"[CS] Web 面板配置应用失败: {e}")
+                return self._json({"ok": False, "msg": f"web panel reconfigure failed: {e}"}, 500)
+        return self._json({"ok": True, "restart_required": False, "web_reconfigured": web_reconfigured})
 
     async def export_config(self, req):
         data = self.plugin.store.export_all()
@@ -2475,11 +2486,18 @@ class WebPanel:
             body = await req.json()
         except Exception:
             return self._json({"ok": False, "msg": "invalid json"}, 400)
+        web_changed = any(k in body for k in ("web_panel_host", "web_panel_port", "web_panel_enabled"))
         self.plugin.store.import_config(body)
         await self.plugin.reload_runtime_config()
         self.plugin.schedule_refresh("web_import_config")
-        restart_required = any(k in body for k in ("web_panel_host", "web_panel_port", "web_panel_enabled"))
-        return self._json({"ok": True, "restart_required": restart_required})
+        web_reconfigured = False
+        if web_changed:
+            try:
+                web_reconfigured = await self.plugin.apply_web_panel_config()
+            except Exception as e:
+                logger.error(f"[CS] Web 面板配置导入应用失败: {e}")
+                return self._json({"ok": False, "msg": f"web panel reconfigure failed: {e}"}, 500)
+        return self._json({"ok": True, "restart_required": False, "web_reconfigured": web_reconfigured})
 
     async def get_matches(self, req):
         return self._json({"ok": True, "matches": self.plugin.get_panel_matches()})
@@ -2649,9 +2667,82 @@ class WebPanel:
         await self._runner.setup()
         self._site = web.TCPSite(self._runner, host, port)
         await self._site.start()
+        self._bind_host = host
+        self._bind_port = port
         logger.info(f"[CS] Web 管理面板已启动：http://{host}:{port}")
         self.push_log("OK", f"Web 管理面板已启动，监听 {host}:{port}")
 
     async def stop(self):
-        if self._runner:
-            await self._runner.cleanup()
+        runner = self._runner
+        self._runner = None
+        self._site = None
+        self._bind_host = None
+        self._bind_port = None
+        if runner:
+            await runner.cleanup()
+
+    def _cleanup_runner_later(self, runner: web.AppRunner | None):
+        if not runner:
+            return
+
+        async def _cleanup():
+            try:
+                await asyncio.sleep(0)
+                await runner.cleanup()
+            except Exception as e:
+                logger.warning(f"[CS] Web 面板旧监听清理失败: {e}")
+
+        task = asyncio.create_task(_cleanup())
+        self._cleanup_tasks.add(task)
+        task.add_done_callback(self._cleanup_tasks.discard)
+
+    async def reconfigure(self, enabled: bool, host: str, port: int) -> bool:
+        async with self._reconfigure_lock:
+            if not enabled:
+                if self._runner:
+                    old_runner = self._runner
+                    self._runner = None
+                    self._site = None
+                    self._bind_host = None
+                    self._bind_port = None
+                    self._cleanup_runner_later(old_runner)
+                    logger.info("[CS] Web 管理面板已关闭")
+                    self.push_log("OK", "Web 管理面板已关闭")
+                return True
+
+            if self._runner and self._bind_host == host and self._bind_port == port:
+                return False
+
+            old_runner = self._runner
+            old_site = self._site
+            old_host = self._bind_host
+            old_port = self._bind_port
+
+            self._runner = None
+            self._site = None
+            self._bind_host = None
+            self._bind_port = None
+
+            new_runner = web.AppRunner(self.app)
+            await new_runner.setup()
+            try:
+                new_site = web.TCPSite(new_runner, host, port)
+                await new_site.start()
+            except Exception:
+                await new_runner.cleanup()
+                self._runner = old_runner
+                self._site = old_site
+                self._bind_host = old_host
+                self._bind_port = old_port
+                raise
+
+            self._runner = new_runner
+            self._site = new_site
+            self._bind_host = host
+            self._bind_port = port
+
+            self._cleanup_runner_later(old_runner)
+
+            logger.info(f"[CS] Web 管理面板已切换监听：http://{host}:{port}")
+            self.push_log("OK", f"Web 管理面板已切换监听到 {host}:{port}")
+            return True
