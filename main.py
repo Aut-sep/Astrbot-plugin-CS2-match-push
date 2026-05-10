@@ -170,6 +170,15 @@ class CSMatchPlugin(Star):
         self.client = PandaScoreClient(self._token)
         await old_client.close()
 
+    async def apply_web_panel_config(self) -> bool:
+        enabled = bool(self.store.get("web_panel_enabled", True))
+        host = self._web_panel_bind_host()
+        try:
+            port = max(1, int(self.store.get("web_panel_port") or self._web_port))
+        except (TypeError, ValueError):
+            port = self._web_port
+        return await self.panel.reconfigure(enabled, host, port)
+
     def _running_in_container(self) -> bool:
         return os.path.exists("/.dockerenv")
 
