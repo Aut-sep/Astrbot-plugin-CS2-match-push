@@ -6,6 +6,7 @@ store.py — 数据持久化层
 import json
 import os
 import shutil
+import tempfile
 from datetime import datetime
 from typing import Optional
 
@@ -94,8 +95,38 @@ class DataStore:
         return dict(self._DEFAULTS)
 
     def save(self):
-        with open(self.path, "w", encoding="utf-8") as f:
-            json.dump(self._data, f, ensure_ascii=False, indent=2)
+        directory = os.path.dirname(self.path) or "."
+        prefix = f".{os.path.basename(self.path)}."
+        tmp_path = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                "w",
+                encoding="utf-8",
+                dir=directory,
+                prefix=prefix,
+                suffix=".tmp",
+                delete=False,
+            ) as f:
+                json.dump(self._data, f, ensure_ascii=False, indent=2)
+                f.flush()
+                os.fsync(f.fileno())
+                tmp_path = f.name
+            os.replace(tmp_path, self.path)
+        except OSError as e:
+            logger.error(f"[CS] 保存配置文件失败: {e}")
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+            raise
+        except Exception:
+            if tmp_path and os.path.exists(tmp_path):
+                try:
+                    os.remove(tmp_path)
+                except OSError:
+                    pass
+            raise
 
     def get(self, key, default=None):
         return self._data.get(key, default)

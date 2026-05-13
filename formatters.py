@@ -35,8 +35,13 @@ def fmt_time(iso: Optional[str]) -> str:
         return iso
 
 
-def parse_dt(iso: str) -> datetime:
-    return datetime.fromisoformat(iso.replace("Z", "+00:00"))
+def parse_dt(iso: Optional[str]) -> datetime:
+    if not iso:
+        raise ValueError("empty datetime string")
+    try:
+        return datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    except (TypeError, ValueError, AttributeError) as e:
+        raise ValueError(f"invalid datetime string: {iso!r}") from e
 
 
 def team_name(match: dict, idx: int) -> str:

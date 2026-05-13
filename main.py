@@ -164,6 +164,11 @@ class CSMatchPlugin(Star):
         if exc:
             logger.error(f"[CS] 后台任务异常({label}): {type(exc).__name__}: {exc}")
 
+    async def _handle_loop_exception(self, loop_name: str, exc: Exception, delay: int = 60):
+        logger.error(f"[CS] 后台循环异常({loop_name}): {type(exc).__name__}: {exc}")
+        self.panel.push_log("ERROR", f"{loop_name} 异常：{type(exc).__name__}: {exc}")
+        await asyncio.sleep(delay)
+
     async def reload_runtime_config(self):
         self._sync_runtime_config_from_store()
         old_client = self.client
@@ -223,13 +228,13 @@ class CSMatchPlugin(Star):
             if task:
                 task.cancel()
                 tasks_to_cancel.append(task)
-        for t in self._match_tasks.values():
+        for t in list(self._match_tasks.values()):
             t.cancel()
             tasks_to_cancel.append(t)
-        for t in self._result_tasks.values():
+        for t in list(self._result_tasks.values()):
             t.cancel()
             tasks_to_cancel.append(t)
-        for t in self._tournament_tasks.values():
+        for t in list(self._tournament_tasks.values()):
             t.cancel()
             tasks_to_cancel.append(t)
         for t in list(self._background_tasks):
@@ -272,11 +277,22 @@ class CSMatchPlugin(Star):
         self.store.clear_match_notifications()
 
     def rebuild_all_match_tasks(self):
-        for task in self._match_tasks.values():
+        for task in list(self._match_tasks.values()):
             task.cancel()
         self._match_tasks.clear()
         self._scheduled_mids.clear()
         self.schedule_refresh("web_rebuild_tasks")
+
+    def rebuild_global_remind_tasks(self, label: str = "rebuild_global_remind"):
+        for mid, task in list(self._match_tasks.items()):
+            if self.store.get_custom_remind(mid) is not None:
+                continue
+            if not task.done():
+                task.cancel()
+            self.store.clear_upcoming_notified(mid)
+            self._match_tasks.pop(mid, None)
+            self._scheduled_mids.discard(mid)
+        self.schedule_refresh(label)
 
     def get_panel_matches(self) -> list[dict]:
         now = now_utc()
@@ -429,15 +445,16 @@ class CSMatchPlugin(Star):
     # ── 主轮询循环 ────────────────────────
 
     async def _poll_loop(self):
-        await self._fetch_and_schedule()
         while True:
             try:
+                await self._fetch_and_schedule()
                 # 每次循环都从 store 读取最新间隔（支持运行时修改）
                 interval = self.store.get("fetch_interval_min") or self._fetch_interval
                 await asyncio.sleep(interval * 60)
             except asyncio.CancelledError:
                 break
-            await self._fetch_and_schedule()
+            except Exception as e:
+                await self._handle_loop_exception("poll_loop", e)
 
     # ── 每日定时推送循环 ──────────────────
 
@@ -446,26 +463,28 @@ class CSMatchPlugin(Star):
         while True:
             try:
                 await asyncio.sleep(60)
+
+                if not self.store.get("daily_push_enabled", False):
+                    continue
+
+                push_times  = self.store.get("daily_push_times") or ["08:00"]
+                now_cst_dt  = now_cst()
+                hhmm        = now_cst_dt.strftime("%H:%M")
+
+                if hhmm in push_times:
+                    # 防重：同一分钟只推一次
+                    key = f"{now_cst_dt.strftime('%Y-%m-%d')}_{hhmm}"
+                    if self._last_daily_push_key == key:
+                        continue
+                    self._last_daily_push_key = key
+                    days = int(self.store.get("daily_push_days") or 1)
+                    logger.info(f"[CS] 触发每日定时推送 {hhmm}，推送 {days} 天赛程")
+                    self.panel.push_log("OK", f"每日定时推送触发 {hhmm}")
+                    await self._do_instant_push(days)
             except asyncio.CancelledError:
                 break
-
-            if not self.store.get("daily_push_enabled", False):
-                continue
-
-            push_times  = self.store.get("daily_push_times") or ["08:00"]
-            now_cst_dt  = now_cst()
-            hhmm        = now_cst_dt.strftime("%H:%M")
-
-            if hhmm in push_times:
-                # 防重：同一分钟只推一次
-                key = f"{now_cst_dt.strftime('%Y-%m-%d')}_{hhmm}"
-                if self._last_daily_push_key == key:
-                    continue
-                self._last_daily_push_key = key
-                days = int(self.store.get("daily_push_days") or 1)
-                logger.info(f"[CS] 触发每日定时推送 {hhmm}，推送 {days} 天赛程")
-                self.panel.push_log("OK", f"每日定时推送触发 {hhmm}")
-                await self._do_instant_push(days)
+            except Exception as e:
+                await self._handle_loop_exception("daily_push_loop", e)
 
     # ── 赛事开幕推送循环 ──────────────────
 
@@ -771,17 +790,23 @@ class CSMatchPlugin(Star):
     async def _schedule_match(self, match: dict, remind_min: int):
         mid = match["id"]
         cancelled = False
+        failed = False
         try:
             await self._run_remind(match, remind_min)
         except asyncio.CancelledError:
             cancelled = True
             raise
+        except Exception as e:
+            failed = True
+            logger.error(f"[CS] 比赛 {mid} 提醒任务异常: {type(e).__name__}: {e}")
+            self.panel.push_log("ERROR", f"比赛 {mid} 提醒任务异常：{type(e).__name__}: {e}")
         finally:
             self._match_tasks.pop(mid, None)
             self._scheduled_mids.discard(mid)
             # 若比赛未结束，交给独立的结果轮询任务
             if (
                 not cancelled
+                and not failed
                 and not self.store.is_finished_notified(mid)
                 and mid not in self._result_tasks
             ):
