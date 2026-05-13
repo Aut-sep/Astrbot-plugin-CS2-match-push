@@ -4,6 +4,7 @@ client.py — PandaScore API 封装
 """
 
 import asyncio
+import json
 import aiohttp
 
 from astrbot.api import logger
@@ -47,7 +48,19 @@ class PandaScoreClient:
                     timeout=self._timeout,
                 ) as r:
                     if r.status == 200:
-                        return await r.json()
+                        try:
+                            return await r.json()
+                        except (aiohttp.ContentTypeError, json.JSONDecodeError, ValueError) as e:
+                            if attempt < 2:
+                                logger.warning(
+                                    f"[CS] 响应 JSON 解析失败（第{attempt+1}次），5秒后重试: {type(e).__name__}"
+                                )
+                                await asyncio.sleep(5)
+                                continue
+                            logger.error(
+                                f"[CS] 响应 JSON 解析失败（已重试3次）: {type(e).__name__} {url}"
+                            )
+                            return None
                     logger.warning(f"[CS] 请求失败: HTTP {r.status} {url}")
                     if r.status >= 500 and attempt < 2:
                         await asyncio.sleep(5)

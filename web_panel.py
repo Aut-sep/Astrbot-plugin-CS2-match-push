@@ -6,10 +6,12 @@ web_panel.py — Web 管理面板
 """
 
 import asyncio
+from collections import deque
 import hmac
 import ipaddress
 import json
 from datetime import datetime, timezone, timedelta
+from urllib.parse import urlparse
 
 from aiohttp import web
 
@@ -775,7 +777,7 @@ WEB_PANEL_HTML = r"""<!DOCTYPE html>
           <div class="form-row">
             <label>赛前提醒时间</label>
             <input type="range" id="q-remind" min="1" max="120" step="1" value="10"
-                   oninput="document.getElementById('q-remind-val').textContent=this.value+'min'">
+                   oninput="syncRemindInputs(this.value, 'q-remind')">
             <span class="range-val" id="q-remind-val">10min</span>
           </div>
           <div class="form-row">
@@ -1026,7 +1028,7 @@ WEB_PANEL_HTML = r"""<!DOCTYPE html>
         <div class="form-row">
           <label>赛前提醒（分钟）</label>
           <input type="range" id="remind-range" min="1" max="120" step="1" value="10"
-                 oninput="document.getElementById('remind-val').textContent=this.value">
+                 oninput="syncRemindInputs(this.value, 'remind-range')">
           <span class="range-val" id="remind-val" style="min-width:32px;">10</span>
           <span style="font-size:12px;color:var(--text3)">分钟</span>
         </div>
@@ -1289,12 +1291,11 @@ async function loadConfig() {
 function applyConfig(c) {
   // 快速设置
   const rm = c.remind_minutes || 10;
-  setSlider('q-remind', rm); document.getElementById('q-remind-val').textContent = rm+'min';
+  syncRemindInputs(rm);
   setCheck('q-reschedule', c.reschedule_notify);
   setCheck('q-notify-all', c.notify_all_followed !== false);
 
   // 时间设置
-  setSlider('remind-range', rm); document.getElementById('remind-val').textContent = rm;
   setSlider('fetch-interval', c.fetch_interval_min||10); document.getElementById('fi-val').textContent = c.fetch_interval_min||10;
   setSlider('fetch-ahead', c.fetch_ahead_days||2); document.getElementById('fa-val').textContent = c.fetch_ahead_days||2;
 
@@ -1335,6 +1336,21 @@ function applyConfig(c) {
 function setSlider(id, val) {
   const el = document.getElementById(id);
   if (el) el.value = val;
+}
+
+function syncRemindInputs(value, sourceId = '') {
+  const remind = Number.parseInt(value, 10);
+  if (!Number.isFinite(remind)) return;
+
+  const quick = document.getElementById('q-remind');
+  const quickVal = document.getElementById('q-remind-val');
+  const timing = document.getElementById('remind-range');
+  const timingVal = document.getElementById('remind-val');
+
+  if (quick && sourceId !== 'q-remind') quick.value = String(remind);
+  if (timing && sourceId !== 'remind-range') timing.value = String(remind);
+  if (quickVal) quickVal.textContent = `${remind}min`;
+  if (timingVal) timingVal.textContent = String(remind);
 }
 
 function setCheck(id, val) {
@@ -2117,7 +2133,12 @@ async function quickSave() {
     notify_all_followed: document.getElementById('q-notify-all').checked,
   };
   const d = await api('/config', 'PATCH', body);
-  if (!d.ok) toast('快速设置保存失败', 'error');
+  if (!d.ok) {
+    toast('快速设置保存失败', 'error');
+    return false;
+  }
+  toast('快速设置已保存', 'success');
+  await loadConfig();
   return d.ok;
 }
 
@@ -2353,7 +2374,7 @@ class WebPanel:
         self._bind_port = None
         self._reconfigure_lock = asyncio.Lock()
         self._cleanup_tasks: set[asyncio.Task] = set()
-        self._logs: list = []  # 内存日志缓冲
+        self._logs = deque(maxlen=500)
         self._setup_routes()
 
     @web.middleware
@@ -2362,14 +2383,18 @@ class WebPanel:
         if path == "/" or path.startswith("/api/"):
             token = self._request_token(req)
             token_ok = self._token_matches(token)
-            if token_ok or self._is_local_request(req):
+            is_local = self._is_local_request(req)
+            if token_ok or is_local:
+                if not token_ok and req.method not in {"GET", "HEAD", "OPTIONS"}:
+                    if not self._has_safe_origin(req):
+                        return self._json({"ok": False, "msg": "forbidden origin"}, 403)
                 resp = await handler(req)
                 if token_ok:
                     resp.set_cookie(
                         "cs_panel_token",
                         token,
                         httponly=True,
-                        samesite="Lax",
+                        samesite="Strict",
                         max_age=30 * 24 * 3600,
                     )
                 return resp
@@ -2399,6 +2424,27 @@ class WebPanel:
             return ipaddress.ip_address(remote).is_loopback
         except ValueError:
             return False
+
+    def _has_safe_origin(self, req) -> bool:
+        source = req.headers.get("Origin") or req.headers.get("Referer") or ""
+        if not source:
+            return True
+
+        parsed = urlparse(source)
+        host = parsed.hostname
+        if not host:
+            return False
+        if host in {"localhost", "127.0.0.1", "::1"}:
+            return True
+        try:
+            if ipaddress.ip_address(host).is_loopback:
+                return True
+        except ValueError:
+            pass
+
+        bind_host = (self._bind_host or "").strip("[]")
+        req_host = req.host.split(":", 1)[0].strip("[]")
+        return host in {bind_host, req_host}
 
     def _setup_routes(self):
         a = self.app.router
@@ -2431,10 +2477,6 @@ class WebPanel:
             status=status
         )
 
-    def _cors(self, resp):
-        resp.headers["Access-Control-Allow-Origin"] = "*"
-        return resp
-
     async def index(self, req):
         html = WEB_PANEL_HTML
         token = req.rel_url.query.get("token", "").strip()
@@ -2457,13 +2499,16 @@ class WebPanel:
         except Exception:
             return self._json({"ok": False, "msg": "invalid json"}, 400)
         web_changed = any(k in body for k in ("web_panel_host", "web_panel_port", "web_panel_enabled"))
+        remind_changed = "remind_minutes" in body
         self.plugin.store.import_config(body)
         await self.plugin.reload_runtime_config()
         # 同步运行时配置
-        if "remind_minutes" in body:
+        if remind_changed:
             self.plugin.store.set_remind_minutes(int(body["remind_minutes"]))
         if "reschedule_notify" in body:
             self.plugin.store.set_reschedule_notify(bool(body["reschedule_notify"]))
+        if remind_changed:
+            self.plugin.rebuild_global_remind_tasks("web_patch_remind_minutes")
         if any(k in body for k in (
             "pandascore_token", "fetch_ahead_days", "fetch_ahead_hours",
         )):
@@ -2610,7 +2655,7 @@ class WebPanel:
         return self._json({"ok": True, "teams": teams})
 
     async def get_logs(self, req):
-        return self._json({"ok": True, "logs": self._logs[-100:]})
+        return self._json({"ok": True, "logs": list(self._logs)[-100:]})
 
     async def clear_notified(self, req):
         self.plugin.clear_match_notifications()
@@ -2659,8 +2704,6 @@ class WebPanel:
     def push_log(self, level: str, msg: str):
         now = datetime.now(CST).strftime("%H:%M:%S")
         self._logs.append({"time": now, "level": level, "msg": msg})
-        if len(self._logs) > 500:
-            self._logs = self._logs[-500:]
 
     async def start(self, host: str, port: int):
         self._runner = web.AppRunner(self.app)
