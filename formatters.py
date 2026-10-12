@@ -29,14 +29,21 @@ def fmt_time(iso: Optional[str]) -> str:
     if not iso:
         return "未知"
     try:
-        dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+        dt = parse_dt(iso)
         return dt.astimezone(CST).strftime("%m-%d %H:%M")
     except Exception:
         return iso
 
 
-def parse_dt(iso: str) -> datetime:
-    return datetime.fromisoformat(iso.replace("Z", "+00:00"))
+def parse_dt(iso: Optional[str]) -> datetime:
+    if not iso:
+        raise ValueError("empty datetime string")
+    try:
+        dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise ValueError(f"invalid datetime string: {iso!r}") from exc
+    # API 时间通常带 Z；旧数据缺少时区时按 UTC 解释，避免依赖宿主机时区。
+    return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
 
 
 def team_name(match: dict, idx: int) -> str:

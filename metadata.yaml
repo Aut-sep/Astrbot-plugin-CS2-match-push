@@ -1,11 +1,16 @@
 name: astrbot_plugin_cs_match
+display_name: CS2 比赛推送
 desc: CS2 比赛推送插件，支持关注战队、赛前提醒、赛后数据推送
-version: 4.1.0
+version: 4.1.1
 author: Aut-sep
 repo: "https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push"
 main_module_path: main.py
 
 config_schema:
+  push_platform_id:
+    type: string
+    hint: "多个 QQ 机器人时填写 AstrBot 平台实例 ID；留空选择唯一 QQ 适配器"
+    default: ""
   pandascore_token:
     type: string
     hint: "PandaScore API Token（必填）"

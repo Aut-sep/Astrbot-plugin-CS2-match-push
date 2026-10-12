@@ -12,6 +12,12 @@
     "hint": "每隔多少分钟自动拉取一次比赛日程，建议 10~30，免费 Token 每小时限 1000 次请求",
     "default": 10
   },
+  "push_platform_id": {
+    "description": "推送平台 ID",
+    "type": "string",
+    "hint": "留空自动选择唯一的 QQ 适配器；连接多个 QQ 机器人时填写 AstrBot 平台实例 ID",
+    "default": ""
+  },
   "web_panel_host": {
     "description": "Web 面板监听地址",
     "type": "string",
