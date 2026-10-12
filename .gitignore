@@ -6,3 +6,11 @@ __pycache__/
 github_token
 .codex
 .codex/
+tests/
+.github/
+.env
+.env.*
+*.log
+cs_data.json
+match_banners/
+dist/

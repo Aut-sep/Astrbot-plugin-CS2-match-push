@@ -2,6 +2,13 @@
 
 版本号与 `metadata.yaml` 一致。这里记录源代码版本；GitHub Release 和插件市场发布状态以各自平台为准。
 
+## 4.1.2
+
+- 整理 AstrBot 市场发布目录，移除开发测试、CI 和贡献模板。
+- 简化用户 README，保留安装、配置、命令、备份及问题排查说明。
+- 完善市场元数据，声明 OneBot（aiocqhttp）支持；插件配置统一由 `_conf_schema.json` 提供。
+- 命令示例统一使用 `/`，保留管理员推送验证功能。
+
 ## 4.1.1
 
 ### 修复
@@ -17,8 +24,7 @@
 ### 维护
 
 - 拆分图片渲染、配置校验、发送适配和面板模板。
-- 增加离线回归测试及 Python 3.10、3.12、3.13 的 CI。
-- 补充安装、配置、指令、备份、常见问题和贡献流程。
+- 补充安装、配置、指令、备份与常见问题说明。
 
 ### 升级说明
 
@@ -28,4 +34,4 @@
 
 ## 4.1.0 及以前
 
-历史版本未维护完整更新记录，具体改动见 [提交历史](https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push/commits/main/) 和已合并 PR。此处不补造旧版发布日期或发布状态。
+早期版本的详细改动见 [提交历史](https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push/commits/main/)。

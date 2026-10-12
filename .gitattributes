@@ -5,3 +5,5 @@
 *.yaml text eol=lf
 *.yml text eol=lf
 *.html text eol=lf
+.gitignore export-ignore
+.gitattributes export-ignore

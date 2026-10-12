@@ -54,7 +54,7 @@ WEB_PANEL_HOST        = "127.0.0.1"
     "astrbot_plugin_cs_match",
     "Aut-sep",
     "每N分钟静默刷新，时间变更时提醒，精确倒计时推送赛前提醒和赛后结果，内置 Web 管理面板",
-    "4.1.1",
+    "4.1.2",
 )
 class CSMatchPlugin(Star):
 
