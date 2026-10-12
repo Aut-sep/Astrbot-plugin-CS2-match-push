@@ -33,7 +33,7 @@
   "web_panel_enabled": {
     "description": "启用 Web 面板",
     "type": "bool",
-    "hint": "关闭后仅保留 QQ 指令和后台推送能力",
+    "hint": "控制独立端口的管理面板；关闭后仍可使用 AstrBot 内嵌页面、QQ 指令和后台推送",
     "default": true
   },
   "fetch_ahead_days": {
@@ -41,11 +41,5 @@
     "type": "int",
     "hint": "拉取未来 N 天内的比赛，建议 2",
     "default": 2
-  },
-  "image_push_enabled": {
-    "description": "是否启用图片版推送",
-    "type": "bool",
-    "hint": "开启后，赛前提醒和赛后结果使用图片版式；关闭则使用纯文字",
-    "default": true
   }
 }

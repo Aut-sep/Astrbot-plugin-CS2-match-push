@@ -1,0 +1,14 @@
+{
+  "views": {
+    "management": {
+      "title": "CS2 管理",
+      "description": "管理 CS2 赛程、战队订阅、消息推送与数据源。"
+    }
+  },
+  "pages": {
+    "management": {
+      "title": "CS2 管理",
+      "description": "管理 CS2 赛程、战队订阅、消息推送与数据源。"
+    }
+  }
+}

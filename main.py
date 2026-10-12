@@ -9,7 +9,8 @@ main.py — 插件入口与核心调度逻辑
   banners.py     比赛横幅图片渲染
   config.py      配置与请求参数校验
   delivery.py    AstrBot 消息发送兼容层
-  web_panel.py   WebPanel 服务器（页面位于 templates/panel.html）
+  web_panel.py   独立 WebPanel 服务器
+  plugin_view.py AstrBot 内嵌视图接口（页面位于 pages/management/）
   __init__.py    插件入口导出
 
 命令前缀示例：/（在 AstrBot 全局配置中设置）
@@ -18,6 +19,9 @@ main.py — 插件入口与核心调度逻辑
 import asyncio
 import os
 import secrets
+import time
+from pathlib import Path
+from uuid import uuid4
 from copy import deepcopy
 from contextvars import ContextVar
 from datetime import timedelta
@@ -38,6 +42,7 @@ from .formatters import (
     fmt_tournament_announce, fmt_daily_schedule,
 )
 from .web_panel import WebPanel
+from .plugin_view import PluginView
 from .banners import BannerRenderer
 from .delivery import DeliveryError, send_target
 
@@ -54,7 +59,7 @@ WEB_PANEL_HOST        = "127.0.0.1"
     "astrbot_plugin_cs_match",
     "Aut-sep",
     "每N分钟静默刷新，时间变更时提醒，精确倒计时推送赛前提醒和赛后结果，内置 Web 管理面板",
-    "4.1.2",
+    "4.2.0",
 )
 class CSMatchPlugin(Star):
 
@@ -78,6 +83,11 @@ class CSMatchPlugin(Star):
                 initial["fetch_ahead_hours"] = config.get("fetch_ahead_hours")
             self.store.import_config(initial)
         self._ensure_web_panel_token()
+        # Older installs can still use the credential from AstrBot's plugin
+        # configuration. Keep it in the shared store before panel edits reload
+        # runtime settings, without replacing a credential set in the panel.
+        if self._token and not str(self.store.get("pandascore_token") or "").strip():
+            self.store.set("pandascore_token", self._token)
         self._sync_runtime_config_from_store()
         self.client = PandaScoreClient(self._token)
         self._scheduled: list    = []
@@ -98,6 +108,8 @@ class CSMatchPlugin(Star):
         self._fetch_schedule_lock = asyncio.Lock()
         self._refresh_requested = False
         self.panel = WebPanel(self)
+        self.plugin_view = PluginView(self)
+        self.embedded_available = self.plugin_view.register()
 
         if not self._token:
             logger.warning("[CS] ⚠️ 未配置 PandaScore Token！请在 WebUI 插件配置或 Web 面板中填写 pandascore_token")
@@ -241,6 +253,7 @@ class CSMatchPlugin(Star):
         self.panel.push_log("OK", f"插件启动，刷新间隔 {self._fetch_interval} 分钟")
 
     async def destroy(self):
+        self.plugin_view.unregister()
         tasks_to_cancel = []
         for task in (self._loop_task, self._daily_push_task, self._tournament_task):
             if task:
@@ -811,7 +824,7 @@ class CSMatchPlugin(Star):
                 self._pending_reschedules.pop(mid, None)
                 continue
             key = f"reschedule:{mid}:{new_sched}"
-            if await self._deliver_notification(key, lambda: self._push(fmt_reschedule(match, old_fmt, new_fmt))):
+            if await self._deliver_notification(key, lambda: self._push(fmt_reschedule(match, old_fmt, new_fmt), match=match)):
                 self._notified_reschedule[mid] = new_sched
                 self._pending_reschedules.pop(mid, None)
                 self.store.clear_delivery(key)
@@ -940,61 +953,22 @@ class CSMatchPlugin(Star):
                              text_prefix: str = "",
                              test_target: bool = False):
         match = self._match_with_snapshot_names(match)
-        push_text = self._push_test if test_target else self._push
-        push_components = self._push_test_components if test_target else self._push_components
         text = fmt_upcoming(match, remind_min, custom_streams, followed)
         if text_prefix:
             text = f"{text_prefix}\n{text}"
-        if not self.store.get("image_push_enabled", True):
-            return await push_text(text)
-        banner_path = await self._build_match_logo_banner(match)
-        if not banner_path:
-            return await push_text(text)
-
-        _, Plain, Image = self._message_component_types()
-        before_text, after_text = self._split_upcoming_text(text)
-        banner = self._make_image_file_component(Image, banner_path)
-        if banner is None:
-            return await push_text(text)
-
-        components = []
-        if before_text:
-            components.append(self._make_plain_component(Plain, before_text))
-        components.append(banner)
-        if after_text:
-            components.append(self._make_plain_component(Plain, after_text))
-        return await push_components(components)
+        return await self._push_notification(text, match=match, test_target=test_target)
 
     async def _push_finished(self, match: dict, followed: list,
                              text_prefix: str = "",
                              test_target: bool = False):
         match = self._match_with_snapshot_names(match)
-        push_text = self._push_test if test_target else self._push
-        push_components = self._push_test_components if test_target else self._push_components
         text = fmt_finished(match, followed)
         if text_prefix:
             text = f"{text_prefix}\n{text}"
-        if not self.store.get("image_push_enabled", True):
-            return await push_text(text)
-
-        score_text = self._get_match_score_text(match)
-        banner_path = await self._build_match_logo_banner(match, center_text=score_text, kind="result")
-        if not banner_path:
-            return await push_text(text)
-
-        _, Plain, Image = self._message_component_types()
-        before_text, after_text = self._split_finished_text(text)
-        banner = self._make_image_file_component(Image, banner_path)
-        if banner is None:
-            return await push_text(text)
-
-        components = []
-        if before_text:
-            components.append(self._make_plain_component(Plain, before_text))
-        components.append(banner)
-        if after_text:
-            components.append(self._make_plain_component(Plain, after_text))
-        return await push_components(components)
+        return await self._push_notification(
+            text, match=match, center_text=self._get_match_score_text(match),
+            test_target=test_target,
+        )
 
     def _test_prefix(self, text: str) -> str:
         return f"[测试]\n{text}"
@@ -1054,16 +1028,32 @@ class CSMatchPlugin(Star):
         opponents[idx] = slot
 
     async def _get_match_logo_urls(self, match: dict) -> list[str]:
-        urls = []
-        for idx in range(2):
-            url = await self._get_team_logo_url(match, idx)
-            urls.append(url)
-        return urls
+        async def resolve(idx):
+            try:
+                return await asyncio.wait_for(self._get_team_logo_url(match, idx), timeout=6)
+            except asyncio.TimeoutError:
+                return ""
+        return await asyncio.gather(resolve(0), resolve(1))
 
     async def _download_match_logo_images(self, logo_urls: list[str]) -> list[bytes | None]:
-        logo_data: list[bytes | None] = []
-        for url in logo_urls[:2]:
-            logo_data.append(await self.client.fetch_bytes(url) if url else None)
+        cache = getattr(self, "_team_logo_bytes_cache", None)
+        if cache is None:
+            cache = self._team_logo_bytes_cache = {}
+        async def download(url):
+            if not url:
+                return None
+            if url in cache:
+                return cache[url]
+            try:
+                data = await asyncio.wait_for(self.client.fetch_bytes(url), timeout=6)
+            except asyncio.TimeoutError:
+                return None
+            if data:
+                if len(cache) >= 128:
+                    cache.pop(next(iter(cache)))
+                cache[url] = data
+            return data
+        logo_data = list(await asyncio.gather(*(download(url) for url in logo_urls[:2])))
         while len(logo_data) < 2:
             logo_data.append(None)
         return logo_data
@@ -1084,63 +1074,6 @@ class CSMatchPlugin(Star):
         score2 = score_map.get(_team_id(1), "-")
         return f"{score1} : {score2}"
 
-    def _split_upcoming_text(self, text: str) -> tuple[str, str]:
-        lines = text.splitlines()
-        before_lines = []
-        after_lines = []
-        stream_section = False
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("⚔"):
-                continue
-            if stripped.startswith("📺"):
-                stream_section = True
-            if stream_section:
-                after_lines.append(line)
-            else:
-                before_lines.append(line)
-        before = "\n".join(before_lines).strip()
-        after = "\n".join(after_lines).strip()
-        return before, after
-
-    def _split_finished_text(self, text: str) -> tuple[str, str]:
-        lines = text.splitlines()
-        before_lines = []
-        after_lines = []
-        matchup_removed = False
-        for line in lines:
-            stripped = line.strip()
-            if stripped.startswith("⚔"):
-                matchup_removed = True
-                continue
-            if matchup_removed:
-                after_lines.append(line)
-            else:
-                before_lines.append(line)
-        before = "\n".join(before_lines).strip()
-        after = "\n".join(after_lines).strip()
-        return before, after
-
-    async def _build_match_logo_banner(
-        self,
-        match: dict,
-        center_text: str = "VS",
-        kind: str = "match",
-    ) -> str:
-        match = self._match_with_snapshot_names(match)
-        logo_urls = await self._get_match_logo_urls(match)
-        logo_images = await self._download_match_logo_images(logo_urls[:2])
-        team_names = [team_name(match, 0), team_name(match, 1)]
-        output_path = os.path.join(self._banner_dir, f"{kind}_{match.get('id', 'unknown')}.png")
-        return await asyncio.to_thread(
-            self._banner_renderer.render,
-            logo_images,
-            team_names,
-            center_text,
-            output_path,
-            kind,
-        )
-
     async def _get_team_logo_url(self, match: dict, idx: int) -> str:
         try:
             opponent = ((match.get("opponents") or [])[idx] or {}).get("opponent") or {}
@@ -1156,19 +1089,7 @@ class CSMatchPlugin(Star):
                 cached = ((team or {}).get("image_url") or "").strip()
                 self._team_image_cache[team_id] = cached
             image_url = cached
-        return self._thumb_logo_url(image_url)
-
-    def _thumb_logo_url(self, image_url: str) -> str:
-        if not image_url:
-            return ""
-        head, sep, tail = image_url.rpartition("/")
-        if not sep or not tail:
-            return image_url
-        if tail.startswith("thumb_"):
-            return image_url
-        if tail.startswith("normal_"):
-            tail = tail[len("normal_"):]
-        return f"{head}/thumb_{tail}"
+        return image_url
 
     def _message_component_types(self):
         from astrbot.api.event import MessageChain
@@ -1226,9 +1147,40 @@ class CSMatchPlugin(Star):
                 return chain
             raise
 
-    async def _push(self, text: str):
-        _, Plain, _ = self._message_component_types()
-        return await self._push_components([self._make_plain_component(Plain, text)])
+    async def _push(self, text: str, *, match: dict | None = None):
+        return await self._push_notification(text, match=match)
+
+    async def _push_notification(self, text: str, *, match: dict | None = None,
+                                 center_text: str = "VS", test_target: bool = False):
+        """Render the complete notice once, then deliver one image per target."""
+        logo_images, team_names = [], []
+        if match is not None:
+            match = self._match_with_snapshot_names(match)
+            urls = await self._get_match_logo_urls(match)
+            logo_images = await self._download_match_logo_images(urls)
+            team_names = [team_name(match, 0), team_name(match, 1)]
+        output_dir = Path(self._banner_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        # Keep unique files while adapters read them; prune only old generated
+        # notices, never configuration, logos or files used by another send.
+        cutoff = time.time() - 7 * 86400
+        for old in output_dir.glob("notice_*.png"):
+            try:
+                if old.stat().st_mtime < cutoff:
+                    old.unlink()
+            except OSError:
+                pass
+        output_path = str(output_dir / f"notice_{uuid4().hex}.png")
+        path = await asyncio.to_thread(
+            self._banner_renderer.render_notification, text, output_path,
+            logo_images=logo_images, team_names=team_names, center_text=center_text,
+        )
+        _, _, Image = self._message_component_types()
+        image = self._make_image_file_component(Image, path)
+        if image is None:
+            raise DeliveryError("通知图片生成失败，请检查 Pillow 和中文字体")
+        sender = self._push_test_components if test_target else self._push_components
+        return await sender([image])
 
     def _get_test_target(self) -> Optional[tuple[str, str]]:
         target_type = str(self.store.get("test_target_type", "private") or "private").strip().lower()
@@ -1248,9 +1200,8 @@ class CSMatchPlugin(Star):
             return "（未配置）"
         return self._format_target_label(*target)
 
-    async def _push_test(self, text: str):
-        _, Plain, _ = self._message_component_types()
-        return await self._push_test_components([self._make_plain_component(Plain, text)])
+    async def _push_test(self, text: str, *, match: dict | None = None):
+        return await self._push_notification(text, match=match, test_target=True)
 
     async def _push_test_components(self, components: list):
         target = self._get_test_target()
@@ -1409,7 +1360,7 @@ class CSMatchPlugin(Star):
             match = self._build_test_match()
             old_time = fmt_time((now_utc() + timedelta(hours=1)).isoformat())
             new_time = fmt_time((now_utc() + timedelta(hours=3)).isoformat())
-            await self._push_test(self._test_prefix(fmt_reschedule(match, old_time, new_time)))
+            await self._push_test(self._test_prefix(fmt_reschedule(match, old_time, new_time)), match=match)
             return "已发送测试赛程变更通知"
         if action == "开幕":
             await self._push_test(self._test_prefix(fmt_tournament_announce(
@@ -1568,7 +1519,6 @@ class CSMatchPlugin(Star):
         teams      = self.store.get_followed_teams()
         ta_enabled = self.store.get("tournament_announce_enabled", True)
         ta_hours   = self.store.get("tournament_announce_hours", 2)
-        image_push = self.store.get("image_push_enabled", True)
         test_mode  = self._is_test_mode_enabled()
         test_target = self._describe_test_target()
 
@@ -1576,7 +1526,7 @@ class CSMatchPlugin(Star):
         follow_str = "、".join(t["name"] for t in teams) if teams else "（无）"
         tier_str   = "、".join(t.upper() for t in tiers)
         ta_str     = f"✅ 开启（提前 {ta_hours} 小时）" if ta_enabled else "❌ 关闭"
-        image_str  = "🖼️ 图片" if image_push else "📝 文字"
+        image_str  = "🖼️ 完整图片"
         test_str   = "✅ 已开启" if test_mode else "❌ 已关闭"
 
         return event.plain_result(

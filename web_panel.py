@@ -1,6 +1,6 @@
 """
 web_panel.py — Web 管理面板
-从 templates/panel.html 加载页面，提供基于 aiohttp 的轻量 WebPanel 服务器。
+与内嵌 pages/management/ 共用页面，提供基于 aiohttp 的轻量 WebPanel 服务器。
 
 访问地址：http://<host>:<port>/
 """
@@ -25,82 +25,38 @@ CST = timezone(timedelta(hours=8))
 
 
 # Resolve resources from the plugin location, independent of AstrBot's cwd.
-WEB_PANEL_HTML = (Path(__file__).parent / "templates" / "panel.html").read_text(encoding="utf-8")
+PANEL_DIR = Path(__file__).parent / "pages" / "management"
 
 
 
-WEB_PANEL_LOGIN_HTML = r"""<!DOCTYPE html>
+WEB_PANEL_LOGIN_HTML = r"""<!doctype html>
 <html lang="zh-CN">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>CS2 推送插件管理面板</title>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CS2 比赛推送 · 登录</title>
 <style>
-  * { box-sizing: border-box; }
-  body {
-    margin: 0;
-    min-height: 100vh;
-    display: grid;
-    place-items: center;
-    background: #0d0f14;
-    color: #e8eaf2;
-    font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  }
-  .box {
-    width: min(420px, calc(100vw - 32px));
-    border: 1px solid rgba(255,255,255,.13);
-    border-radius: 8px;
-    background: #13161e;
-    padding: 24px;
-  }
-  h1 { margin: 0 0 14px; font-size: 18px; }
-  p { margin: 0 0 18px; color: #8b90a8; font-size: 13px; line-height: 1.6; }
-  input {
-    width: 100%;
-    padding: 10px 12px;
-    border-radius: 8px;
-    border: 1px solid rgba(255,255,255,.13);
-    background: #1a1e2a;
-    color: #e8eaf2;
-    outline: none;
-  }
-  button {
-    margin-top: 12px;
-    width: 100%;
-    padding: 10px 14px;
-    border-radius: 8px;
-    border: 1px solid #e8973a;
-    background: #e8973a;
-    color: #000;
-    font-weight: 700;
-    cursor: pointer;
-  }
-  .err { min-height: 18px; margin-top: 10px; color: #f16868; font-size: 12px; }
+:root{color-scheme:light dark;--bg:#f7f8fa;--surface:#fff;--text:#212121;--muted:#667085;--border:#e2e5e9;--primary:#1976d2}
+@media(prefers-color-scheme:dark){:root{--bg:#1a1a1a;--surface:#242424;--text:#eee;--muted:#aaa;--border:#3b3b3b;--primary:#64b5f6}}
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;background:var(--bg);color:var(--text);font-family:system-ui,-apple-system,"Segoe UI",sans-serif}
+form{width:min(420px,calc(100vw - 32px));padding:32px;background:var(--surface);border:1px solid var(--border);border-radius:20px}h1{font-size:22px;margin:0 0 12px}p{color:var(--muted);font-size:14px;line-height:1.7;margin:0 0 24px}label{display:block;font-size:13px;margin-bottom:8px}input{width:100%;padding:12px;border:1px solid var(--border);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}input:focus-visible,button:focus-visible{outline:3px solid var(--primary);outline-offset:3px}button{width:100%;padding:12px;margin-top:20px;border:0;border-radius:8px;background:var(--primary);color:#fff;font:600 14px system-ui;cursor:pointer}.error{color:#d32f2f;font-size:13px;min-height:20px;margin-top:12px}.note{margin:20px 0 0;font-size:12px}
 </style>
 </head>
 <body>
-  <form class="box" onsubmit="login(event)">
-    <h1>CS2 推送插件管理面板</h1>
-    <p>请输入管理令牌。令牌可通过机器人指令 <code>~cs面板</code> 获取。</p>
-    <input id="token" type="password" autocomplete="current-password" autofocus>
-    <button type="submit">进入面板</button>
-    <div class="err" id="err"></div>
-  </form>
+<form id="login-form">
+<h1>CS2 比赛推送</h1><p>使用管理令牌进入独立面板。</p>
+<label for="token">管理令牌</label><input id="token" type="password" autocomplete="off" required autofocus>
+<button type="submit">进入管理面板</button><div class="error" id="error" role="alert"></div>
+<p class="note">管理员私聊机器人发送 <code>/cs面板</code> 获取令牌。也可直接从 AstrBot 插件详情打开内嵌页面。</p>
+</form>
 <script>
-function login(e) {
-  e.preventDefault();
-  const token = document.getElementById('token').value.trim();
-  if (!token) {
-    document.getElementById('err').textContent = '请输入令牌';
-    return;
-  }
-  localStorage.setItem('cs_panel_token', token);
-  location.href = '/?token=' + encodeURIComponent(token);
-}
+document.getElementById('login-form').addEventListener('submit', event => {
+ event.preventDefault();
+ const token = document.getElementById('token').value.trim();
+ if (!token) { document.getElementById('error').textContent = '请输入管理令牌'; return; }
+ location.href = '/?token=' + encodeURIComponent(token);
+});
 </script>
-</body>
-</html>
-"""
+</body></html>"""
 
 
 # ─────────────────────────────────────────
@@ -201,6 +157,8 @@ class WebPanel:
     def _setup_routes(self):
         a = self.app.router
         a.add_get("/",                          self.index)
+        a.add_get("/app.js",                    self.asset)
+        a.add_get("/style.css",                 self.asset)
         a.add_get("/api/config",                self.get_config)
         a.add_patch("/api/config",              self.patch_config)
         a.add_get("/api/config/export",         self.export_config)
@@ -230,21 +188,27 @@ class WebPanel:
         )
 
     async def index(self, req):
-        html = WEB_PANEL_HTML
+        html = (PANEL_DIR / "index.html").read_text(encoding="utf-8")
         token = req.rel_url.query.get("token", "").strip()
         if self._token_matches(token):
-            token_json = json.dumps(token).replace("<", "\\u003c")
             bootstrap = (
                 "<script>\n"
-                f"localStorage.setItem('cs_panel_token', {token_json});\n"
                 "history.replaceState(null, '', location.pathname);\n"
+                "</script>\n"
             )
-            html = html.replace("<script>", bootstrap, 1)
+            html = html.replace("</head>", bootstrap + "</head>", 1)
         return web.Response(text=html, content_type="text/html", charset="utf-8")
+
+    async def asset(self, req):
+        # Both paths are fixed routes, never an arbitrary filesystem path.
+        return web.FileResponse(PANEL_DIR / req.path.lstrip("/"))
 
     async def get_config(self, req):
         data = self.plugin.store.export_all()
-        return self._json({"ok": True, "data": data})
+        return self._json({"ok": True, "data": data,
+                           "token_configured": bool(self.plugin.store.get("pandascore_token")),
+                           "web_token_configured": bool(self.plugin.store.get("web_panel_token")),
+                           "embedded_available": bool(getattr(self.plugin, "embedded_available", False))})
 
     async def patch_config(self, req):
         return await self._apply_config(req, imported=False)
@@ -336,7 +300,10 @@ class WebPanel:
         team_id = integer(body.get("id"), "team id", 1)
         name = string(body.get("name"), "team name", nonempty=True)
         slug = string("" if body.get("slug") is None else body["slug"], "team slug")
-        added = self.plugin.store.follow_team(team_id, name, slug)
+        image_url = string(body.get("image_url") or "", "team image URL")
+        if image_url and not image_url.startswith(("https://", "http://")):
+            raise ConfigError("team image URL must use http:// or https://")
+        added = self.plugin.store.follow_team(team_id, name, slug, image_url)
         if added:
             self.plugin.schedule_refresh("web_add_team")
         return self._json({"ok": True, "added": added})

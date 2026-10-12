@@ -170,6 +170,8 @@ def validate_config(cfg: dict) -> dict:
                         "id": integer(team.get("id"), "team id", 1),
                         "name": name,
                         "slug": string(team.get("slug", ""), "team slug"),
+                        **({"image_url": string(team["image_url"], "team image URL")}
+                           if team.get("image_url") else {}),
                     })
             else:
                 raise ConfigError("followed_teams entries must be names or objects")

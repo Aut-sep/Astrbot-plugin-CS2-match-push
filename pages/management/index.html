@@ -1,0 +1,660 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="light">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>CS2 比赛推送 · 管理</title>
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232196f3'/%3E%3Ctext x='32' y='40' font-family='sans-serif' font-size='23' font-weight='700' text-anchor='middle' fill='white'%3ECS2%3C/text%3E%3C/svg%3E"
+    />
+    <link rel="stylesheet" href="./style.css" />
+    <script type="module" src="./app.js"></script>
+  </head>
+  <body>
+    <main class="app" id="app" aria-busy="true">
+      <header class="page-header">
+        <div class="identity">
+          <span class="brand" aria-hidden="true">CS<span>2</span></span>
+          <div>
+            <h1>CS2 比赛推送</h1>
+            <p>赛程、订阅与消息推送，一处管理。</p>
+          </div>
+        </div>
+        <div class="connection">
+          <span class="status-dot" id="connection-dot"></span
+          ><span id="connection-label">正在连接</span>
+        </div>
+      </header>
+      <div id="page-error" class="notice error" role="alert" hidden></div>
+      <nav class="tabs" role="tablist" aria-label="管理页面">
+        <button
+          id="tab-overview"
+          role="tab"
+          aria-controls="overview"
+          aria-selected="true"
+          data-tab="overview"
+        >
+          赛程概览
+        </button>
+        <button
+          id="tab-subscriptions"
+          role="tab"
+          aria-controls="subscriptions"
+          aria-selected="false"
+          tabindex="-1"
+          data-tab="subscriptions"
+        >
+          订阅管理<span class="tab-dirty" hidden>●</span>
+        </button>
+        <button
+          id="tab-push"
+          role="tab"
+          aria-controls="push"
+          aria-selected="false"
+          tabindex="-1"
+          data-tab="push"
+        >
+          推送设置<span class="tab-dirty" hidden>●</span>
+        </button>
+        <button
+          id="tab-advanced"
+          role="tab"
+          aria-controls="advanced"
+          aria-selected="false"
+          tabindex="-1"
+          data-tab="advanced"
+        >
+          高级维护<span class="tab-dirty" hidden>●</span>
+        </button>
+      </nav>
+
+      <section id="overview" role="tabpanel" aria-labelledby="tab-overview">
+        <div class="stats">
+          <div class="stat">
+            <span>当前赛程</span><strong id="stat-matches">—</strong
+            ><small>已缓存的比赛</small>
+          </div>
+          <div class="stat">
+            <span>关注战队</span><strong id="stat-teams">—</strong
+            ><small>匹配你的关注列表</small>
+          </div>
+          <div class="stat">
+            <span>推送群组</span><strong id="stat-groups">—</strong
+            ><small>已启用的接收目标</small>
+          </div>
+          <div class="stat">
+            <span>赛前提醒</span><strong id="stat-remind">—</strong
+            ><small>比赛开始前</small>
+          </div>
+        </div>
+        <div id="setup-notice" class="notice" hidden>
+          尚未配置 PandaScore Token。请在「高级维护」添加后获取赛程。
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h2>比赛日程</h2>
+              <p id="matches-updated">时间均按北京时间显示</p>
+            </div>
+            <button type="button" class="button primary" id="refresh-matches">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path
+                  d="M20 7v5h-5M4 17v-5h5M5.5 8a7 7 0 0 1 11.8-2L20 9M4 15l2.7 3A7 7 0 0 0 18.5 16"
+                /></svg
+              >获取最新赛程
+            </button>
+          </div>
+          <div class="filter-bar">
+            <label class="search-field"
+              ><svg viewBox="0 0 24 24" aria-hidden="true">
+                <circle cx="10.5" cy="10.5" r="6.5" />
+                <path d="m16 16 4 4" /></svg
+              ><input
+                id="match-search"
+                type="search"
+                placeholder="搜索战队或赛事"
+                aria-label="搜索战队或赛事" /></label
+            ><select id="match-status" aria-label="比赛状态">
+              <option value="all">全部状态</option>
+              <option value="upcoming">待开赛</option>
+              <option value="live">比赛中 / 等待赛果</option>
+              <option value="finished">已完成</option></select
+            ><label class="inline-check"
+              ><input type="checkbox" id="only-followed" />仅看关注</label
+            >
+          </div>
+          <div id="match-list" class="match-list">
+            <div class="empty">
+              <span class="spinner"></span>
+              <p>正在读取赛程…</p>
+            </div>
+          </div>
+          <div class="card-bottom">
+            <span id="match-count">—</span
+            ><span>每 30 秒更新页面 · 获取赛程按已配置周期运行</span>
+          </div>
+        </div>
+      </section>
+
+      <section
+        id="subscriptions"
+        role="tabpanel"
+        aria-labelledby="tab-subscriptions"
+        hidden
+      >
+        <div class="section-heading">
+          <h2>选择你关心的比赛</h2>
+          <p>群组和战队修改立即生效；赛事筛选在保存后生效。</p>
+        </div>
+        <div class="two-columns">
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3>推送群组</h3>
+                <p>比赛消息将发送到下列 QQ 群。</p>
+              </div>
+              <span class="count" id="group-count">0</span>
+            </div>
+            <form id="group-form" class="add-row">
+              <input
+                id="group-id"
+                inputmode="numeric"
+                pattern="[0-9]+"
+                placeholder="输入 QQ 群号"
+                aria-label="QQ 群号"
+                required
+              /><button class="button primary" type="submit">添加群组</button>
+            </form>
+            <div id="group-list" class="item-list"></div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div>
+                <h3>关注战队</h3>
+                <p>搜索后选择准确战队，避免同名误订阅。</p>
+              </div>
+              <span class="count" id="team-count">0</span>
+            </div>
+            <form id="team-search-form" class="add-row">
+              <input
+                id="team-query"
+                type="search"
+                placeholder="战队名称，例如 NAVI"
+                aria-label="战队名称"
+                minlength="2"
+                required
+              /><button class="button" type="submit">搜索</button>
+            </form>
+            <div id="team-search-results" hidden></div>
+            <div id="team-list" class="item-list"></div>
+          </div>
+        </div>
+        <form id="subscriptions-form" data-section="subscriptions">
+          <div class="card padded">
+            <h3>赛事范围</h3>
+            <p class="description">
+              同时满足赛事级别和黑名单筛选的比赛才会进入推送范围。关注优先开启后，关注战队可绕过级别限制，仍受黑名单限制。
+            </p>
+            <fieldset class="tiers">
+              <legend>允许的赛事级别</legend>
+              <label
+                ><input type="checkbox" data-key="min_tiers" value="s" />S
+                级</label
+              ><label
+                ><input type="checkbox" data-key="min_tiers" value="a" />A
+                级</label
+              ><label
+                ><input type="checkbox" data-key="min_tiers" value="b" />B
+                级</label
+              ><label
+                ><input type="checkbox" data-key="min_tiers" value="c" />C
+                级</label
+              ><label
+                ><input type="checkbox" data-key="min_tiers" value="d" />D
+                级</label
+              ><label
+                ><input
+                  type="checkbox"
+                  data-key="min_tiers"
+                  value="unranked"
+                />未定级</label
+              >
+            </fieldset>
+            <label class="switch-row"
+              ><span
+                ><strong>关注战队优先</strong
+                ><small>推送所有关注战队的比赛，不受赛事级别限制。</small></span
+              ><input
+                type="checkbox"
+                role="switch"
+                data-key="notify_all_followed"
+            /></label>
+            <div class="form-grid">
+              <label class="field"
+                >屏蔽战队<textarea
+                  data-key="blacklist_teams"
+                  data-type="lines"
+                  rows="3"
+                  placeholder="每行一个名称关键词"
+                ></textarea
+                ><small>按名称关键词匹配，不区分大小写。</small></label
+              ><label class="field"
+                >屏蔽赛事<textarea
+                  data-key="blacklist_leagues"
+                  data-type="lines"
+                  rows="3"
+                  placeholder="每行一个赛事关键词"
+                ></textarea
+                ><small>例如屏蔽某些区域联赛。</small></label
+              >
+            </div>
+          </div>
+          <div class="save-bar">
+            <span class="save-state">设置已保存</span>
+            <div>
+              <button
+                type="button"
+                class="button ghost"
+                data-discard="subscriptions"
+                disabled
+              >
+                放弃修改</button
+              ><button type="submit" class="button primary" disabled>
+                保存筛选设置
+              </button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <section id="push" role="tabpanel" aria-labelledby="tab-push" hidden>
+        <div class="section-heading">
+          <h2>让消息在合适的时间到达</h2>
+          <p>统一设置推送时机与日程，所有通知以完整图片发送。</p>
+        </div>
+        <form id="push-form" data-section="push">
+          <div class="two-columns">
+            <div class="card padded">
+              <h3>比赛提醒</h3>
+              <p class="description">
+                赛前提醒与赛后结果推送使用订阅管理中的群组。
+              </p>
+              <label class="field"
+                >提前提醒<input
+                  type="number"
+                  data-key="remind_minutes"
+                  min="1"
+                  max="120"
+                  required
+                /><small
+                  >单位：分钟。可在赛程中单独调整某一场比赛。</small
+                ></label
+              ><label class="switch-row"
+                ><span
+                  ><strong>赛程变更通知</strong
+                  ><small>比赛时间或队伍发生变化时发送消息。</small></span
+                ><input
+                  type="checkbox"
+                  role="switch"
+                  data-key="reschedule_notify" /></label
+              ><label class="field"
+                >推送平台 ID<input
+                  data-key="push_platform_id"
+                  placeholder="留空自动选择 QQ 平台"
+                /><small
+                  >仅在接入多个 QQ 机器人时指定 AstrBot 平台 ID。</small
+                ></label
+              >
+            </div>
+            <div class="card padded">
+              <h3>每日赛程</h3>
+              <p class="description">定时发送接下来几天的比赛安排。</p>
+              <label class="switch-row"
+                ><span
+                  ><strong>启用每日推送</strong
+                  ><small>每日按指定的北京时间推送。</small></span
+                ><input
+                  type="checkbox"
+                  role="switch"
+                  data-key="daily_push_enabled" /></label
+              ><label class="field"
+                >推送时间<input
+                  data-key="daily_push_times"
+                  data-type="times"
+                  placeholder="08:00, 18:00"
+                /><small>使用 24 小时制，多个时间以逗号分隔。</small></label
+              ><label class="field"
+                >包含未来几天<input
+                  type="number"
+                  data-key="daily_push_days"
+                  min="1"
+                  max="30"
+                  required
+                /><small>1 表示未来 24 小时内的赛程。</small></label
+              >
+              <div class="inset">
+                <span>需要临时发送一份赛程？</span
+                ><button type="button" class="button" id="push-now">
+                  立即推送</button
+                ><small>按已保存的天数发送到全部推送群组。</small>
+              </div>
+            </div>
+          </div>
+          <div class="card padded">
+            <h3>赛事开幕</h3>
+            <label class="switch-row"
+              ><span
+                ><strong>启用开幕预告</strong
+                ><small>在赛事开始前推送赛事介绍。</small></span
+              ><input
+                type="checkbox"
+                role="switch"
+                data-key="tournament_announce_enabled" /></label
+            ><label class="field narrow"
+              >提前通知<input
+                type="number"
+                data-key="tournament_announce_hours"
+                min="1"
+                max="168"
+                required
+              /><small>单位：小时。</small></label
+            >
+          </div>
+          <div class="card padded">
+            <h3>直播入口</h3>
+            <p class="description">附加到比赛消息中的常用直播链接。</p>
+            <div id="stream-list"></div>
+            <button type="button" class="button ghost" id="add-stream">
+              ＋ 添加直播链接
+            </button>
+          </div>
+          <div class="save-bar">
+            <span class="save-state">设置已保存</span>
+            <div>
+              <button
+                type="button"
+                class="button ghost"
+                data-discard="push"
+                disabled
+              >
+                放弃修改</button
+              ><button type="submit" class="button primary" disabled>
+                保存推送设置
+              </button>
+            </div>
+          </div>
+        </form>
+      </section>
+
+      <section
+        id="advanced"
+        role="tabpanel"
+        aria-labelledby="tab-advanced"
+        hidden
+      >
+        <div class="section-heading">
+          <h2>连接与维护</h2>
+          <p>配置数据源，检查推送效果和运行状态。</p>
+        </div>
+        <form id="advanced-form" data-section="advanced">
+          <div class="card padded">
+            <h3>数据源</h3>
+            <p class="description">
+              使用 PandaScore 获取 CS2 赛程。Token 只用于连接数据源。
+            </p>
+            <label class="field"
+              >PandaScore Token
+              <div class="secret-input">
+                <input
+                  type="password"
+                  data-key="pandascore_token"
+                  autocomplete="new-password"
+                  placeholder="输入你的 Token"
+                /><button
+                  type="button"
+                  class="button ghost"
+                  data-reveal="pandascore_token"
+                  aria-label="显示 PandaScore Token"
+                >
+                  显示
+                </button>
+              </div>
+              <small id="pandascore-secret-hint">尚未配置</small></label
+            ><label class="inline-check clear-secret"
+              ><input
+                type="checkbox"
+                data-clear="pandascore_token"
+              />清除已保存的 Token</label
+            >
+            <div class="form-grid">
+              <label class="field"
+                >获取周期<input
+                  type="number"
+                  data-key="fetch_interval_min"
+                  min="1"
+                  max="1440"
+                  required
+                /><small>单位：分钟。</small></label
+              ><label class="field"
+                >提前获取范围<input
+                  type="number"
+                  data-key="fetch_ahead_days"
+                  min="1"
+                  max="30"
+                  required
+                /><small>单位：天。</small></label
+              >
+            </div>
+          </div>
+          <div class="card padded">
+            <h3>推送测试</h3>
+            <p class="description">
+              向指定目标发送模拟消息，验证消息样式和投递情况。
+            </p>
+            <label class="switch-row"
+              ><span
+                ><strong>启用测试模式</strong
+                ><small>只影响手动测试，不替代正常推送目标。</small></span
+              ><input
+                type="checkbox"
+                role="switch"
+                data-key="test_mode_enabled"
+            /></label>
+            <div class="form-grid">
+              <label class="field"
+                >目标类型<select data-key="test_target_type">
+                  <option value="private">私聊 QQ</option>
+                  <option value="group">QQ 群</option>
+                </select></label
+              ><label class="field"
+                >目标号码<input
+                  data-key="test_target_id"
+                  inputmode="numeric"
+                  pattern="[0-9]*"
+                  placeholder="QQ 号或群号"
+              /></label>
+            </div>
+            <div class="test-row">
+              <select id="test-action" aria-label="测试消息类型">
+                <option>赛前</option>
+                <option>赛果</option>
+                <option>变更</option>
+                <option>开幕</option>
+                <option>日报</option>
+                <option>全部</option></select
+              ><button type="button" class="button" id="send-test">
+                发送测试消息</button
+              ><span class="muted">使用已保存的测试设置</span>
+            </div>
+          </div>
+          <details class="card disclosure">
+            <summary>
+              <span
+                >独立 Web 面板<small
+                  >可选的独立访问入口，内嵌页面不依赖此开关。</small
+                ></span
+              >
+            </summary>
+            <div class="disclosure-body">
+              <label class="switch-row"
+                ><span
+                  ><strong>启用独立面板</strong
+                  ><small>配置修改后立即应用监听地址。</small></span
+                ><input
+                  type="checkbox"
+                  role="switch"
+                  data-key="web_panel_enabled"
+              /></label>
+              <div class="form-grid">
+                <label class="field"
+                  >监听地址<input data-key="web_panel_host" required /><small
+                    >仅本机访问使用 127.0.0.1。</small
+                  ></label
+                ><label class="field"
+                  >端口<input
+                    type="number"
+                    data-key="web_panel_port"
+                    min="1"
+                    max="65535"
+                    required
+                /></label>
+              </div>
+              <label class="field"
+                >管理令牌
+                <div class="secret-input">
+                  <input
+                    type="password"
+                    data-key="web_panel_token"
+                    autocomplete="new-password"
+                    placeholder="留空保留当前令牌"
+                  /><button
+                    type="button"
+                    class="button ghost"
+                    data-reveal="web_panel_token"
+                    aria-label="显示管理令牌"
+                  >
+                    显示
+                  </button>
+                </div>
+                <small id="web-secret-hint"></small></label
+              ><label class="inline-check clear-secret"
+                ><input
+                  type="checkbox"
+                  data-clear="web_panel_token"
+                />清除已保存的管理令牌</label
+              >
+            </div>
+          </details>
+          <div class="save-bar">
+            <span class="save-state">设置已保存</span>
+            <div>
+              <button
+                type="button"
+                class="button ghost"
+                data-discard="advanced"
+                disabled
+              >
+                放弃修改</button
+              ><button type="submit" class="button primary" disabled>
+                保存连接设置
+              </button>
+            </div>
+          </div>
+        </form>
+        <details class="card disclosure">
+          <summary>
+            <span
+              >配置备份与任务维护<small
+                >导入导出设置，或修复异常的比赛任务。</small
+              ></span
+            >
+          </summary>
+          <div class="disclosure-body">
+            <div class="action-row">
+              <div>
+                <strong>配置备份</strong>
+                <p>
+                  备份不包含令牌，导入会保留现有令牌；迁移到新实例时请重新填写。
+                </p>
+              </div>
+              <div class="button-group">
+                <button type="button" class="button" id="export-config">
+                  导出配置</button
+                ><button type="button" class="button" id="import-config">
+                  导入配置</button
+                ><input
+                  id="import-file"
+                  type="file"
+                  accept=".json,application/json"
+                  hidden
+                />
+              </div>
+            </div>
+            <div class="action-row">
+              <div>
+                <strong>重建比赛任务</strong>
+                <p>重新安排提醒任务，保留已发送记录。</p>
+              </div>
+              <button type="button" class="button" id="rebuild-tasks">
+                重建全部任务
+              </button>
+            </div>
+            <div class="action-row">
+              <div>
+                <strong>重置通知记录</strong>
+                <p>清除去重状态；已发送过的比赛可能再次推送。</p>
+              </div>
+              <button type="button" class="button danger" id="clear-notified">
+                重置记录
+              </button>
+            </div>
+          </div>
+        </details>
+        <div class="card">
+          <div class="card-header">
+            <div>
+              <h3>运行日志</h3>
+              <p>最近 100 条面板事件</p>
+            </div>
+            <button type="button" class="button ghost" id="refresh-logs">
+              刷新日志
+            </button>
+          </div>
+          <div id="logs" class="logs">
+            <div class="empty">打开此页后加载日志</div>
+          </div>
+        </div>
+      </section>
+      <footer class="page-footer">
+        <span>CS2 比赛推送</span><span id="host-mode">正在初始化</span>
+      </footer>
+    </main>
+    <div
+      id="toasts"
+      class="toasts"
+      aria-live="polite"
+      aria-atomic="false"
+    ></div>
+    <dialog id="action-dialog">
+      <form method="dialog" id="dialog-form">
+        <h2 id="dialog-title"></h2>
+        <p id="dialog-description"></p>
+        <div id="dialog-fields"></div>
+        <div class="dialog-actions">
+          <button type="submit" class="button" value="cancel">取消</button
+          ><button
+            type="submit"
+            class="button primary"
+            id="dialog-confirm"
+            value="confirm"
+          >
+            确定
+          </button>
+        </div>
+      </form>
+    </dialog>
+    <noscript>请启用 JavaScript 后使用管理页面。</noscript>
+  </body>
+</html>

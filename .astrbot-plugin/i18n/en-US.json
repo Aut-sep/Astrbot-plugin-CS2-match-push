@@ -1,0 +1,14 @@
+{
+  "views": {
+    "management": {
+      "title": "CS2 Management",
+      "description": "Manage CS2 schedules, team subscriptions, notifications and data sources."
+    }
+  },
+  "pages": {
+    "management": {
+      "title": "CS2 Management",
+      "description": "Manage CS2 schedules, team subscriptions, notifications and data sources."
+    }
+  }
+}

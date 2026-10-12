@@ -130,11 +130,14 @@ class DataStore:
 
     # ── 战队关注（精确 ID 匹配）──────────────
 
-    def follow_team(self, team_id: int, name: str, slug: str = "") -> bool:
+    def follow_team(self, team_id: int, name: str, slug: str = "", image_url: str = "") -> bool:
         """关注战队，按 ID 精确匹配，避免名称歧义"""
         existing_ids = {t.get("id") for t in self._data["followed_teams"] if isinstance(t, dict)}
         if team_id not in existing_ids:
-            self._data["followed_teams"].append({"id": team_id, "name": name, "slug": slug})
+            team = {"id": team_id, "name": name, "slug": slug}
+            if image_url:
+                team["image_url"] = image_url
+            self._data["followed_teams"].append(team)
             self.save()
             return True
         return False
