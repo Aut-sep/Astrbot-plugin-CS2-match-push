@@ -1,4 +1,5 @@
 name: astrbot_plugin_cs_match
+display_name: CS2 比赛推送
 desc: CS2 比赛推送插件，支持关注战队、赛前提醒、赛后数据推送
 version: 4.1.1
 author: Aut-sep

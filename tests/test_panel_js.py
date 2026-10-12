@@ -150,6 +150,25 @@ await context.saveAll();
 assert.equal(element('adv-token').value, 'keep-on-failure');
 """)
 
+    def test_reminder_controls_share_value_and_quick_save_reloads_only_on_success(self):
+        self.run_js(r"""
+element('q-remind').value = '25';
+context.syncRemindInputs('25', 'q-remind');
+assert.equal(element('remind-range').value, '25');
+assert.equal(element('q-remind-val').textContent, '25min');
+element('remind-range').value = '35';
+context.syncRemindInputs('35', 'remind-range');
+assert.equal(element('q-remind').value, '35');
+let reloads = 0;
+context.loadConfig = async () => { reloads++; };
+context.api = async () => ({ok: true});
+assert.equal(await context.quickSave(), true);
+assert.equal(reloads, 1);
+context.api = async () => ({ok: false});
+assert.equal(await context.quickSave(), false);
+assert.equal(reloads, 1);
+""")
+
     def test_team_names_use_snapshot_or_real_api_name_then_tbd(self):
         self.run_js(r"""
 assert.equal(context.teamName({_t1: ' Saved ', opponents: [{opponent: {name: 'API'}}]}, 0), 'Saved');

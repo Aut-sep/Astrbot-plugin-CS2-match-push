@@ -51,6 +51,22 @@ class SchedulerTests(unittest.IsolatedAsyncioTestCase):
         if tasks:
             await asyncio.gather(*tasks, return_exceptions=True)
 
+    async def test_daily_loop_recovers_after_send_failure_and_propagates_cancel(self):
+        p = self.plugin
+        p._last_daily_push_key = ""
+        p.store.set("daily_push_enabled", True)
+        p.store.set("daily_push_times", ["08:00", "20:00"])
+        first = self.now.replace(hour=8, minute=0)
+        second = self.now.replace(hour=20, minute=0)
+        p._do_instant_push = AsyncMock(side_effect=[RuntimeError("offline"), None])
+        sleep = AsyncMock(side_effect=[None, None, asyncio.CancelledError()])
+        with patch.object(main, "now_cst", side_effect=[first, second]), patch.object(main.asyncio, "sleep", sleep):
+            with self.assertRaises(asyncio.CancelledError):
+                await p._daily_push_loop()
+        self.assertEqual(p._do_instant_push.await_count, 2)
+        self.assertEqual(p._last_daily_push_key, f"{second:%Y-%m-%d}_20:00")
+        self.assertTrue(any(call.args[0] == "ERROR" for call in p.panel.push_log.call_args_list))
+
     async def test_late_fetch_sends_reminder_before_start(self):
         p = self.plugin
         p._push_upcoming = AsyncMock(return_value=True)

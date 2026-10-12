@@ -484,26 +484,25 @@ class CSMatchPlugin(Star):
         while True:
             try:
                 await asyncio.sleep(60)
-            except asyncio.CancelledError:
-                break
-
-            if not self.store.get("daily_push_enabled", False):
-                continue
-
-            push_times  = self.store.get("daily_push_times") or ["08:00"]
-            now_cst_dt  = now_cst()
-            hhmm        = now_cst_dt.strftime("%H:%M")
-
-            if hhmm in push_times:
-                # 防重：同一分钟只推一次
-                key = f"{now_cst_dt.strftime('%Y-%m-%d')}_{hhmm}"
-                if self._last_daily_push_key == key:
+                if not self.store.get("daily_push_enabled", False):
                     continue
-                self._last_daily_push_key = key
-                days = int(self.store.get("daily_push_days") or 1)
-                logger.info(f"[CS] 触发每日定时推送 {hhmm}，推送 {days} 天赛程")
-                self.panel.push_log("OK", f"每日定时推送触发 {hhmm}")
-                await self._do_instant_push(days)
+                push_times = self.store.get("daily_push_times") or ["08:00"]
+                now_cst_dt = now_cst()
+                hhmm = now_cst_dt.strftime("%H:%M")
+                if hhmm in push_times:
+                    key = f"{now_cst_dt.strftime('%Y-%m-%d')}_{hhmm}"
+                    if self._last_daily_push_key == key:
+                        continue
+                    self._last_daily_push_key = key
+                    days = int(self.store.get("daily_push_days") or 1)
+                    logger.info(f"[CS] 触发每日定时推送 {hhmm}，推送 {days} 天赛程")
+                    self.panel.push_log("OK", f"每日定时推送触发 {hhmm}")
+                    await self._do_instant_push(days)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                logger.error(f"[CS] 每日推送异常，将在下一轮重试: {exc}")
+                self.panel.push_log("ERROR", f"每日推送异常：{type(exc).__name__}: {exc}")
 
     # ── 赛事开幕推送循环 ──────────────────
 

@@ -755,7 +755,7 @@
           <div class="form-row">
             <label>赛前提醒时间</label>
             <input type="range" id="q-remind" min="1" max="120" step="1" value="10"
-                   oninput="document.getElementById('q-remind-val').textContent=this.value+'min'">
+                   oninput="syncRemindInputs(this.value, 'q-remind')">
             <span class="range-val" id="q-remind-val">10min</span>
           </div>
           <div class="form-row">
@@ -1006,7 +1006,7 @@
         <div class="form-row">
           <label>赛前提醒（分钟）</label>
           <input type="range" id="remind-range" min="1" max="120" step="1" value="10"
-                 oninput="document.getElementById('remind-val').textContent=this.value">
+                 oninput="syncRemindInputs(this.value, 'remind-range')">
           <span class="range-val" id="remind-val" style="min-width:32px;">10</span>
           <span style="font-size:12px;color:var(--text3)">分钟</span>
         </div>
@@ -1290,12 +1290,11 @@ async function loadConfig() {
 function applyConfig(c) {
   // 快速设置
   const rm = c.remind_minutes || 10;
-  setSlider('q-remind', rm); document.getElementById('q-remind-val').textContent = rm+'min';
+  syncRemindInputs(rm);
   setCheck('q-reschedule', c.reschedule_notify);
   setCheck('q-notify-all', c.notify_all_followed !== false);
 
   // 时间设置
-  setSlider('remind-range', rm); document.getElementById('remind-val').textContent = rm;
   setSlider('fetch-interval', c.fetch_interval_min||10); document.getElementById('fi-val').textContent = c.fetch_interval_min||10;
   setSlider('fetch-ahead', c.fetch_ahead_days||2); document.getElementById('fa-val').textContent = c.fetch_ahead_days||2;
 
@@ -1331,6 +1330,17 @@ function applyConfig(c) {
 
   // 每日推送
   applyDailyConfig(c);
+}
+
+function syncRemindInputs(value, sourceId = '') {
+  const remind = Number.parseInt(value, 10);
+  if (!Number.isFinite(remind)) return;
+  const quick = document.getElementById('q-remind');
+  const timing = document.getElementById('remind-range');
+  if (quick && sourceId !== 'q-remind') quick.value = String(remind);
+  if (timing && sourceId !== 'remind-range') timing.value = String(remind);
+  document.getElementById('q-remind-val').textContent = `${remind}min`;
+  document.getElementById('remind-val').textContent = String(remind);
 }
 
 function setSlider(id, val) {
@@ -2046,7 +2056,12 @@ async function quickSave() {
     notify_all_followed: document.getElementById('q-notify-all').checked,
   };
   const d = await api('/config', 'PATCH', body);
-  if (!d.ok) toast('快速设置保存失败', 'error');
+  if (!d.ok) {
+    toast('快速设置保存失败', 'error');
+    return false;
+  }
+  toast('快速设置已保存', 'success');
+  await loadConfig();
   return d.ok;
 }
 

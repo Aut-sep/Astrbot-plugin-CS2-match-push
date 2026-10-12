@@ -35,8 +35,13 @@ def fmt_time(iso: Optional[str]) -> str:
         return iso
 
 
-def parse_dt(iso: str) -> datetime:
-    dt = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+def parse_dt(iso: Optional[str]) -> datetime:
+    if not iso:
+        raise ValueError("empty datetime string")
+    try:
+        dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+    except (TypeError, ValueError, AttributeError) as exc:
+        raise ValueError(f"invalid datetime string: {iso!r}") from exc
     # API 时间通常带 Z；旧数据缺少时区时按 UTC 解释，避免依赖宿主机时区。
     return dt.replace(tzinfo=timezone.utc) if dt.tzinfo is None else dt
 

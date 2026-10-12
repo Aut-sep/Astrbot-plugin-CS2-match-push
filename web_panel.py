@@ -6,6 +6,7 @@ web_panel.py — Web 管理面板
 """
 
 import asyncio
+from collections import deque
 import hmac
 import ipaddress
 import json
@@ -116,7 +117,7 @@ class WebPanel:
         self._bind_port = None
         self._reconfigure_lock = asyncio.Lock()
         self._config_lock = asyncio.Lock()
-        self._logs: list = []  # 内存日志缓冲
+        self._logs = deque(maxlen=500)
         self._setup_routes()
 
     @web.middleware
@@ -385,7 +386,7 @@ class WebPanel:
         return self._json({"ok": True, "teams": teams})
 
     async def get_logs(self, req):
-        return self._json({"ok": True, "logs": self._logs[-100:]})
+        return self._json({"ok": True, "logs": list(self._logs)[-100:]})
 
     async def clear_notified(self, req):
         self.plugin.clear_match_notifications()
@@ -421,8 +422,6 @@ class WebPanel:
     def push_log(self, level: str, msg: str):
         now = datetime.now(CST).strftime("%H:%M:%S")
         self._logs.append({"time": now, "level": level, "msg": msg})
-        if len(self._logs) > 500:
-            self._logs = self._logs[-500:]
 
     async def start(self, host: str, port: int):
         await self.reconfigure(True, host, port)

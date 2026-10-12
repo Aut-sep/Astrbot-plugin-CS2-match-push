@@ -1,19 +1,109 @@
 # CS2 比赛推送插件
 
+[![Tests](https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push/actions/workflows/tests.yml)
+
 为 AstrBot 的 QQ / OneBot（aiocqhttp）适配器提供 CS2 赛程查询、战队关注、赛前提醒、赛后结果、每日赛程和赛事开幕通知，并提供 Web 管理面板。比赛数据来自 PandaScore。
+
+## 功能
+
+- 查询近期 CS2 赛程，按赛事等级、关注战队和黑名单筛选。
+- 开赛前提醒、赛程变更通知、赛后结果和赛事开幕提醒。
+- 定时发送每日赛程，也可手动立即推送。
+- 图片或纯文字推送；多个群和指定机器人实例可分别配置。
+- Web 面板管理战队、推送群、提醒、测试目标与配置备份。
+
+## 环境要求
+
+- AstrBot，以及已连接并可发送消息的 QQ / OneBot（aiocqhttp）适配器；其他适配器尚未验证。
+- Python 3.10+，依赖见 [requirements.txt](requirements.txt)。
+- 可访问 PandaScore API，且持有具备所需 CS2 数据权限的 [PandaScore Token](https://pandascore.co/)。数据覆盖和请求额度取决于账户方案。
 
 ## 安装与配置
 
-1. 在 AstrBot 插件管理中通过本仓库地址安装，填写 PandaScore API Token。
+1. 在 AstrBot 插件管理中通过下面的仓库地址安装，填写 PandaScore API Token。安装完成后确认插件已加载，依赖已安装。
 2. 设置自动刷新间隔、提前获取天数和面板监听地址。默认地址为 `127.0.0.1:8765`。
 3. 使用管理员指令 `~cs设置群 <群号>` 添加推送目标，或在 Web 面板中配置。
 4. 管理员私聊机器人发送 `~cs面板`，获取管理地址和令牌。
+
+```text
+https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push
+```
+
+首次使用可以依次发送：
+
+```text
+~cs设置群 123456789
+~cs关注 NaVi
+~cs刷新
+~cs比赛
+~cs状态
+```
+
+把示例群号替换为你的目标群，并确认机器人已加入该群。战队有重名时，建议在面板中搜索并精确选择。
 
 `~` 是示例唤醒前缀，实际前缀取决于 AstrBot 全局配置。`~cs帮助` 可查看全部指令。非本机访问管理面板需要令牌；容器中默认回环监听会转换为 `0.0.0.0`，仍需映射对应端口。
 
 连接多个 QQ 机器人时，在插件配置或面板高级设置中填写 `push_platform_id`（AstrBot 平台实例 ID）。留空时选择唯一的 aiocqhttp 实例；多个实例不明确选择时会记录发送失败，避免选择错误账号。
 
 首次安装会把 AstrBot 插件配置写入插件数据文件；此后以已持久化的设置为准，请通过管理面板或管理指令修改运行中的设置。Token 在面板中留空表示保持原值，配置导出不会包含 API Token、面板令牌或运行状态。
+
+### 主要配置
+
+| 配置项 | 默认值 | 用途 |
+| --- | --- | --- |
+| `pandascore_token` | 空 | 必填，PandaScore API Token |
+| `push_platform_id` | 空 | 多机器人时指定 AstrBot 平台实例 ID |
+| `fetch_interval_min` | `10` | 自动刷新赛程的间隔，单位分钟 |
+| `fetch_ahead_days` | `2` | 获取未来几天的赛程 |
+| `web_panel_enabled` | `true` | 开启管理面板 |
+| `web_panel_host` | `127.0.0.1` | 面板监听地址 |
+| `web_panel_port` | `8765` | 面板监听端口 |
+| `image_push_enabled` | `true` | 赛前和赛后的图片推送 |
+
+面板中还可配置赛事等级（默认 S、A）、赛前提醒（默认 10 分钟）、日报（默认关闭）、赛事开幕提醒（默认提前 2 小时）和黑名单。日报时间按北京时间（UTC+8）解释。
+
+### 常用指令
+
+以下命令以 `~` 为示例前缀；“管理员”指 AstrBot 管理员权限。
+
+| 指令 | 说明 | 权限 |
+| --- | --- | --- |
+| `~cs帮助` | 查看完整帮助 | 所有人 |
+| `~cs比赛` / `~cs状态` | 查看赛程 / 当前设置 | 所有人 |
+| `~cs群列表` / `~cs关注列表` | 查看推送群 / 关注战队 | 所有人 |
+| `~cs刷新` | 立即刷新赛程 | 管理员 |
+| `~cs设置群 <群号>` / `~cs移除群 <群号>` | 添加 / 移除推送群 | 管理员 |
+| `~cs关注 <战队名>` / `~cs取消 <战队名>` | 关注 / 取消关注战队 | 管理员 |
+| `~cs提醒 <分钟>` | 设置赛前提醒，1～120 分钟 | 管理员 |
+| `~cs延迟通知 开` / `关` | 开关赛程变更通知 | 管理员 |
+| `~cs推送 [天数]` | 立即发送赛程日报，1～7 天 | 管理员 |
+| `~cs日报` | 查看日报配置和子命令 | 管理员 |
+| `~cs日报 时间 08:00 20:00` | 设置每日推送时间 | 管理员 |
+| `~cs日报 开` / `关` / `预览` | 开关日报 / 预览内容 | 管理员 |
+| `~cs日报 天数 2` | 设置日报赛程范围，1～7 天 | 管理员 |
+| `~cs赛事提醒 开` / `关` / `<小时>` | 开关 / 设置开幕提醒，1～24 小时 | 管理员 |
+| `~cs面板` | 获取面板地址和令牌 | 管理员私聊 |
+| `~cs测试` | 查看测试模式帮助 | 管理员 |
+
+### 更新与备份
+
+在 AstrBot 插件管理中更新并重载插件。更新前备份插件数据目录中的 `cs_data.json`，其中包含配置和通知状态；面板导出的 JSON 仅用于迁移可编辑配置，不是完整备份。更新保留插件标识 `astrbot_plugin_cs_match` 和原数据目录，避免现有配置失联。
+
+### 常见问题
+
+- **没有比赛**：检查 Token 和日志中的 API 错误，再检查获取天数、赛事等级、关注战队及黑名单。数据源未收录或未确定开赛时间的比赛可能不会进入提醒队列。
+- **有赛程但不推送**：检查推送群、机器人所在群和发送权限，多机器人环境填写 `push_platform_id`。在面板中设置测试目标，执行 `~cs测试 开` 和 `~cs测试 赛前` 验证发送路径；测试消息会实际发送到配置的目标。
+- **面板打不开**：确认启用面板、监听端口未占用。远程访问时把面板地址中的 `127.0.0.1` 换成服务器地址；`0.0.0.0` 是监听地址。Docker 部署需映射端口，局域网访问需相应监听设置。
+- **修改配置后没有变化**：首次安装后运行配置来自持久化数据，请使用面板或管理员指令修改。
+- **图片中文字异常**：检查运行环境是否有可用中文字体；可以先关闭 `image_push_enabled` 使用纯文字。
+
+## 反馈与维护
+
+通过 [Issues](https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push/issues) 反馈，附插件版本、AstrBot 版本、适配器、复现步骤和脱敏日志。不要提交 API Token、面板令牌或完整的私有配置。
+
+`main` 是用户安装和维护的主分支，开发改动通过 PR 合并。贡献与 GitHub 操作约定见 [CONTRIBUTING.md](CONTRIBUTING.md)，版本记录见 [CHANGELOG.md](CHANGELOG.md)。
+
+AstrBot 插件市场的发布和更新入口为 [AstrBot Cloud](https://cloud.astrbot.app/publish)，参见 [官方发布文档](https://docs.astrbot.app/dev/star/plugin-publish.html)。本项目旧申请 [#6740](https://github.com/AstrBotDevs/AstrBot/issues/6740) 已因平台迁移关闭；GitHub 合并代码不等于完成插件市场发布。
 
 ## 项目结构
 
@@ -69,5 +159,6 @@ python -m unittest discover -s tests -v
 - 复用 HTTP 会话，处理限流重试，减少未变化的快照重复写盘。
 - 分离页面、渲染、配置校验和发送适配，补充回归测试与自动检查。
 - 校验管理接口输入，修复端口热切换、配置回滚、动态 HTML 转义和跨域写入保护。
+- 整合早期可靠性修复，保留日报循环异常恢复、日志容量限制和提醒设置同步。
 
 接口依据：[AstrBot StarTools](https://github.com/AstrBotDevs/AstrBot/blob/master/astrbot/core/star/star_tools.py)、[AstrBot Context](https://github.com/AstrBotDevs/AstrBot/blob/master/astrbot/core/star/context.py)、[PandaScore 单场比赛](https://developers.pandascore.co/reference/get_matches_matchidorslug)、[PandaScore 筛选与排序](https://developers.pandascore.co/docs/filtering-and-sorting)。
