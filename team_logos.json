@@ -1,0 +1,532 @@
+{
+  "9z": {
+    "aliases": [
+      "9z Team",
+      "9z Globant"
+    ],
+    "file": "9z.png",
+    "source_url": "https://9z.gg/",
+    "asset_url": "https://9z.gg/logo/logotype.png",
+    "checked_at": "2026-10-13"
+  },
+  "Legacy": {
+    "aliases": [
+      "Legacy Esports"
+    ],
+    "file": "legacy.png",
+    "source_url": "https://www.teamlegacy.gg/galeria",
+    "asset_url": "https://drive.google.com/uc?export=download&id=1tnGldH9QYnb0LbxW3ns25OoFafI14O33",
+    "checked_at": "2026-10-13",
+    "selection_note": "官网链接的品牌手册第 38 页 Icon 原始金色路径"
+  },
+  "Natus Vincere": {
+    "aliases": [
+      "NAVI",
+      "NaVi"
+    ],
+    "file": "navi.png",
+    "source_url": "https://navi.gg/en",
+    "asset_url": "inline:icon-main-logo",
+    "checked_at": "2026-10-13"
+  },
+  "MOUZ": {
+    "aliases": [
+      "mousesports",
+      "Mouse Sports"
+    ],
+    "file": "mouz.png",
+    "source_url": "https://mousesports.com/",
+    "asset_url": "https://mousesports.com/wp-content/uploads/2021/10/logo-favicon.svg",
+    "checked_at": "2026-10-13"
+  },
+  "Eternal Fire": {
+    "aliases": [
+      "Eternal Fire"
+    ],
+    "file": "eternal-fire.png",
+    "source_url": "https://eternalfire.gg/teams/cs2-team/",
+    "asset_url": "https://drive.google.com/uc?export=download&id=11jN3eFH4I0CFovSsOd3t1SyMdoz84-Ro",
+    "checked_at": "2026-10-13",
+    "selection_note": "官方 CS2 媒体包彩色龙形主标识"
+  },
+  "FUT Esports": {
+    "aliases": [
+      "FUT",
+      "Futbolist"
+    ],
+    "file": "fut.png",
+    "source_url": "https://futesports.gg/",
+    "asset_url": "https://futesports.gg/images/logo/FUT.png",
+    "checked_at": "2026-10-13"
+  },
+  "OG": {
+    "aliases": [
+      "OG Esports"
+    ],
+    "file": "og.png",
+    "source_url": "https://ogs.gg/",
+    "asset_url": "https://ogs.gg/wp-content/themes/og/dist/images/og_logo_2020.png",
+    "checked_at": "2026-10-13"
+  },
+  "B8": {
+    "aliases": [
+      "B8 Esports"
+    ],
+    "file": "b8.png",
+    "source_url": "https://b8esports.gg/",
+    "asset_url": "https://cdn.prod.website-files.com/64a689c46a633fc8114d5cf5/64e051a36321200c4c0bac78_B8_logo%20(1).svg",
+    "checked_at": "2026-10-13"
+  },
+  "Team Falcons": {
+    "aliases": [
+      "Falcons",
+      "Falcons Esports"
+    ],
+    "file": "falcons.png",
+    "source_url": "https://www.teamfalcons.sa/",
+    "asset_url": "https://teamfalcons.sa/images/falcons-logo.png",
+    "checked_at": "2026-10-13",
+    "selection_note": "官方绿色主标识"
+  },
+  "Astralis": {
+    "aliases": [],
+    "file": "astralis.png",
+    "source_url": "https://news.cision.com/astralis-group/i/astralis-logo-svg,m22604",
+    "asset_url": "https://mb.cision.com/Public/18890/0/86c6f3c213bccbe0_org.png",
+    "checked_at": "2026-10-13",
+    "selection_note": "Astralis Group 官方发布的独立红色 A 星形标识，与当前官网图标核对"
+  },
+  "Team Liquid": {
+    "aliases": [
+      "Liquid"
+    ],
+    "file": "liquid.png",
+    "source_url": "https://teamliquid.com/brand-kit",
+    "asset_url": "https://cdn.prod.website-files.com/64bf6e8cda9043babe7ca006/65f44cd149e66e386d8d3da7_Crest-on-light.svg",
+    "checked_at": "2026-10-13",
+    "selection_note": "官方蓝白盾形标识"
+  },
+  "BetBoom Team": {
+    "aliases": [
+      "BetBoom",
+      "BB Team"
+    ],
+    "file": "betboom.png",
+    "source_url": "https://betboom.team/",
+    "asset_url": "inline:team-mark",
+    "checked_at": "2026-10-13"
+  },
+  "PARIVISION": {
+    "aliases": [
+      "Parivision"
+    ],
+    "file": "parivision.png",
+    "source_url": "https://parivision.gg/",
+    "asset_url": "inline:i-x",
+    "checked_at": "2026-10-13"
+  },
+  "Aurora Gaming": {
+    "aliases": [
+      "Aurora"
+    ],
+    "file": "aurora.png",
+    "source_url": "https://auroragg.my/",
+    "asset_url": "inline:header-logo",
+    "checked_at": "2026-10-13"
+  },
+  "HEROIC": {
+    "aliases": [
+      "Heroic"
+    ],
+    "file": "heroic.png",
+    "source_url": "https://commons.wikimedia.org/wiki/File:Heroic_2023_logo.png",
+    "asset_url": "https://upload.wikimedia.org/wikipedia/commons/8/8f/Heroic_2023_logo.png",
+    "checked_at": "2026-10-13",
+    "selection_note": "官方账号 Heroicgg 上传的 2023 红边盾形标识，与当前图形核对；保留素材本色"
+  },
+  "Team Spirit": {
+    "aliases": [
+      "Spirit"
+    ],
+    "file": "spirit.png",
+    "source_url": "https://teamspirit.gg/",
+    "asset_url": "https://teamspirit.gg/assets/logo-a2f0a3a5.svg",
+    "checked_at": "2026-10-13"
+  },
+  "Fnatic": {
+    "aliases": [],
+    "file": "fnatic.png",
+    "source_url": "https://fnatic.com/",
+    "asset_url": "https://fnatic.com/favicons/apple-touch-icon.png",
+    "checked_at": "2026-10-13"
+  },
+  "Ninjas in Pyjamas": {
+    "aliases": [
+      "NIP",
+      "NiP",
+      "Ninjas in Pyjamas"
+    ],
+    "file": "nip.png",
+    "source_url": "https://nip.gl/pages/brand",
+    "asset_url": "https://drive.google.com/uc?export=download&id=1bJ-6eQVT5Rc4FoQHi327yk10qgATkWAj",
+    "checked_at": "2026-10-13"
+  },
+  "Team Vitality": {
+    "aliases": [
+      "Vitality"
+    ],
+    "file": "vitality.png",
+    "source_url": "https://vitality.gg/",
+    "asset_url": "https://vitality.gg/cdn/shop/files/Logo_Vitality.png?v=1788364943",
+    "checked_at": "2026-10-13",
+    "selection_note": "官方黄黑蜂形标识"
+  },
+  "FURIA": {
+    "aliases": [
+      "FURIA Esports",
+      "Furia Esports"
+    ],
+    "file": "furia.png",
+    "source_url": "https://sites.google.com/furia.gg/furia-esports/our-teams/people-and-culture",
+    "asset_url": "https://sites.google.com/sitesv-images-rt/AMxu72szO_JnsON8LyDcFZU8_PqHCoj4ZUMWks2zBnWwX_zWAGbZdJSTCCduUaTWtNAiHTIJJ2N0v_QWsImfdynPVDABEaiYCtGHAbt7PoZblbsKqR7Z8L85MNI3IeTxAJ0eZ4dmokr5_7R49N7muYKcqF2HJ9pk3asilzPdzRytl0SvPB_OBQZDfbaK-TwR=w16383",
+    "checked_at": "2026-10-13"
+  },
+  "paiN Gaming": {
+    "aliases": [
+      "paiN",
+      "Pain Gaming"
+    ],
+    "file": "pain-gaming.png",
+    "source_url": "https://www.pain.gg/",
+    "asset_url": "https://www.pain.gg/images/logo.svg?dpl=dpl_6NfUpEvKrSesrYtsNY2U5ySr9Ra2",
+    "checked_at": "2026-10-13"
+  },
+  "MIBR": {
+    "aliases": [
+      "Made in Brazil"
+    ],
+    "file": "mibr.png",
+    "source_url": "https://mibr.gg/",
+    "asset_url": "https://mibr.gg/wp-content/uploads/2026/02/mibrlogo-dark.webp",
+    "checked_at": "2026-10-13"
+  },
+  "RED Canids": {
+    "aliases": [
+      "RED Canids Kalunga"
+    ],
+    "file": "red-canids.png",
+    "source_url": "https://redcanids.com.br/",
+    "asset_url": "https://redcanids.com.br/images/red-logo.png",
+    "checked_at": "2026-10-13"
+  },
+  "Wildcard": {
+    "aliases": [
+      "Wildcard Gaming"
+    ],
+    "file": "wildcard.png",
+    "source_url": "https://www.wildcard.gg/",
+    "asset_url": "https://cdn.prod.website-files.com/66578e9592d6cc144b099a31/665e696210fafe748f5a5b5c_wildcard-logo.svg",
+    "checked_at": "2026-10-13"
+  },
+  "M80": {
+    "aliases": [],
+    "file": "m80.png",
+    "source_url": "https://m80.gg/",
+    "asset_url": "https://cdn.m80.gg/images/icons/og/favicon.svg",
+    "checked_at": "2026-10-13"
+  },
+  "DENDELE CS": {
+    "aliases": [
+      "DENDELE",
+      "Sharks Esports",
+      "Sharks"
+    ],
+    "file": "dendele.png",
+    "source_url": "https://www.dendele.com.br/",
+    "asset_url": "https://acdn-us.mitiendanube.com/stores/007/942/312/themes/common/logo-1486370718330252428-1784176879-ea361384fe2bd2b443100988ccb6cdbb1784176879-320-0.webp",
+    "checked_at": "2026-10-13",
+    "rename_source_url": "https://x.com/dendelecs/status/2079342115444658311"
+  },
+  "Complexity": {
+    "aliases": [
+      "compLexity",
+      "coL",
+      "Complexity Gaming"
+    ],
+    "file": "complexity.png",
+    "source_url": "https://complexity.gg/",
+    "asset_url": "https://complexity.gg/cdn/shop/files/COL_Logo_2011.png?v=1737650612",
+    "checked_at": "2026-10-13"
+  },
+  "NRG": {
+    "aliases": [
+      "NRG Esports"
+    ],
+    "file": "nrg.png",
+    "source_url": "https://nrg.gg/",
+    "asset_url": "https://nrg.gg/cdn/shop/files/1.png?v=1710736013",
+    "checked_at": "2026-10-13"
+  },
+  "The Huns": {
+    "aliases": [
+      "Huns Esports",
+      "The Huns Esports"
+    ],
+    "file": "team_huns.png",
+    "source_url": "https://www.thehuns.gg/en",
+    "asset_url": "https://www.thehuns.gg/icons/logo.png",
+    "checked_at": "2026-10-13"
+  },
+  "HAVU": {
+    "aliases": [
+      "HAVU Gaming"
+    ],
+    "file": "team_havu.png",
+    "source_url": "https://shop.havu.gg/pages/brand-kit",
+    "asset_url": "https://ucarecdn.com/ceff25a5-f7e6-4833-bd58-0ae28143cbf3/-/format/auto/-/preview/3000x3000/-/quality/lighter/",
+    "checked_at": "2026-10-13"
+  },
+  "Virtus.pro": {
+    "aliases": [
+      "VP",
+      "Virtus Pro"
+    ],
+    "file": "team_vp.png",
+    "source_url": "https://virtus.pro/about",
+    "asset_url": "https://virtus.pro/img/logo.svg",
+    "checked_at": "2026-10-13"
+  },
+  "Rebels": {
+    "aliases": [
+      "Rebels Gaming",
+      "RBLS"
+    ],
+    "file": "team_rebels.png",
+    "source_url": "https://rebelsgaming.gg/",
+    "asset_url": "https://rebelsgaming.gg/wp-content/uploads/2021/11/rebels_footer.png",
+    "checked_at": "2026-10-13"
+  },
+  "Endpoint": {
+    "aliases": [
+      "Endpoint Esports",
+      "Team Endpoint"
+    ],
+    "file": "team_endpoint.png",
+    "source_url": "https://endpoint.gg/",
+    "asset_url": "https://endpoint.gg/assets/endpoint-logo-vertical-white.svg",
+    "checked_at": "2026-10-13"
+  },
+  "FlyQuest": {
+    "aliases": [
+      "Fly Quest"
+    ],
+    "file": "team_flyquest.png",
+    "source_url": "https://flyquest.gg/pages/cs2-roster",
+    "asset_url": "https://flyquest.gg/cdn/shop/files/FlyQuest_favicon_32x32.png?v=1705601428",
+    "checked_at": "2026-10-13"
+  },
+  "Alliance": {
+    "aliases": [
+      "Alliance Esports"
+    ],
+    "file": "team_alliance.png",
+    "source_url": "https://thealliance.gg/about-us/",
+    "asset_url": "https://drive.google.com/uc?export=download&id=1YVMw2U2JMy-02Zd8dMdtlOT5sfz9sTtW",
+    "checked_at": "2026-10-13"
+  },
+  "Monte": {
+    "aliases": [
+      "Monte Esports"
+    ],
+    "file": "monte.png",
+    "source_url": "https://monteesports.com/",
+    "asset_url": "https://monteesports.com/assets/images/LOGO.ico",
+    "checked_at": "2026-10-13"
+  },
+  "9INE": {
+    "aliases": [
+      "9INE Pusulabet",
+      "9ine"
+    ],
+    "file": "9ine.png",
+    "source_url": "https://9ine.gg/",
+    "asset_url": "https://9ine.gg/cdn/shop/t/5/assets/crest.svg?v=10110483794492334271791137067",
+    "checked_at": "2026-10-13"
+  },
+  "BIG": {
+    "aliases": [
+      "BIG Clan",
+      "Berlin International Gaming"
+    ],
+    "file": "big.png",
+    "source_url": "https://bigclan.gg/pages/press-contact",
+    "asset_url": "https://bigclan.gg/cdn/shop/files/big-logo.svg?v=1767095382&width=50",
+    "checked_at": "2026-10-13"
+  },
+  "GamerLegion": {
+    "aliases": [
+      "Gamer Legion",
+      "GL"
+    ],
+    "file": "gamerlegion.png",
+    "source_url": "https://www.gamerlegion.gg/",
+    "asset_url": "https://www.gamerlegion.gg/cdn/shop/files/Core_Logo_White_Black.svg?v=1697103240&width=50",
+    "checked_at": "2026-10-13"
+  },
+  "G2 Esports": {
+    "aliases": [
+      "G2"
+    ],
+    "file": "g2.png",
+    "source_url": "https://g2esports.com/pages/brand-guidelines",
+    "asset_url": "https://g2esports.com/cdn/shop/files/G2-Esports-2020-Logo_87bf0678-e67f-4834-8b09-e56137ffaa80.png?v=1641913940&width=540",
+    "checked_at": "2026-10-13"
+  },
+  "ENCE": {
+    "aliases": [
+      "ENCE eSports"
+    ],
+    "file": "ence.png",
+    "source_url": "https://ence.gg/pages/media",
+    "asset_url": "https://drive.google.com/uc?export=download&id=15cSLksdpcE5VwupmfKOWmkMWgvQMLSvY",
+    "checked_at": "2026-10-13"
+  },
+  "3DMAX": {
+    "aliases": [
+      "3dmax"
+    ],
+    "file": "3dmax.png",
+    "source_url": "https://3dmax.gg/kits-medias/",
+    "asset_url": "https://3dmax.gg/wp-content/uploads/2024/11/Logo-3DMAX-2024-Fond-Transparent-PNG.png",
+    "checked_at": "2026-10-13"
+  },
+  "SINNERS Esports": {
+    "aliases": [
+      "SINNERS",
+      "Sinners"
+    ],
+    "file": "sinners.png",
+    "source_url": "https://www.sinners.gg/",
+    "asset_url": "https://www.sinners.gg/images/logo.svg",
+    "checked_at": "2026-10-13"
+  },
+  "Sangal Esports": {
+    "aliases": [
+      "Sangal"
+    ],
+    "file": "sangal.png",
+    "source_url": "https://sangal.gg/",
+    "asset_url": "https://sangal.gg/wp-content/uploads/2023/07/Sangal_black.png",
+    "checked_at": "2026-10-13"
+  },
+  "ECSTATIC": {
+    "aliases": [
+      "Ecstatic"
+    ],
+    "file": "ecstatic.png",
+    "source_url": "https://www.ecstatic.gg/",
+    "asset_url": "https://www-static.ecstatic.gg/wp-content/uploads/2023/05/cropped-Logo_a18b59-270x270.png",
+    "checked_at": "2026-10-13"
+  },
+  "FaZe Clan": {
+    "aliases": [
+      "FaZe",
+      "Faze"
+    ],
+    "file": "faze.png",
+    "source_url": "https://fazeclan.com/pages/about",
+    "asset_url": "https://cdn.shopify.com/s/files/1/0667/9547/1031/files/fcred.png?v=1770238234",
+    "checked_at": "2026-10-13",
+    "selection_note": "官方 FaZe Red 竞技队伍标识"
+  },
+  "Nemiga Gaming": {
+    "aliases": [
+      "Nemiga"
+    ],
+    "file": "nemiga.png",
+    "source_url": "https://nemiga.gg/",
+    "asset_url": "https://nemiga.gg/global/images/logo-new.svg",
+    "checked_at": "2026-10-13"
+  },
+  "Metizport": {
+    "aliases": [],
+    "file": "metizport.png",
+    "source_url": "https://metizport.com/",
+    "asset_url": "https://metizport.com/wp-content/uploads/2025/09/metizport-light.svg",
+    "checked_at": "2026-10-13"
+  },
+  "Dynamo Eclot": {
+    "aliases": [
+      "ECLOT",
+      "Eclot",
+      "Dynamo Eclot Phoenix"
+    ],
+    "file": "eclot.png",
+    "source_url": "https://eclot.eu/",
+    "asset_url": "https://eclot.eu/data/images/media_kit/logo/logo.png",
+    "checked_at": "2026-10-13"
+  },
+  "HOTU": {
+    "aliases": [
+      "HOTU Esports"
+    ],
+    "file": "hotu.png",
+    "source_url": "https://hotu.pro/",
+    "asset_url": "https://static.tildacdn.com/tild3333-6565-4063-a364-613166313661/HOTU_logo_2.png",
+    "checked_at": "2026-10-13"
+  },
+  "Sashi Esport": {
+    "aliases": [
+      "Sashi",
+      "Sashi Esports"
+    ],
+    "file": "sashi.png",
+    "source_url": "https://sashiesport.dk/",
+    "asset_url": "https://sashiesport.dk/wp-content/uploads/2025/11/SASHI_ESPORT_LOGO_CMYK_Blandingsfarve_JANUAR_2023.png",
+    "checked_at": "2026-10-13"
+  },
+  "Acend": {
+    "aliases": [
+      "Acend Club"
+    ],
+    "file": "acend.png",
+    "source_url": "https://www.acendclub.com/",
+    "asset_url": "https://cdn.prod.website-files.com/6459072b85aa7e444a39cecc/645dcdec63fabcb7ab22d658_Logo.svg",
+    "checked_at": "2026-10-13"
+  },
+  "FOKUS": {
+    "aliases": [
+      "FOKUS Clan"
+    ],
+    "file": "fokus.png",
+    "source_url": "https://www.fokusclan.de/",
+    "asset_url": "https://www.fokusclan.de/fokus-logo-square.png",
+    "checked_at": "2026-10-13"
+  },
+  "100 Thieves": {
+    "aliases": [
+      "100T"
+    ],
+    "file": "100-thieves.png",
+    "source_url": "https://cn.100thieves.com/zh?from=global",
+    "asset_url": "https://assets.crossterra.cn/storefronts/8cd5d48b-1a4e-4af6-8b87-848c7c251bc6/logo-1789499488.png",
+    "checked_at": "2026-10-13"
+  },
+  "Johnny Speeds": {
+    "aliases": [],
+    "file": "johnny-speeds.png",
+    "source_url": "https://johnnyspeeds.se/",
+    "asset_url": "https://johnnyspeeds.se/images/showreel/js-monogram.webp",
+    "checked_at": "2026-10-13"
+  },
+  "Gentle Mates": {
+    "aliases": [
+      "GentleMates",
+      "M8"
+    ],
+    "file": "gentle-mates.png",
+    "source_url": "https://www.gentlemates.com/en",
+    "asset_url": "https://www.gentlemates.com/_next/static/media/M8PatchWhite.0jc45mlc~1dj2.png",
+    "checked_at": "2026-10-13"
+  }
+}

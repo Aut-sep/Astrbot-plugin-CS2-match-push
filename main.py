@@ -43,6 +43,7 @@ from .formatters import (
 )
 from .web_panel import WebPanel
 from .plugin_view import PluginView
+from .team_logos import TeamLogoCatalog, normalize_name
 from .banners import BannerRenderer
 from .delivery import DeliveryError, send_target
 
@@ -104,6 +105,7 @@ class CSMatchPlugin(Star):
         self._pending_reschedules: dict = {}
         self._team_image_cache: dict = {}
         self._banner_renderer = BannerRenderer()
+        self.team_logos = TeamLogoCatalog()
         self._background_tasks: set[asyncio.Task] = set()
         self._fetch_schedule_lock = asyncio.Lock()
         self._refresh_requested = False
@@ -623,7 +625,7 @@ class CSMatchPlugin(Star):
                     return
                 followed = self.store.get_followed_team_names()
                 msg = fmt_tournament_announce(tour, followed, announce_hours, is_followed)
-                if await self._deliver_notification(f"tournament:{tid}", lambda: self._push(msg)):
+                if await self._deliver_notification(f"tournament:{tid}", lambda: self._push(msg, teams=tour.get("teams") or [])):
                     self.store.mark_tournament_notified(tid)
                     self.panel.push_log("OK", f"已推送赛事开幕通知：{tour.get('name')} (id={tid})")
                     return
@@ -641,7 +643,7 @@ class CSMatchPlugin(Star):
             return False
         matches = [self._match_with_snapshot_names(m) for m in self._scheduled]
         text = fmt_daily_schedule(matches, followed, days)
-        if not await self._push(text):
+        if not await self._push(text, matches=self._daily_notice_matches(matches, days)):
             return False
         self.panel.push_log("OK", f"立即推送赛程完成，覆盖 {days} 天")
         return True
@@ -962,11 +964,20 @@ class CSMatchPlugin(Star):
                              text_prefix: str = "",
                              test_target: bool = False):
         match = self._match_with_snapshot_names(match)
+        winner = dict(match.get("winner") or {})
+        if winner.get("id") is not None:
+            for slot in match.get("opponents") or []:
+                opponent = (slot or {}).get("opponent") or {}
+                if str(opponent.get("id")) == str(winner["id"]) and opponent.get("name"):
+                    winner["name"] = opponent["name"]
+                    break
+        match["winner"] = winner
         text = fmt_finished(match, followed)
         if text_prefix:
             text = f"{text_prefix}\n{text}"
         return await self._push_notification(
-            text, match=match, center_text=self._get_match_score_text(match),
+            text, match=match, teams=[winner] if winner.get("name") else [],
+            center_text=self._get_match_score_text(match),
             test_target=test_target,
         )
 
@@ -1147,22 +1158,56 @@ class CSMatchPlugin(Star):
                 return chain
             raise
 
-    async def _push(self, text: str, *, match: dict | None = None):
-        return await self._push_notification(text, match=match)
+    def _notice_teams(self, *, match=None, matches=None, teams=None):
+        records = []
+        for raw in ([match] if match is not None else []) + list(matches or []):
+            current = self._match_with_snapshot_names(raw)
+            for idx in range(2):
+                name = team_name(current, idx)
+                try:
+                    opponent = current["opponents"][idx]["opponent"] or {}
+                except (KeyError, IndexError, TypeError):
+                    opponent = {}
+                records.append({**opponent, "name": name})
+        records.extend(teams or [])
+        found, seen = [], set()
+        for raw in records:
+            record = dict(raw) if isinstance(raw, dict) else {"name": str(raw)}
+            name = str(record.get("name") or "").strip()
+            if not name or name == "TBD":
+                continue
+            key = ("id", str(record["id"])) if record.get("id") else ("name", normalize_name(name))
+            if key in seen:
+                continue
+            seen.add(key)
+            record["name"] = name
+            found.append(record)
+        return found
 
-    async def _push_notification(self, text: str, *, match: dict | None = None,
-                                 center_text: str = "VS", test_target: bool = False):
-        """Render the complete notice once, then deliver one image per target."""
-        logo_images, team_names = [], []
-        if match is not None:
-            match = self._match_with_snapshot_names(match)
-            urls = await self._get_match_logo_urls(match)
-            logo_images = await self._download_match_logo_images(urls)
-            team_names = [team_name(match, 0), team_name(match, 1)]
+    async def _resolve_team_marks(self, teams):
+        catalog = getattr(self, "team_logos", None)
+        marks = [{"name": t["name"], "id": t.get("id"),
+                  "image": catalog.get(t["name"]) if catalog else None} for t in teams]
+        semaphore = asyncio.Semaphore(6)
+        async def fallback(index):
+            if marks[index]["image"]:
+                return
+            async with semaphore:
+                try:
+                    url = await self._get_team_logo_url({"opponents": [{"opponent": teams[index]}]}, 0)
+                    marks[index]["image"] = (await self._download_match_logo_images([url]))[0]
+                except Exception as exc:
+                    logger.debug(f"[CS] 战队图标暂不可用：{teams[index]['name']} ({type(exc).__name__})")
+        try:
+            await asyncio.wait_for(asyncio.gather(*(fallback(i) for i in range(len(teams)))), timeout=12)
+        except asyncio.TimeoutError:
+            # The renderer supplies labelled placeholders; delivery stays timely.
+            pass
+        return marks
+
+    def _new_notice_path(self):
         output_dir = Path(self._banner_dir)
         output_dir.mkdir(parents=True, exist_ok=True)
-        # Keep unique files while adapters read them; prune only old generated
-        # notices, never configuration, logos or files used by another send.
         cutoff = time.time() - 7 * 86400
         for old in output_dir.glob("notice_*.png"):
             try:
@@ -1170,16 +1215,78 @@ class CSMatchPlugin(Star):
                     old.unlink()
             except OSError:
                 pass
-        output_path = str(output_dir / f"notice_{uuid4().hex}.png")
+        return str(output_dir / f"notice_{uuid4().hex}.png")
+
+    async def _team_text_components(self, text, marks):
+        _, Plain, Image = self._message_component_types()
+        components = [self._make_plain_component(Plain, text)]
+        if marks:
+            path = await asyncio.to_thread(self._banner_renderer.render_team_strip, marks, self._new_notice_path())
+            image = self._make_image_file_component(Image, path)
+            if image is None:
+                raise DeliveryError("战队图标生成失败，请检查 Pillow 和中文字体")
+            components.append(image)
+        return components
+
+    async def _team_text_result(self, event, text, *, teams=None, matches=None):
+        records = self._notice_teams(teams=teams, matches=matches)
+        if not records:
+            return event.plain_result(text)
+        marks = await self._resolve_team_marks(records)
+        return event.chain_result(await self._team_text_components(text, marks))
+
+    def _daily_notice_matches(self, matches, days):
+        current = now_cst()
+        today = current.date()
+        selected = []
+        for match in matches:
+            if not is_push_ready_match(match):
+                continue
+            try:
+                delta = (parse_dt(sched_str(match)).astimezone(current.tzinfo).date() - today).days
+            except (ValueError, TypeError):
+                continue
+            if 0 <= delta < days:
+                selected.append(match)
+        return selected
+
+    async def _push(self, text: str, *, match=None, matches=None, teams=None):
+        return await self._push_notification(text, match=match, matches=matches, teams=teams)
+
+    async def _push_notification(self, text: str, *, match=None, matches=None, teams=None,
+                                 center_text: str = "VS", test_target: bool = False):
+        """Every team-bearing notice carries official/API marks in either style."""
+        sender = self._push_test_components if test_target else self._push_components
+        if match is not None:
+            match = self._match_with_snapshot_names(match)
+        marks = await self._resolve_team_marks(self._notice_teams(match=match, matches=matches, teams=teams))
+        if not self.store.get("image_push_enabled", True):
+            return await sender(await self._team_text_components(text, marks))
+        names = [team_name(match, 0), team_name(match, 1)] if match is not None else []
+        images = [next((m["image"] for m in marks if m["name"] == name), None) for name in names]
+        start_time = fmt_time(sched_str(match)).rsplit(" ", 1)[-1] if match is not None else ""
+        round_winners = None
+        winner_index = None
+        if match is not None and "赛事结果" in text:
+            opponent_ids = [(opp.get("opponent") or {}).get("id") for opp in match.get("opponents", [])[:2]]
+            winner_id = (match.get("winner") or {}).get("id")
+            if winner_id is not None and winner_id in opponent_ids:
+                winner_index = opponent_ids.index(winner_id)
+            round_winners = []
+            for game in sorted(match.get("games") or [], key=lambda game: game.get("position") or 0):
+                if game.get("status") == "not_played":
+                    continue
+                winner_id = (game.get("winner") or {}).get("id")
+                round_winners.append(opponent_ids.index(winner_id) if winner_id is not None and winner_id in opponent_ids else -1)
         path = await asyncio.to_thread(
-            self._banner_renderer.render_notification, text, output_path,
-            logo_images=logo_images, team_names=team_names, center_text=center_text,
+            self._banner_renderer.render_notification, text, self._new_notice_path(),
+            logo_images=images, team_names=names, center_text=center_text,
+            start_time=start_time, team_marks=marks, round_winners=round_winners, winner_index=winner_index,
         )
         _, _, Image = self._message_component_types()
         image = self._make_image_file_component(Image, path)
         if image is None:
             raise DeliveryError("通知图片生成失败，请检查 Pillow 和中文字体")
-        sender = self._push_test_components if test_target else self._push_components
         return await sender([image])
 
     def _get_test_target(self) -> Optional[tuple[str, str]]:
@@ -1200,8 +1307,8 @@ class CSMatchPlugin(Star):
             return "（未配置）"
         return self._format_target_label(*target)
 
-    async def _push_test(self, text: str, *, match: dict | None = None):
-        return await self._push_notification(text, match=match, test_target=True)
+    async def _push_test(self, text: str, *, match=None, matches=None, teams=None):
+        return await self._push_notification(text, match=match, matches=matches, teams=teams, test_target=True)
 
     async def _push_test_components(self, components: list):
         target = self._get_test_target()
@@ -1363,15 +1470,18 @@ class CSMatchPlugin(Star):
             await self._push_test(self._test_prefix(fmt_reschedule(match, old_time, new_time)), match=match)
             return "已发送测试赛程变更通知"
         if action == "开幕":
+            tour = self._build_test_tournament()
             await self._push_test(self._test_prefix(fmt_tournament_announce(
-                self._build_test_tournament(),
+                tour,
                 followed,
                 int(self.store.get("tournament_announce_hours") or 2),
                 False,
-            )))
+            )), teams=tour.get("teams") or [])
             return "已发送测试赛事开幕通知"
         if action == "日报":
-            await self._push_test(self._test_prefix(fmt_daily_schedule([self._build_test_match()], followed, days)))
+            matches = [self._build_test_match()]
+            await self._push_test(self._test_prefix(fmt_daily_schedule(matches, followed, days)),
+                                  matches=self._daily_notice_matches(matches, days))
             return f"已发送测试日报（{days} 天）"
         if action == "全部":
             messages = []
@@ -1385,7 +1495,8 @@ class CSMatchPlugin(Star):
         followed = self.store.get_followed_team_names()
         if not self._scheduled:
             return event.plain_result("📭 当前没有已安排的比赛\n发送 /cs刷新 更新日程")
-        return event.plain_result(fmt_schedule(self._scheduled, followed))
+        return await self._team_text_result(event, fmt_schedule(self._scheduled, followed),
+                                            matches=[m for m in self._scheduled if is_push_ready_match(m)])
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs刷新")
@@ -1467,8 +1578,8 @@ class CSMatchPlugin(Star):
             if not exact and len(results) > 1:
                 others = "、".join(t.get("name","") for t in results[1:4])
                 msg += f"\n\n💡 搜索还匹配到：{others}\n如需精确选择请使用 Web 面板"
-            return event.plain_result(msg)
-        return event.plain_result(f"ℹ️ 已经关注过 {tname} 了")
+            return await self._team_text_result(event, msg, teams=([team, *results[1:4]] if not exact and len(results) > 1 else [team]))
+        return await self._team_text_result(event, f"ℹ️ 已经关注过 {tname} 了", teams=[team])
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs取消")
@@ -1479,7 +1590,7 @@ class CSMatchPlugin(Star):
             if not teams:
                 return event.plain_result("当前没有关注任何战队")
             lines = "\n".join(f"  {i+1}. {t['name']} (ID:{t['id']})" for i, t in enumerate(teams))
-            return event.plain_result(f"用法：/cs取消 <战队名>\n\n当前关注：\n{lines}")
+            return await self._team_text_result(event, f"用法：/cs取消 <战队名>\n\n当前关注：\n{lines}", teams=teams)
 
         # 按名称在关注列表里找（支持部分匹配）
         teams = self.store.get_followed_teams()
@@ -1488,15 +1599,15 @@ class CSMatchPlugin(Star):
             return event.plain_result(f"ℹ️ 没有关注过包含「{name}」的战队")
         if len(matched) > 1:
             lines = "\n".join(f"  · {t['name']} (ID:{t['id']})" for t in matched)
-            return event.plain_result(f"找到多个匹配，请使用 Web 面板精确取消关注：\n{lines}")
+            return await self._team_text_result(event, f"找到多个匹配，请使用 Web 面板精确取消关注：\n{lines}", teams=matched)
 
         team = matched[0]
         removed = (self.store.unfollow_team(team["id"]) if team.get("id") is not None
                    else self.store.unfollow_team_by_name(team["name"]))
         if removed:
             self._create_background_task(self._fetch_and_schedule(), "cmd_unfollow")
-            return event.plain_result(
-                f"✅ 已取消关注：{team['name']}\n正在刷新日程，该战队独有赛事将从推送中移除"
+            return await self._team_text_result(event,
+                f"✅ 已取消关注：{team['name']}\n正在刷新日程，该战队独有赛事将从推送中移除", teams=[team]
             )
         return event.plain_result(f"ℹ️ 取消关注失败")
 
@@ -1509,7 +1620,7 @@ class CSMatchPlugin(Star):
             f"  · {t['name']}" + (f" (ID:{t['id']})" if t.get('id') else " (旧版)")
             for t in teams
         )
-        return event.plain_result(f"⭐ 已关注的战队（{len(teams)} 支）：\n{lines}")
+        return await self._team_text_result(event, f"⭐ 已关注的战队（{len(teams)} 支）：\n{lines}", teams=teams)
 
     @filter.command("cs状态")
     async def cmd_status(self, event: AstrMessageEvent) -> MessageEventResult:
@@ -1526,7 +1637,7 @@ class CSMatchPlugin(Star):
         follow_str = "、".join(t["name"] for t in teams) if teams else "（无）"
         tier_str   = "、".join(t.upper() for t in tiers)
         ta_str     = f"✅ 开启（提前 {ta_hours} 小时）" if ta_enabled else "❌ 关闭"
-        image_str  = "🖼️ 完整图片"
+        image_str  = "🖼️ 完整图片" if self.store.get("image_push_enabled", True) else "📝 文字"
         test_str   = "✅ 已开启" if test_mode else "❌ 已关闭"
 
         return event.plain_result(
@@ -1694,7 +1805,8 @@ class CSMatchPlugin(Star):
             days     = int(self.store.get("daily_push_days") or 1)
             followed = self.store.get_followed_team_names()
             text     = fmt_daily_schedule(self._scheduled, followed, days)
-            return event.plain_result(text)
+            return await self._team_text_result(event, text,
+                                                matches=self._daily_notice_matches(self._scheduled, days))
 
         # /cs日报 时间 HH:MM [HH:MM ...]
         if arg.startswith("时间"):

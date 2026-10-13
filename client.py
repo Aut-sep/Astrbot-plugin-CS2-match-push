@@ -9,6 +9,7 @@ from email.utils import parsedate_to_datetime
 import aiohttp
 
 from astrbot.api import logger
+from .team_search import TeamSearch
 
 API_BASE = "https://api.pandascore.co"
 
@@ -22,6 +23,7 @@ class PandaScoreClient:
         self._timeout = aiohttp.ClientTimeout(total=20)
         self._session: aiohttp.ClientSession | None = None
         self._session_lock = asyncio.Lock()
+        self.team_search = TeamSearch(self._search_teams_raw)
 
     async def _get_session(self) -> aiohttp.ClientSession:
         """获取或创建复用的 ClientSession"""
@@ -153,7 +155,10 @@ class PandaScoreClient:
             page += 1
 
     async def search_teams(self, query: str, per_page: int = 20) -> list:
-        """按名称搜索 CS2 战队，返回精确匹配列表"""
+        """Search aliases, Chinese nicknames and typos; prefer main rosters."""
+        return await self.team_search.search(query, per_page)
+
+    async def _search_teams_raw(self, query: str, per_page: int = 20) -> list:
         result = await self._request(
             f"{API_BASE}/csgo/teams",
             {"search[name]": query, "per_page": per_page, "sort": "name"},

@@ -41,5 +41,11 @@
     "type": "int",
     "hint": "拉取未来 N 天内的比赛，建议 2",
     "default": 2
+  },
+  "image_push_enabled": {
+    "description": "图片推送",
+    "type": "bool",
+    "hint": "默认开启，所有赛事通知渲染成带队标的图片；关闭时发送文字、可点击直播链接和紧凑战队图标条。",
+    "default": true
   }
 }

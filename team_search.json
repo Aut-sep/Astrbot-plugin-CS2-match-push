@@ -1,0 +1,1265 @@
+{
+  "teams": {
+    "9z": {
+      "aliases": [
+        "9z Team",
+        "9z Globant"
+      ],
+      "sources": [
+        {
+          "title": "9z official team/brand page",
+          "url": "https://9z.gg/"
+        }
+      ],
+      "query": "9z",
+      "id": 126709,
+      "name": "9z",
+      "slug": "9z",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/126709/9z_team_2024_lightmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 30
+    },
+    "Legacy": {
+      "aliases": [
+        "Legacy Esports"
+      ],
+      "sources": [
+        {
+          "title": "Legacy official team/brand page",
+          "url": "https://www.teamlegacy.gg/"
+        }
+      ],
+      "query": "Legacy",
+      "id": 133708,
+      "name": "Legacy",
+      "slug": "legacy-48cb0f61-07e7-4b0d-85a0-5f837e29c807",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/133708/593px_legacy_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 19
+    },
+    "Natus Vincere": {
+      "aliases": [
+        "NAVI",
+        "NaVi",
+        "Na'Vi"
+      ],
+      "sources": [
+        {
+          "title": "Natus Vincere official team/brand page",
+          "url": "https://navi.gg/en"
+        },
+        {
+          "title": "维基百科：Natus Vincere 简称 NAVI",
+          "url": "https://zh.wikipedia.org/wiki/Natus_Vincere"
+        }
+      ],
+      "query": "Natus Vincere",
+      "id": 3216,
+      "name": "Natus Vincere",
+      "slug": "natus-vincere-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3216/1022px_natus_vincere_2021_lightmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 2,
+      "display_name": "NAVI"
+    },
+    "MOUZ": {
+      "aliases": [
+        "mousesports",
+        "Mouse Sports",
+        "Mouz",
+        "老鼠"
+      ],
+      "sources": [
+        {
+          "title": "MOUZ official team/brand page",
+          "url": "https://mousesports.com/"
+        },
+        {
+          "title": "绿龙是哪个战队？（提及中文社区称 MOUZ 为“老鼠”）",
+          "url": "https://www.toutiao.com/article/7658673155061334537/"
+        }
+      ],
+      "query": "MOUZ",
+      "id": 3240,
+      "name": "MOUZ",
+      "slug": "mousesports-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3240/208px_mouz_2021_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "display_name": "MOUZ · 老鼠",
+      "priority": 5
+    },
+    "Eternal Fire": {
+      "aliases": [
+        "Eternal Fire",
+        "EF"
+      ],
+      "sources": [
+        {
+          "title": "Eternal Fire official team/brand page",
+          "url": "https://eternalfire.gg/"
+        }
+      ],
+      "query": "Eternal Fire",
+      "id": 129413,
+      "name": "Eternal Fire",
+      "slug": "eternal-fire",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/129413/800px_eternal_fire_2023_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 17
+    },
+    "FUT Esports": {
+      "aliases": [
+        "FUT",
+        "Futbolist"
+      ],
+      "sources": [
+        {
+          "title": "FUT Esports official team/brand page",
+          "url": "https://futesports.gg/"
+        }
+      ],
+      "query": "FUT Esports",
+      "id": 136955,
+      "name": "FUT Esports",
+      "slug": "fut-esports-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/136955/fut_esportslogo_square.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 25
+    },
+    "OG": {
+      "aliases": [
+        "OG Esports",
+        "OG"
+      ],
+      "sources": [
+        {
+          "title": "OG official team/brand page",
+          "url": "https://ogs.gg/"
+        }
+      ],
+      "query": "OG",
+      "id": 126584,
+      "name": "OG",
+      "slug": "og-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/126584/438px_og_2026_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "B8": {
+      "aliases": [
+        "B8 Esports",
+        "B8"
+      ],
+      "sources": [
+        {
+          "title": "B8 official team/brand page",
+          "url": "https://b8esports.gg/"
+        }
+      ],
+      "query": "B8",
+      "id": 129381,
+      "name": "B8",
+      "slug": "b8-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/129381/b8_lightmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 23
+    },
+    "Team Falcons": {
+      "aliases": [
+        "Falcons",
+        "Falcons Esports",
+        "Falcon",
+        "猎鹰",
+        "法尔孔"
+      ],
+      "sources": [
+        {
+          "title": "Team Falcons official team/brand page",
+          "url": "https://fans.falcons.sa/"
+        },
+        {
+          "title": "游民星空：CAC现场称 Falcons 为“猎鹰”",
+          "url": "https://wap.gamersky.com/news/Content-2145507.html"
+        },
+        {
+          "title": "直播吧：Falcons（又称“猎鹰”）",
+          "url": "https://m.zhibo8.com/news/web/other/2024-07-07/6683f1a5711d1native.htm"
+        }
+      ],
+      "query": "Team Falcons",
+      "id": 130564,
+      "name": "Team Falcons",
+      "slug": "falcons-esports",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/130564/team_falconslogo_square.png",
+      "identity_checked_at": "2026-10-13",
+      "display_name": "Falcons · 猎鹰",
+      "priority": 7
+    },
+    "Astralis": {
+      "aliases": [
+        "A队"
+      ],
+      "sources": [
+        {
+          "title": "Astralis official team/brand page",
+          "url": "https://astralis.gg/"
+        },
+        {
+          "title": "游戏狂：《CS2》职业战队A队全称介绍",
+          "url": "https://gamemad.com/guide/357659"
+        }
+      ],
+      "query": "Astralis",
+      "id": 3209,
+      "name": "Astralis",
+      "slug": "astralis",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3209/ASTRALIS.png",
+      "identity_checked_at": "2026-10-13",
+      "display_name": "Astralis · A队",
+      "priority": 11
+    },
+    "Team Liquid": {
+      "aliases": [
+        "Liquid",
+        "TL",
+        "液体"
+      ],
+      "sources": [
+        {
+          "title": "Team Liquid official team/brand page",
+          "url": "https://teamliquid.com/"
+        },
+        {
+          "title": "中文社区常用队伍称呼讨论（提及“液体”）",
+          "url": "https://www.toutiao.com/article/7658673155061334537/"
+        }
+      ],
+      "query": "Liquid",
+      "id": 3213,
+      "name": "Liquid",
+      "slug": "liquid-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3213/463px_team_liquid_2024_full_lightmode.png",
+      "identity_checked_at": "2026-10-13",
+      "display_name": "Liquid · 液体",
+      "priority": 12
+    },
+    "BetBoom Team": {
+      "aliases": [
+        "BetBoom",
+        "BB Team"
+      ],
+      "sources": [
+        {
+          "title": "BetBoom Team official team/brand page",
+          "url": "https://betboom.team/"
+        }
+      ],
+      "query": "BetBoom Team",
+      "id": 133458,
+      "name": "BetBoom Team",
+      "slug": "betboom-team-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/133458/bet_boom_team_2024_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 22
+    },
+    "PARIVISION": {
+      "aliases": [
+        "Parivision",
+        "PV",
+        "PVISION"
+      ],
+      "sources": [
+        {
+          "title": "PARIVISION official team/brand page",
+          "url": "https://parivision.gg/"
+        },
+        {
+          "title": "Liquipedia：PARIVISION 团队别称（PVISION）",
+          "url": "https://liquipedia.net/dota2/PARIVISION"
+        }
+      ],
+      "query": "PARIVISION",
+      "id": 133719,
+      "name": "PARIVISION",
+      "slug": "parivision",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/133719/250px_parivision_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 18,
+      "display_name": "PARIVISION · PV"
+    },
+    "Aurora Gaming": {
+      "aliases": [
+        "Aurora"
+      ],
+      "sources": [
+        {
+          "title": "Aurora Gaming official team/brand page",
+          "url": "https://auroragg.my/"
+        }
+      ],
+      "query": "Aurora Gaming",
+      "id": 131505,
+      "name": "Aurora Gaming",
+      "slug": "aurora-gaming",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/131505/600px_aurora_gaming_2025_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 10
+    },
+    "HEROIC": {
+      "aliases": [
+        "Heroic"
+      ],
+      "sources": [
+        {
+          "title": "HEROIC official team/brand page",
+          "url": "https://heroic.gg/"
+        }
+      ],
+      "query": "Heroic",
+      "id": 3246,
+      "name": "Heroic",
+      "slug": "heroic",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3246/680px_heroic_2023_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 14
+    },
+    "Team Spirit": {
+      "aliases": [
+        "Spirit",
+        "绿龙",
+        "雪碧"
+      ],
+      "sources": [
+        {
+          "title": "Team Spirit official team/brand page",
+          "url": "https://teamspirit.gg/"
+        },
+        {
+          "title": "游侠网：Spirit“绿龙”外号由来",
+          "url": "https://3g.ali213.net/gl/html/1204643.html"
+        },
+        {
+          "title": "搜搜游戏：Spirit“绿龙”与“雪碧队”称呼",
+          "url": "https://www.yxss.com/gl/22104.html"
+        }
+      ],
+      "query": "Spirit",
+      "id": 124523,
+      "name": "Spirit",
+      "slug": "spirit",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/124523/153px_team_spirit_2022_lightmode.png",
+      "identity_checked_at": "2026-10-13",
+      "display_name": "Spirit · 绿龙",
+      "priority": 4
+    },
+    "Fnatic": {
+      "aliases": [
+        "FNC"
+      ],
+      "sources": [
+        {
+          "title": "Fnatic official team/brand page",
+          "url": "https://fnatic.com/"
+        }
+      ],
+      "query": "fnatic",
+      "id": 3217,
+      "name": "fnatic",
+      "slug": "fnatic-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3217/1199px_fnatic_2020_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 31
+    },
+    "Ninjas in Pyjamas": {
+      "aliases": [
+        "NIP",
+        "NiP",
+        "Ninjas in Pyjamas"
+      ],
+      "sources": [
+        {
+          "title": "Ninjas in Pyjamas official team/brand page",
+          "url": "https://nip.gl/pages/brand"
+        }
+      ],
+      "query": "NIP",
+      "id": 3218,
+      "name": "NIP",
+      "slug": "nip",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3218/600px_ninjas_in_pyjamas_2021_lightmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 13
+    },
+    "Team Vitality": {
+      "aliases": [
+        "Vitality",
+        "VIT",
+        "小蜜蜂"
+      ],
+      "sources": [
+        {
+          "title": "Team Vitality official team/brand page",
+          "url": "https://news.vitality.gg/"
+        },
+        {
+          "title": "电玩巴士：Vitality-CS2战队被称为“小蜜蜂”",
+          "url": "https://m.tgbus.com/news/229162"
+        }
+      ],
+      "query": "Vitality",
+      "id": 3455,
+      "name": "Vitality",
+      "slug": "vitality-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3455/team_vitalitylogo_square.png",
+      "identity_checked_at": "2026-10-13",
+      "display_name": "Vitality · 小蜜蜂",
+      "priority": 1
+    },
+    "FURIA": {
+      "aliases": [
+        "FURIA Esports",
+        "Furia Esports",
+        "FURIA",
+        "黑豹"
+      ],
+      "sources": [
+        {
+          "title": "FURIA official team/brand page",
+          "url": "https://sites.google.com/furia.gg/furia-esports/our-teams/people-and-culture"
+        },
+        {
+          "title": "Furia 中文通称",
+          "url": "https://zh.wikipedia.org/wiki/Furia_Esports"
+        }
+      ],
+      "query": "FURIA",
+      "id": 124530,
+      "name": "FURIA",
+      "slug": "furia",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/124530/8297.png",
+      "identity_checked_at": "2026-10-13",
+      "display_name": "FURIA · 黑豹",
+      "priority": 8
+    },
+    "paiN Gaming": {
+      "aliases": [
+        "paiN",
+        "Pain Gaming",
+        "Pain"
+      ],
+      "sources": [
+        {
+          "title": "paiN Gaming official team/brand page",
+          "url": "https://www.pain.gg/"
+        }
+      ],
+      "query": "paiN",
+      "id": 125751,
+      "name": "paiN",
+      "slug": "pain-gaming-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/125751/800px_pai_n_gaming_2023_lightmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 20
+    },
+    "MIBR": {
+      "aliases": [
+        "Made in Brazil"
+      ],
+      "sources": [
+        {
+          "title": "MIBR official team/brand page",
+          "url": "https://mibr.gg/"
+        }
+      ],
+      "query": "MIBR",
+      "id": 3250,
+      "name": "MIBR",
+      "slug": "mibr",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3250/600px_mibr_2018.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 21
+    },
+    "RED Canids": {
+      "aliases": [
+        "RED Canids Kalunga",
+        "RED"
+      ],
+      "sources": [
+        {
+          "title": "RED Canids official team/brand page",
+          "url": "https://redcanids.com.br/"
+        }
+      ],
+      "query": "RED Canids",
+      "id": 126227,
+      "name": "RED Canids",
+      "slug": "red-canids-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/126227/red-canids-cs-go.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "Wildcard": {
+      "aliases": [
+        "Wildcard Gaming"
+      ],
+      "sources": [
+        {
+          "title": "Wildcard official team/brand page",
+          "url": "https://www.wildcard.gg/"
+        }
+      ],
+      "query": "Wildcard",
+      "id": 135273,
+      "name": "Wildcard",
+      "slug": "wildcard",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/135273/188px_wildcard_2024_lightmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "M80": {
+      "aliases": [
+        "M80"
+      ],
+      "sources": [
+        {
+          "title": "M80 official team/brand page",
+          "url": "https://m80.gg/"
+        }
+      ],
+      "query": "M80",
+      "id": 133435,
+      "name": "M80",
+      "slug": "m80-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/133435/788px_m80_2023_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "DENDELE CS": {
+      "aliases": [
+        "DENDELE",
+        "Sharks Esports",
+        "Sharks"
+      ],
+      "sources": [
+        {
+          "title": "DENDELE CS official team/brand page",
+          "url": "https://www.dendele.com.br/"
+        }
+      ],
+      "query": "DENDELE CS",
+      "id": 138988,
+      "name": "DENDELE CS",
+      "slug": "dendele-cs",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/138988/454px_dendele_cs_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "Complexity": {
+      "aliases": [
+        "compLexity",
+        "coL",
+        "Complexity Gaming",
+        "COL"
+      ],
+      "sources": [
+        {
+          "title": "Complexity official team/brand page",
+          "url": "https://complexity.gg/"
+        }
+      ],
+      "query": "Complexity",
+      "id": 3310,
+      "name": "Complexity",
+      "slug": "complexity",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3310/600px_complexity_2025_full_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "NRG": {
+      "aliases": [
+        "NRG Esports",
+        "NRG"
+      ],
+      "sources": [
+        {
+          "title": "NRG official team/brand page",
+          "url": "https://nrg.gg/"
+        }
+      ],
+      "query": "NRG",
+      "id": 3256,
+      "name": "NRG",
+      "slug": "nrg",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3256/1199px_nrg_2024_lightmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 29
+    },
+    "The Huns": {
+      "aliases": [
+        "Huns Esports",
+        "The Huns Esports",
+        "Huns"
+      ],
+      "sources": [
+        {
+          "title": "The Huns official team/brand page",
+          "url": "https://www.thehuns.gg/en"
+        }
+      ],
+      "query": "The Huns Esports",
+      "id": 133900,
+      "name": "The Huns Esports",
+      "slug": "the-huns-esports",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/133900/543px_the_huns_esports_2025_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "HAVU": {
+      "aliases": [
+        "HAVU Gaming",
+        "HAVU"
+      ],
+      "sources": [
+        {
+          "title": "HAVU official team/brand page",
+          "url": "https://shop.havu.gg/pages/brand-kit"
+        }
+      ],
+      "query": "HAVU",
+      "id": 125774,
+      "name": "HAVU",
+      "slug": "havu",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/125774/606px_havu_2025_full_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "Virtus.pro": {
+      "aliases": [
+        "VP",
+        "Virtus Pro"
+      ],
+      "sources": [
+        {
+          "title": "Virtus.pro official team/brand page",
+          "url": "https://virtus.pro/about"
+        }
+      ],
+      "query": "Virtus.pro",
+      "id": 3288,
+      "name": "Virtus.pro",
+      "slug": "virtus-pro-75b4744b-43d9-4ebd-a8dc-f1e0f9be69b3",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3288/600px_virtus.pro_2019.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 15
+    },
+    "Rebels": {
+      "aliases": [
+        "Rebels Gaming",
+        "RBLS"
+      ],
+      "sources": [
+        {
+          "title": "Rebels official team/brand page",
+          "url": "https://rebelsgaming.gg/"
+        }
+      ],
+      "query": "Rebels Gaming",
+      "id": 134251,
+      "name": "Rebels Gaming",
+      "slug": "rebels-gaming-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/134251/800px_rebels_gaming_2021_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "Endpoint": {
+      "aliases": [
+        "Endpoint Esports",
+        "Team Endpoint",
+        "Endpoint"
+      ],
+      "sources": [
+        {
+          "title": "Endpoint official team/brand page",
+          "url": "https://endpoint.gg/"
+        }
+      ],
+      "query": "Endpoint",
+      "id": 126507,
+      "name": "Endpoint",
+      "slug": "endpoint",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/126507/7234.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "FlyQuest": {
+      "aliases": [
+        "Fly Quest",
+        "FQ"
+      ],
+      "sources": [
+        {
+          "title": "FlyQuest official team/brand page",
+          "url": "https://flyquest.gg/pages/cs2-roster"
+        }
+      ],
+      "query": "FlyQuest",
+      "id": 134746,
+      "name": "FlyQuest",
+      "slug": "flyquest-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/134746/fly_questlogo_square.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "Alliance": {
+      "aliases": [
+        "Alliance Esports",
+        "Alliance"
+      ],
+      "sources": [
+        {
+          "title": "Alliance official team/brand page",
+          "url": "https://thealliance.gg/about-us/"
+        }
+      ],
+      "query": "Alliance",
+      "id": 133725,
+      "name": "Alliance",
+      "slug": "alliance-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/133725/285px_alliance_2024_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "Monte": {
+      "aliases": [
+        "Monte Esports",
+        "Monte"
+      ],
+      "sources": [
+        {
+          "title": "Monte official team/brand page",
+          "url": "https://monteesports.com/"
+        }
+      ],
+      "query": "Monte",
+      "id": 131441,
+      "name": "Monte",
+      "slug": "monte",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/131441/633px_monte_2022_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "9INE": {
+      "aliases": [
+        "9INE Pusulabet",
+        "9ine"
+      ],
+      "sources": [
+        {
+          "title": "9INE official team/brand page",
+          "url": "https://9ine.gg/"
+        }
+      ],
+      "query": "9INE",
+      "id": 126408,
+      "name": "9INE",
+      "slug": "9ine",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/126408/600px_9_ine_2022_lightmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "BIG": {
+      "aliases": [
+        "BIG Clan",
+        "Berlin International Gaming",
+        "BIG"
+      ],
+      "sources": [
+        {
+          "title": "BIG official team/brand page",
+          "url": "https://bigclan.gg/pages/press-contact"
+        }
+      ],
+      "query": "BIG",
+      "id": 3249,
+      "name": "BIG",
+      "slug": "big",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3249/600px_big_2020_lightmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 32
+    },
+    "GamerLegion": {
+      "aliases": [
+        "Gamer Legion",
+        "GL"
+      ],
+      "sources": [
+        {
+          "title": "GamerLegion official team/brand page",
+          "url": "https://www.gamerlegion.gg/"
+        }
+      ],
+      "query": "GamerLegion",
+      "id": 125847,
+      "name": "GamerLegion",
+      "slug": "gamerlegion",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/125847/591px_gamer_legion_2026_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 24
+    },
+    "G2 Esports": {
+      "aliases": [
+        "G2"
+      ],
+      "sources": [
+        {
+          "title": "G2 Esports official team/brand page",
+          "url": "https://g2esports.com/pages/brand-guidelines"
+        }
+      ],
+      "query": "G2",
+      "id": 3210,
+      "name": "G2",
+      "slug": "g2",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3210/5995.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 6
+    },
+    "ENCE": {
+      "aliases": [
+        "ENCE eSports",
+        "ENCE"
+      ],
+      "sources": [
+        {
+          "title": "ENCE official team/brand page",
+          "url": "https://ence.gg/pages/media"
+        }
+      ],
+      "query": "ENCE",
+      "id": 3251,
+      "name": "ENCE",
+      "slug": "ence",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3251/755px_ence_2020_full_lightmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 16
+    },
+    "3DMAX": {
+      "aliases": [
+        "3dmax"
+      ],
+      "sources": [
+        {
+          "title": "3DMAX official team/brand page",
+          "url": "https://3dmax.gg/kits-medias/"
+        }
+      ],
+      "query": "3DMAX",
+      "id": 3318,
+      "name": "3DMAX",
+      "slug": "3dmax-82114b24-7e32-42ab-a8ac-b46c77bbd3d2",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3318/654px_3_dmax_2024_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "SINNERS Esports": {
+      "aliases": [
+        "SINNERS",
+        "Sinners"
+      ],
+      "sources": [
+        {
+          "title": "SINNERS Esports official team/brand page",
+          "url": "https://www.sinners.gg/"
+        }
+      ],
+      "query": "Sinners",
+      "id": 127014,
+      "name": "Sinners",
+      "slug": "sinners",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/127014/467px_sinners_esports_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "Sangal Esports": {
+      "aliases": [
+        "Sangal"
+      ],
+      "sources": [
+        {
+          "title": "Sangal Esports official team/brand page",
+          "url": "https://sangal.gg/"
+        }
+      ],
+      "query": "Sangal",
+      "id": 127365,
+      "name": "Sangal",
+      "slug": "sangal",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/127365/sangal.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "ECSTATIC": {
+      "aliases": [
+        "Ecstatic",
+        "ECSTATIC"
+      ],
+      "sources": [
+        {
+          "title": "ECSTATIC official team/brand page",
+          "url": "https://www.ecstatic.gg/"
+        }
+      ],
+      "query": "ECSTATIC",
+      "id": 129856,
+      "name": "ECSTATIC",
+      "slug": "ecstatic",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/129856/600px_ecstatic_2023_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "FaZe Clan": {
+      "aliases": [
+        "FaZe",
+        "Faze"
+      ],
+      "sources": [
+        {
+          "title": "FaZe Clan official team/brand page",
+          "url": "https://fazeclan.com/"
+        }
+      ],
+      "query": "FaZe",
+      "id": 3212,
+      "name": "FaZe",
+      "slug": "faze",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3212/285px_fa_ze_esports_october_2025_lightmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 3
+    },
+    "Nemiga Gaming": {
+      "aliases": [
+        "Nemiga"
+      ],
+      "sources": [
+        {
+          "title": "Nemiga Gaming official team/brand page",
+          "url": "https://nemiga.gg/"
+        }
+      ],
+      "query": "Nemiga",
+      "id": 124522,
+      "name": "Nemiga",
+      "slug": "nemiga",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/124522/NEMIGA.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "Metizport": {
+      "aliases": [
+        "Metizport"
+      ],
+      "sources": [
+        {
+          "title": "Metizport official team/brand page",
+          "url": "https://metizport.com/"
+        }
+      ],
+      "query": "Metizport",
+      "id": 129440,
+      "name": "Metizport",
+      "slug": "metizport",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/129440/900px_metizport_2025_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "Dynamo Eclot": {
+      "aliases": [
+        "ECLOT",
+        "Eclot",
+        "Dynamo Eclot Phoenix"
+      ],
+      "sources": [
+        {
+          "title": "Dynamo Eclot official team/brand page",
+          "url": "https://eclot.eu/"
+        }
+      ],
+      "query": "ECLOT",
+      "priority": 100
+    },
+    "HOTU": {
+      "aliases": [
+        "HOTU Esports",
+        "HOTU"
+      ],
+      "sources": [
+        {
+          "title": "HOTU official team/brand page",
+          "url": "https://hotu.pro/"
+        }
+      ],
+      "query": "HOTU",
+      "id": 130569,
+      "name": "HOTU",
+      "slug": "hotu",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/130569/148px_hotu_2022_lightmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "Sashi Esport": {
+      "aliases": [
+        "Sashi",
+        "Sashi Esports"
+      ],
+      "sources": [
+        {
+          "title": "Sashi Esport official team/brand page",
+          "url": "https://sashiesport.dk/"
+        }
+      ],
+      "query": "Sashi Esport",
+      "id": 131010,
+      "name": "Sashi Esport",
+      "slug": "sashi-esport",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/131010/get_team_logos.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "Acend": {
+      "aliases": [
+        "Acend Club",
+        "Acend"
+      ],
+      "sources": [
+        {
+          "title": "Acend official team/brand page",
+          "url": "https://www.acendclub.com/"
+        }
+      ],
+      "query": "Acend",
+      "id": 137546,
+      "name": "Acend",
+      "slug": "acend-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/137546/800px_acend_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "FOKUS": {
+      "aliases": [
+        "FOKUS Clan",
+        "FOKUS"
+      ],
+      "sources": [
+        {
+          "title": "FOKUS official team/brand page",
+          "url": "https://www.fokusclan.de/"
+        }
+      ],
+      "query": "FOKUS",
+      "id": 137699,
+      "name": "FOKUS",
+      "slug": "fokus-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/137699/442px_fokus_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "100 Thieves": {
+      "aliases": [
+        "100T"
+      ],
+      "sources": [
+        {
+          "title": "100 Thieves official team/brand page",
+          "url": "https://cn.100thieves.com/zh?from=global"
+        }
+      ],
+      "query": "100 Thieves",
+      "id": 126452,
+      "name": "100 Thieves",
+      "slug": "100-thieves-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/126452/8474.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "Johnny Speeds": {
+      "aliases": [
+        "Johnny Speeds"
+      ],
+      "sources": [
+        {
+          "title": "Johnny Speeds official team/brand page",
+          "url": "https://johnnyspeeds.se/"
+        }
+      ],
+      "query": "Johnny Speeds",
+      "id": 134188,
+      "name": "Johnny Speeds",
+      "slug": "johnny-speeds",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/134188/190px_johnny_speeds_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "Gentle Mates": {
+      "aliases": [
+        "GentleMates",
+        "M8"
+      ],
+      "sources": [
+        {
+          "title": "Gentle Mates official team/brand page",
+          "url": "https://www.gentlemates.com/en"
+        }
+      ],
+      "query": "Gentle Mates",
+      "id": 137296,
+      "name": "Gentle Mates",
+      "slug": "gentle-mates-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/137296/600px_gentle_mates_lightmode_2024.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "The MongolZ": {
+      "aliases": [
+        "MongolZ",
+        "TheMongolz",
+        "蒙古队",
+        "蒙古"
+      ],
+      "sources": [
+        {
+          "title": "亚洲参赛队伍名称与简称",
+          "url": "https://m.hupu.com/bbs/625824664.html"
+        }
+      ],
+      "query": "TheMongolz",
+      "id": 3272,
+      "name": "TheMongolz",
+      "slug": "themongolz",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3272/702px_the_mongol_z_2024_03_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "display_name": "The MongolZ · 蒙古队",
+      "priority": 9
+    },
+    "TYLOO": {
+      "aliases": [
+        "TyLoo",
+        "天禄"
+      ],
+      "sources": [
+        {
+          "title": "亚洲参赛队伍名称与简称",
+          "url": "https://m.hupu.com/bbs/625824664.html"
+        },
+        {
+          "title": "天禄电子竞技俱乐部",
+          "url": "https://zh.wikipedia.org/wiki/天禄电子竞技俱乐部"
+        }
+      ],
+      "query": "TYLOO",
+      "id": 3248,
+      "name": "TYLOO",
+      "slug": "tyloo-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3248/TYLOO.png",
+      "identity_checked_at": "2026-10-13",
+      "display_name": "TYLOO · 天禄",
+      "priority": 26
+    },
+    "Lynn Vision": {
+      "aliases": [
+        "Lynn Vision Gaming",
+        "LV",
+        "LVG"
+      ],
+      "sources": [
+        {
+          "title": "亚洲参赛队伍名称与简称",
+          "url": "https://m.hupu.com/bbs/625824664.html"
+        }
+      ],
+      "query": "Lynn Vision",
+      "id": 126439,
+      "name": "Lynn Vision",
+      "slug": "lynn-vision",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/126439/800px_lynn_vision_gaming_2024_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 27,
+      "display_name": "Lynn Vision · LVG"
+    },
+    "Rare Atom": {
+      "aliases": [
+        "RA"
+      ],
+      "sources": [
+        {
+          "title": "亚洲参赛队伍名称与简称",
+          "url": "https://m.hupu.com/bbs/625824664.html"
+        }
+      ],
+      "query": "Rare Atom",
+      "id": 130329,
+      "name": "Rare Atom",
+      "slug": "rare-atom-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/130329/162px_rare_atom_allmode.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 28
+    },
+    "Luminosity": {
+      "aliases": [
+        "Luminosity Gaming",
+        "LG"
+      ],
+      "sources": [],
+      "query": "Luminosity",
+      "id": 3228,
+      "name": "Luminosity",
+      "slug": "luminosity-cs-go",
+      "image_url": "https://cdn-api.pandascore.co/images/team/image/3228/LUMINOSITY.png",
+      "identity_checked_at": "2026-10-13",
+      "priority": 100
+    },
+    "Inner Circle": {
+      "aliases": [
+        "IC"
+      ],
+      "sources": [],
+      "query": "Inner Circle",
+      "priority": 100
+    }
+  },
+  "featured": {
+    "teams": [
+      "Team Vitality",
+      "Natus Vincere",
+      "FaZe Clan",
+      "Team Spirit",
+      "MOUZ",
+      "G2 Esports",
+      "Team Falcons",
+      "FURIA",
+      "The MongolZ",
+      "Aurora Gaming",
+      "Astralis",
+      "Team Liquid",
+      "Ninjas in Pyjamas",
+      "HEROIC",
+      "Virtus.pro",
+      "ENCE",
+      "Eternal Fire",
+      "PARIVISION",
+      "Legacy",
+      "paiN Gaming",
+      "MIBR",
+      "BetBoom Team",
+      "B8",
+      "GamerLegion",
+      "FUT Esports",
+      "TYLOO",
+      "Lynn Vision",
+      "Rare Atom",
+      "NRG",
+      "9z",
+      "Fnatic",
+      "BIG"
+    ]
+  }
+}

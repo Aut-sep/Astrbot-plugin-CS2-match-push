@@ -19,6 +19,7 @@ from yarl import URL
 from astrbot.api import logger
 
 from .config import ConfigError, integer, string, validate_config
+from .client import PandaScoreClient
 from .delivery import DeliveryError
 
 CST = timezone(timedelta(hours=8))
@@ -158,11 +159,13 @@ class WebPanel:
         a = self.app.router
         a.add_get("/",                          self.index)
         a.add_get("/app.js",                    self.asset)
+        a.add_get("/setup.js",                  self.asset)
         a.add_get("/style.css",                 self.asset)
         a.add_get("/api/config",                self.get_config)
         a.add_patch("/api/config",              self.patch_config)
         a.add_get("/api/config/export",         self.export_config)
         a.add_post("/api/config/import",        self.import_config)
+        a.add_post("/api/setup/check",          self.check_setup)
         a.add_get("/api/matches",               self.get_matches)
         a.add_post("/api/refresh",              self.refresh)
         a.add_post("/api/push_now",             self.push_now)
@@ -170,6 +173,7 @@ class WebPanel:
         a.add_post("/api/groups",               self.add_group)
         a.add_delete("/api/groups/{gid}",       self.remove_group)
         a.add_get("/api/teams/search",          self.search_teams)   # 必须在 {name} 之前
+        a.add_get("/api/teams/popular",         self.popular_teams)
         a.add_post("/api/teams",                self.add_team)
         a.add_post("/api/teams/unfollow",       self.remove_team)
         a.add_delete("/api/teams/{name}",       self.remove_team)    # 保留兼容
@@ -207,6 +211,8 @@ class WebPanel:
         data = self.plugin.store.export_all()
         return self._json({"ok": True, "data": data,
                            "token_configured": bool(self.plugin.store.get("pandascore_token")),
+                           "team_logos": getattr(getattr(self.plugin, "team_logos", None), "web_images", {}),
+                           "team_logo_dark_names": getattr(getattr(self.plugin, "team_logos", None), "web_dark_names", []),
                            "web_token_configured": bool(self.plugin.store.get("web_panel_token")),
                            "embedded_available": bool(getattr(self.plugin, "embedded_available", False))})
 
@@ -253,6 +259,64 @@ class WebPanel:
 
     async def get_matches(self, req):
         return self._json({"ok": True, "matches": self.plugin.get_panel_matches()})
+
+    async def check_setup(self, req):
+        """Check candidate/saved PandaScore credentials without changing config."""
+        body = await self._body(req, allow_empty=True)
+        candidate = body.get("pandascore_token")
+        if candidate is not None and not isinstance(candidate, str):
+            raise ConfigError("pandascore_token 必须是字符串")
+        token = candidate.strip() if isinstance(candidate, str) and candidate.strip() else ""
+        source = {"ok": False, "message": "请填写 PandaScore Token，或先在插件配置中保存 Token。"}
+        if not token:
+            token = str(self.plugin.store.get("pandascore_token") or "").strip()
+
+        if token:
+            client = PandaScoreClient(token)
+            try:
+                matches = await asyncio.wait_for(
+                    client.get_upcoming_matches(per_page=1), timeout=15,
+                )
+                if matches is None:
+                    source = {
+                        "ok": False,
+                        "message": "PandaScore 验证失败，请检查 Token 是否有效及服务器网络是否可访问。",
+                    }
+                else:
+                    source = {"ok": True, "message": "PandaScore 连接正常。"}
+            except asyncio.TimeoutError:
+                source = {
+                    "ok": False,
+                    "message": "PandaScore 请求超时，请检查服务器网络后重试。",
+                }
+            except Exception:
+                # Do not expose exception text: request/client errors can include
+                # URLs or other details, and candidate tokens must stay private.
+                source = {
+                    "ok": False,
+                    "message": "PandaScore 检查失败，请检查 Token 和服务器网络后重试。",
+                }
+            finally:
+                await client.close()
+
+        groups = self.plugin.store.get("push_groups")
+        group_count = len(groups) if isinstance(groups, (list, tuple)) else 0
+        group_ok = group_count > 0
+        group_status = {
+            "ok": group_ok,
+            "count": group_count,
+            "message": "已配置推送群。" if group_ok else "尚未配置推送群，请添加接收比赛通知的群。",
+        }
+        platform_status = {
+            "ok": None,
+            "message": "请在 AstrBot 确认机器人已连接，并且已加入接收群。",
+        }
+        return self._json({
+            "ok": True,
+            "source": source,
+            "groups": group_status,
+            "platform": platform_status,
+        })
 
     async def refresh(self, req):
         self.plugin.schedule_refresh("web_refresh")
@@ -338,12 +402,13 @@ class WebPanel:
     async def search_teams(self, req):
         """搜索战队，返回精确列表供前端展示"""
         q = req.rel_url.query.get("q", "").strip()
-        if len(q) < 2:
-            return self._json({"ok": False, "msg": "query too short"}, 400)
+        if not q or len(q) > 80:
+            return self._json({"ok": False, "msg": "请输入 1–80 个字符的战队名称或别称"}, 400)
         results = await self.plugin.client.search_teams(q, per_page=15)
         teams = [
             {"id": t.get("id"), "name": t.get("name"), "slug": t.get("slug"),
-             "image_url": t.get("image_url")}
+             "image_url": t.get("image_url"), "is_main": bool(t.get("is_main")),
+             "matched_alias": t.get("matched_alias", ""), "match_kind": t.get("match_kind", "")}
             for t in results if t.get("id") and t.get("name")
         ]
         # 标记已关注
@@ -351,6 +416,13 @@ class WebPanel:
         for t in teams:
             t["followed"] = t["id"] in followed_ids
         return self._json({"ok": True, "teams": teams})
+
+    async def popular_teams(self, req):
+        result = self.plugin.client.team_search.popular()
+        followed = self.plugin.store.get_followed_team_ids()
+        for team in result['teams']:
+            team['followed'] = team['id'] in followed
+        return self._json({'ok': True, **result})
 
     async def get_logs(self, req):
         return self._json({"ok": True, "logs": list(self._logs)[-100:]})

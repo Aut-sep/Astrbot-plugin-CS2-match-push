@@ -28,6 +28,60 @@
         </div>
       </header>
       <div id="page-error" class="notice error" role="alert" hidden></div>
+      <section class="card setup-guide" id="setup-guide" aria-labelledby="setup-title">
+        <div class="card-header">
+          <div><h2 id="setup-title">新手引导</h2><p id="setup-summary">先完成必填配置，再按需选择推送方式。</p></div>
+          <button class="button primary" type="button" id="setup-open" disabled>开始配置 / 重新检查</button>
+        </div>
+        <div id="setup-wizard" hidden>
+          <ol class="setup-progress" aria-label="配置进度">
+            <li data-setup-progress="0">1 数据源 <small>必填</small></li>
+            <li data-setup-progress="1">2 接收群 <small>必填</small></li>
+            <li data-setup-progress="2">3 推送方式 <small>可选</small></li>
+            <li data-setup-progress="3">4 检查完成</li>
+          </ol>
+          <div class="setup-heading"><h3 id="setup-step-title" tabindex="-1"></h3><button type="button" class="button ghost" id="setup-close">稍后继续</button></div>
+          <div class="notice error" id="setup-error" role="alert" hidden></div>
+          <form id="setup-source-form" data-setup-step="0">
+            <p>插件需要 PandaScore 提供 CS2 赛程。先连接数据源，再配置接收群。</p>
+            <ol class="setup-instructions"><li>打开 <a href="https://developers.pandascore.co/docs/authentication" target="_blank" rel="noopener noreferrer">PandaScore 官方 Token 说明</a>，从其中的 Dashboard 入口登录或注册。</li><li>在 Dashboard 复制你的 API Token，粘贴到下方。</li><li>点击「验证并保存」。验证失败时，新 Token 不会覆盖原配置。</li></ol>
+            <label class="field">PandaScore Token <span class="setup-required">必填</span><input id="setup-token" type="password" autocomplete="new-password" spellcheck="false" placeholder="粘贴 API Token；已有配置时可留空"><small id="setup-token-hint"></small></label>
+            <p class="setup-note">Token 不在页面回显。只在你点击验证时发送到插件服务器，由服务器连接 PandaScore；无需发送到聊天中。</p>
+            <div class="setup-actions"><button type="submit" id="setup-source-save" class="button primary">验证并保存，下一步</button></div>
+          </form>
+          <form id="setup-group-form" data-setup-step="1" hidden>
+            <p>比赛提醒和赛报会自动发送到你添加的 QQ 群。</p>
+            <ol class="setup-instructions"><li>先在 AstrBot「机器人」页面连接 QQ 机器人，确认机器人在线。</li><li>将机器人加入目标群，在 QQ 群资料中复制群号。</li><li>在下方填写群号并继续。群名称、机器人 QQ 号都不是接收群号。</li></ol>
+            <p id="setup-groups-status" class="notice"></p>
+            <label class="field">接收 QQ 群号 <span class="setup-required">必填</span><input id="setup-group" inputmode="numeric" autocomplete="off" placeholder="例如：123456789；已有接收群时可留空"><small>只需一个群即可开始。更多接收群可在「订阅管理」中添加。</small></label>
+            <div class="setup-actions"><button type="button" data-setup-back class="button">上一步</button><button type="submit" id="setup-group-next" class="button primary">保存接收群，下一步</button></div>
+          </form>
+          <form id="setup-options-form" data-setup-step="2" hidden>
+            <p>以下全部为可选项。保持当前设置即可开始使用，之后可随时调整。</p>
+            <div class="setup-fields">
+              <label class="field">提前几分钟提醒<input type="number" min="1" max="120" required data-setup-key="remind_minutes"><small>比赛开始前提醒一次；单场也可以独立调整。</small></label>
+              <label class="field">推送平台 ID<input type="text" data-setup-key="push_platform_id" placeholder="只有一个 QQ 机器人时留空"><small>多个 QQ 机器人时，填写 AstrBot 中的目标平台 ID。</small></label>
+            </div>
+            <fieldset class="tiers"><legend>推送哪些级别的赛事</legend><label><input type="checkbox" value="s" data-setup-tier>S</label><label><input type="checkbox" value="a" data-setup-tier>A</label><label><input type="checkbox" value="b" data-setup-tier>B</label><label><input type="checkbox" value="c" data-setup-tier>C</label><label><input type="checkbox" value="d" data-setup-tier>D</label><label><input type="checkbox" value="unranked" data-setup-tier>未评级</label></fieldset>
+            <p class="setup-note">新安装默认关注 S、A 级赛事。不关注具体战队也能收到所选级别的比赛；喜欢的队伍可在「订阅管理」中用简称或中文外号搜索关注。</p>
+            <label class="inline-check"><input type="checkbox" data-setup-key="image_push_enabled">图片推送（默认开启，包含队标、赛程和比分）</label>
+            <label class="inline-check"><input type="checkbox" data-setup-key="daily_push_enabled">每天定时发送赛程日报</label>
+            <div class="setup-fields">
+              <label class="field">日报时间（北京时间）<input type="text" id="setup-daily-times" placeholder="08:00, 18:00"><small>24 小时制；多个时间用逗号分隔。</small></label>
+              <label class="field">日报包含未来几天<input type="number" min="1" max="30" required data-setup-key="daily_push_days"><small>1 为今天，2 为今天和明天。</small></label>
+            </div>
+            <p class="setup-note">直播链接、开幕预告、黑名单和更多设置，可在完成后进入「推送设置」或「订阅管理」。</p>
+            <div class="setup-actions"><button type="button" data-setup-back class="button">上一步</button><button type="button" id="setup-options-skip" class="button">保留当前设置</button><button type="submit" id="setup-options-save" class="button primary">保存可选设置，继续</button></div>
+          </form>
+          <div data-setup-step="3" hidden>
+            <p>检查数据源和接收目标。接口能正常连接但暂无赛程，也视为数据源连接成功。</p>
+            <ul id="setup-checks" class="setup-checks" aria-live="polite"></ul>
+            <label class="inline-check"><input type="checkbox" id="setup-bot-confirm">我已确认 QQ 机器人在线，并且已加入接收群。</label>
+            <p class="setup-note">保存的配置已生效。完成后将获取最新赛程，不会发送测试消息。首次安装可在群里发送 <code>/cs比赛</code> 检查查询；自动提醒会在符合推送条件的比赛临近时发送。</p>
+            <div class="setup-actions"><button type="button" data-setup-back class="button">上一步</button><button type="button" id="setup-recheck" class="button">重新检查</button><button type="button" id="setup-finish" class="button primary">完成配置，查看赛程</button></div>
+          </div>
+        </div>
+      </section>
       <nav class="tabs" role="tablist" aria-label="管理页面">
         <button
           id="tab-overview"
@@ -90,7 +144,7 @@
           </div>
         </div>
         <div id="setup-notice" class="notice" hidden>
-          尚未配置 PandaScore Token。请在「高级维护」添加后获取赛程。
+          尚未配置 PandaScore Token。请先完成页面上方的新手引导，或在「高级维护」中填写。
         </div>
         <div class="card">
           <div class="card-header">
@@ -181,14 +235,25 @@
               <input
                 id="team-query"
                 type="search"
-                placeholder="战队名称，例如 NAVI"
+                placeholder="猎鹰 / 小蜜蜂 / PV / NAVI"
                 aria-label="战队名称"
-                minlength="2"
                 required
               /><button class="button" type="submit">搜索</button>
             </form>
             <div id="team-search-results" hidden></div>
             <div id="team-list" class="item-list"></div>
+          </div>
+        </div>
+        <div class="card popular-card">
+          <div class="card-header">
+            <div>
+              <h3>常看战队</h3>
+              <p id="popular-description">主流队伍与热门队伍，选中即可关注。</p>
+            </div>
+            <span class="count" id="popular-count">—</span>
+          </div>
+          <div id="popular-teams" class="popular-grid" aria-live="polite">
+            <div class="empty compact">打开订阅管理后加载常看战队…</div>
           </div>
         </div>
         <form id="subscriptions-form" data-section="subscriptions">
@@ -272,7 +337,7 @@
       <section id="push" role="tabpanel" aria-labelledby="tab-push" hidden>
         <div class="section-heading">
           <h2>让消息在合适的时间到达</h2>
-          <p>统一设置推送时机与日程，所有通知以完整图片发送。</p>
+          <p>统一设置推送时机、日程和消息样式。</p>
         </div>
         <form id="push-form" data-section="push">
           <div class="two-columns">
@@ -299,6 +364,16 @@
                   type="checkbox"
                   role="switch"
                   data-key="reschedule_notify" /></label
+              ><label class="switch-row"
+                ><span
+                  ><strong>图片推送</strong
+                  ><small
+                    >默认开启，发送带队标的完整图片；关闭后发送文字、可点击链接和紧凑战队图标条。</small
+                  ></span
+                ><input
+                  type="checkbox"
+                  role="switch"
+                  data-key="image_push_enabled" /></label
               ><label class="field"
                 >推送平台 ID<input
                   data-key="push_platform_id"

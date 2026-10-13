@@ -193,7 +193,7 @@ def fmt_upcoming(match: dict, remind_min: int, custom_streams: list = None,
     header = "【CS2 赛前提醒 · 关注战队】" if (t1_starred or t2_starred) else "⏰ 【CS2 赛前提醒】"
 
     lines = [
-        f"{header}还有 {remind_min} 分钟开赛！",
+        header,
         "━━━━━━━━━━━━━",
         f"🕒 {sched}",
         f"⚔️  {t1_str}  vs  {t2_str}",

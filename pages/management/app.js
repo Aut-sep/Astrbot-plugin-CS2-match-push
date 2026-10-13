@@ -1,3 +1,4 @@
+import { createSetupGuide } from './setup.js';
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const bridge = window.AstrBotPluginView || window.AstrBotPluginPage;
@@ -5,11 +6,18 @@ const state = {
   config: {},
   matches: [],
   teams: [],
+  searchResultsReady: false,
   ready: false,
   active: "overview",
   dirty: new Set(),
   pending: new Set(),
   tokenConfigured: false,
+  teamLogos: {},
+  teamLogoDarkNames: new Set(),
+  popularTeams: [],
+  popularLoaded: false,
+  popularLoading: false,
+  popularAttempted: false,
 };
 const secretKeys = new Set(["pandascore_token", "web_panel_token"]);
 const escaped = (value) =>
@@ -32,6 +40,7 @@ let sessionToken = "";
 let pollTimer;
 let refreshTimer;
 let searchSequence = 0;
+let setupGuide;
 
 async function api(path, method = "GET", body, query = {}) {
   let result;
@@ -221,6 +230,8 @@ function fillForm(section) {
 async function loadConfig() {
   const result = await api("/api/config");
   state.config = result.data;
+  state.teamLogos = result.team_logos || {};
+  state.teamLogoDarkNames = new Set(result.team_logo_dark_names || []);
   state.tokenConfigured = !!result.token_configured;
   $("#pandascore-secret-hint").textContent = state.tokenConfigured
     ? "已配置。留空保留原 Token；输入新值可替换。"
@@ -233,8 +244,10 @@ async function loadConfig() {
   for (const section of ["subscriptions", "push", "advanced"])
     if (!state.dirty.has(section)) fillForm(section);
   renderSubscriptions();
+  syncTeamFollowedState();
   renderStats();
   updateDirtyIndicators();
+  setupGuide?.sync();
 }
 
 async function saveSection(section, button) {
@@ -285,6 +298,7 @@ const teamName = (match, index) =>
 function teamAvatar(team, name = team?.name || "TBD") {
   const candidates = [
     ...state.teams,
+    ...state.popularTeams,
     ...state.matches.flatMap((match) =>
       (match.opponents || []).map((item) => item.opponent).filter(Boolean),
     ),
@@ -294,10 +308,104 @@ function teamAvatar(team, name = team?.name || "TBD") {
       item.image_url &&
       ((team?.id && item.id === team.id) || item.name === name),
   );
-  const url = String(team?.image_url || known?.image_url || "");
-  const valid = /^https?:\/\//i.test(url);
+  const key = String(name).toLowerCase().replace(/[^a-z0-9]/g, "");
+  const official = state.teamLogos[key];
+  const fallback = String(team?.image_url || known?.image_url || "");
+  const url = official || fallback;
+  const valid = !!official || /^https?:\/\//i.test(url);
   const initials = String(name).slice(0, 2).toUpperCase();
-  return `<span class="team-avatar${valid ? " has-logo" : ""}" aria-hidden="true"><span>${escaped(initials)}</span>${valid ? `<img src="${escaped(url)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : ""}</span>`;
+  return `<span class="team-avatar${valid ? " has-logo" : ""}${official && state.teamLogoDarkNames.has(key) ? " on-dark" : ""}" aria-hidden="true"><span>${escaped(initials)}</span>${valid ? `<img src="${escaped(url)}"${official && /^https?:\/\//i.test(fallback) ? ` data-fallback="${escaped(fallback)}"` : ""} alt="" loading="lazy" referrerpolicy="no-referrer">` : ""}</span>`;
+}
+
+function isTeamFollowed(candidate) {
+  return (state.config.followed_teams || []).some((item) =>
+    typeof item === "string"
+      ? item.toLowerCase() === String(candidate.name || "").toLowerCase()
+      : item.id
+        ? String(item.id) === String(candidate.id)
+        : String(item.name || "").toLowerCase() ===
+          String(candidate.name || "").toLowerCase(),
+  );
+}
+
+function syncTeamFollowedState() {
+  state.teams = state.teams.map((team) => ({
+    ...team,
+    followed: isTeamFollowed(team),
+  }));
+  state.popularTeams = state.popularTeams.map((team) => ({
+    ...team,
+    followed: isTeamFollowed(team),
+  }));
+  renderTeamSearchResults();
+  renderPopularTeams();
+}
+
+function teamMatchNote(team) {
+  if (team.match_kind === "fuzzy" && team.matched_alias)
+    return `你可能想找“${escaped(team.matched_alias)}”`;
+  if (team.matched_alias)
+    return `通过“${escaped(team.matched_alias)}”找到`;
+  const explanations = {
+    exact: "名称完全匹配",
+    alias: "常用名称匹配",
+    fuzzy: "名称相近",
+    prefix: "名称开头匹配",
+    contains: "名称相关匹配",
+  };
+  const kind = String(team.match_kind || "").toLowerCase();
+  return explanations[kind] || "相关战队";
+}
+
+function renderTeamSearchResults() {
+  const container = $("#team-search-results");
+  if (container.hidden || !state.searchResultsReady) return;
+  container.innerHTML = `<div class="search-results"><div class="search-caption">搜索结果 · ${state.teams.length} 支战队</div>${state.teams.length ? state.teams.map((team, index) => `<div class="item-row"><div class="item-name">${teamAvatar(team)}<div><strong>${escaped(team.name)}${team.is_main ? '<span class="team-main-badge">主队</span>' : ""}</strong><small>${teamMatchNote(team)}</small></div></div><button class="button ${team.followed ? "ghost" : "primary"}" type="button" data-team-follow="${index}" data-team-source="search" ${team.followed ? "disabled" : ""}>${team.followed ? "已关注" : "关注"}</button></div>`).join("") : '<div class="empty compact">没有找到战队，试试其他名称。</div>'}</div>`;
+}
+
+function renderPopularTeams() {
+  const container = $("#popular-teams");
+  if (!container) return;
+  if (state.popularLoading) {
+    container.innerHTML = '<div class="empty compact">正在加载常看战队…</div>';
+    return;
+  }
+  if (!state.popularLoaded) {
+    container.innerHTML = state.popularAttempted
+      ? '<div class="empty compact">常看战队暂时无法加载。<button class="button ghost" type="button" data-popular-retry>重试</button></div>'
+      : '<div class="empty compact">打开订阅管理后加载常看战队…</div>';
+    return;
+  }
+  container.innerHTML = state.popularTeams.length
+    ? state.popularTeams
+        .map(
+          (team, index) => {
+            const displayName = team.display_name || team.name;
+            return `<div class="popular-tile"><div class="popular-team">${teamAvatar(team, displayName)}<strong title="${escaped(displayName)}">${escaped(displayName)}</strong></div><button class="button ${team.followed ? "ghost" : "primary"}" type="button" data-team-follow="${index}" data-team-source="popular" ${team.followed ? "disabled" : ""}>${team.followed ? "已关注" : "关注"}</button></div>`;
+          },
+        )
+        .join("")
+    : '<div class="empty compact">暂时没有可选战队。</div>';
+  $("#popular-count").textContent = `${state.popularTeams.length} 支`;
+}
+
+async function loadPopularTeams() {
+  if (state.popularLoading || state.popularLoaded) return;
+  state.popularAttempted = true;
+  state.popularLoading = true;
+  renderPopularTeams();
+  try {
+    const result = await api("/api/teams/popular");
+    state.popularTeams = result.teams || [];
+    state.popularLoaded = true;
+    syncTeamFollowedState();
+  } catch {
+    state.popularLoaded = false;
+    renderPopularTeams();
+  } finally {
+    state.popularLoading = false;
+    renderPopularTeams();
+  }
 }
 
 function matchTeam(match, index) {
@@ -469,6 +577,7 @@ function activateTab(name, { focus = false } = {}) {
     section.hidden = section.id !== name;
   });
   if (name === "advanced" && state.ready) run($("#refresh-logs"), loadLogs);
+  if (name === "subscriptions" && state.ready) loadPopularTeams();
 }
 
 function installEvents() {
@@ -476,7 +585,14 @@ function installEvents() {
     "error",
     (event) => {
       if (event.target.matches?.(".team-avatar img")) {
-        event.target.closest(".team-avatar").classList.remove("has-logo");
+        if (event.target.dataset.fallback) {
+          const fallback = event.target.dataset.fallback;
+          delete event.target.dataset.fallback;
+          event.target.closest(".team-avatar").classList.remove("on-dark");
+          event.target.src = fallback;
+          return;
+        }
+        event.target.closest(".team-avatar").classList.remove("has-logo", "on-dark");
         event.target.remove();
       }
     },
@@ -556,8 +672,9 @@ function installEvents() {
     event.preventDefault();
     run($("button", event.currentTarget), async () => {
       const q = $("#team-query").value.trim();
-      if (q.length < 2) throw new Error("请至少输入两个字符。");
+      if (!q) throw new Error("请输入战队名称或简称。");
       const sequence = ++searchSequence;
+      state.searchResultsReady = false;
       const container = $("#team-search-results");
       container.hidden = false;
       container.innerHTML = '<div class="empty compact">正在搜索战队…</div>';
@@ -565,13 +682,25 @@ function installEvents() {
         const result = await api("/api/teams/search", "GET", undefined, { q });
         if (sequence !== searchSequence) return;
         state.teams = result.teams || [];
-        container.innerHTML = `<div class="search-results"><div class="search-caption">搜索结果 · ${state.teams.length} 支战队</div>${state.teams.length ? state.teams.map((team, index) => `<div class="item-row"><div class="item-name">${teamAvatar(team)}<div><strong>${escaped(team.name)}</strong><small>ID ${escaped(team.id)}</small></div></div><button class="button ${team.followed ? "ghost" : "primary"}" type="button" data-team-follow="${index}" ${team.followed ? "disabled" : ""}>${team.followed ? "已关注" : "关注"}</button></div>`).join("") : '<div class="empty compact">没有找到战队，试试其他名称。</div>'}</div>`;
+        state.searchResultsReady = true;
+        syncTeamFollowedState();
       } catch (error) {
+        if (sequence !== searchSequence) return;
         container.innerHTML =
           '<div class="empty compact">搜索失败，请检查 Token 或稍后重试。</div>';
         throw error;
       }
     });
+  });
+  $("#team-query").addEventListener("input", () => {
+    searchSequence += 1;
+    state.searchResultsReady = false;
+    const results = $("#team-search-results");
+    if (!results.hidden)
+      results.innerHTML = '<div class="empty compact">关键词已更改，点击搜索查看结果。</div>';
+  });
+  $("#popular-teams").addEventListener("click", (event) => {
+    if (event.target.closest("[data-popular-retry]")) loadPopularTeams();
   });
   document.addEventListener("click", (event) => {
     const button = event.target.closest("button");
@@ -610,12 +739,16 @@ function installEvents() {
           typeof team === "object" && team.id ? { id: team.id } : { name },
         );
         await loadConfig();
-        $("#team-search-results").hidden = true;
         toast("已取消关注。");
       });
     if (button.hasAttribute("data-team-follow"))
       run(button, async () => {
-        const team = state.teams[Number(button.dataset.teamFollow)];
+        const teams = button.dataset.teamSource === "popular"
+          ? state.popularTeams
+          : state.teams;
+        const team = teams[Number(button.dataset.teamFollow)];
+        if (!team?.id)
+          throw new Error("无法确认这支战队的资料，请重新搜索后再试。");
         await api("/api/teams", "POST", {
           id: team.id,
           name: team.name,
@@ -623,10 +756,6 @@ function installEvents() {
           image_url: team.image_url || "",
         });
         await loadConfig();
-        button.textContent = "已关注";
-        button.removeAttribute("data-team-follow");
-        button.dataset.keepDisabled = "true";
-        button.className = "button ghost";
         toast(`已关注 ${team.name}。`);
       });
     if (button.hasAttribute("data-stream-remove")) {
@@ -837,6 +966,7 @@ async function importConfig(input) {
 
 async function initialize() {
   installEvents();
+  setupGuide = createSetupGuide({ api, getState: () => state, loadConfig, activateTab, toast });
   try {
     if (bridge) {
       const context = await bridge.ready();
@@ -879,6 +1009,8 @@ async function initialize() {
     }
     await loadConfig();
     state.ready = true;
+    setupGuide.startIfNeeded();
+    if (state.active === "subscriptions") loadPopularTeams();
     await loadMatches();
     $("#app").setAttribute("aria-busy", "false");
     pollTimer = setInterval(() => {
