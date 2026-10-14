@@ -2,6 +2,25 @@
 
 为 AstrBot 的 QQ / OneBot（aiocqhttp）适配器提供 CS2 赛程查询、战队关注、赛前提醒、赛后结果、每日赛程和赛事开幕通知，并提供 Web 管理面板。比赛数据来自 PandaScore。
 
+## 推送效果展示
+
+以下图片展示当前开发版的推送样式。对阵、时间、赛事等级和比分均为演示数据，不代表真实赛程；部分展示功能仍在服务器预览，尚未同步到主分支。
+
+<table>
+  <tr>
+    <td width="50%"><strong>赛前提醒</strong><br>双方队标与开赛时间一目了然。<br><br><img src="docs/images/push-upcoming.png" width="320" alt="CS2 赛前提醒图片示例"></td>
+    <td width="50%"><strong>比赛结果</strong><br>突出比分，在胜队下方展示各局胜负。<br><br><img src="docs/images/push-result.png" width="320" alt="CS2 比赛结果图片示例"></td>
+  </tr>
+  <tr>
+    <td><strong>赛程变更</strong><br>用箭头直接展示调整前后的时间。<br><br><img src="docs/images/push-reschedule.png" width="320" alt="CS2 赛程变更图片示例"></td>
+    <td><strong>赛事开幕</strong><br>展示赛事名称、时间与参赛战队。<br><br><img src="docs/images/push-opening.png" width="320" alt="CS2 赛事开幕图片示例"></td>
+  </tr>
+  <tr>
+    <td><strong>赛程日报</strong><br>按赛事整理比赛，保留日期与每场对阵。<br><br><img src="docs/images/push-daily.png" width="320" alt="CS2 赛程日报图片示例"></td>
+    <td><strong>指令查询赛程</strong><br>开发版中，发送 <code>/cs比赛</code> 可获取图片赛程。<br><br><img src="docs/images/query-schedule.png" width="320" alt="CS2 指令查询赛程图片示例"></td>
+  </tr>
+</table>
+
 ## 功能
 
 - 查询近期 CS2 赛程，按赛事等级、关注战队和黑名单筛选。
