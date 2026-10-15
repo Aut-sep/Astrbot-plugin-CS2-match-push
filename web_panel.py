@@ -8,7 +8,6 @@ web_panel.py — Web 管理面板
 import asyncio
 from collections import deque
 import hmac
-import ipaddress
 import json
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -83,7 +82,7 @@ class WebPanel:
         if path == "/" or path.startswith("/api/"):
             token = self._request_token(req)
             token_ok = self._token_matches(token)
-            if token_ok or self._is_local_request(req):
+            if token_ok:
                 if req.method not in {"GET", "HEAD", "OPTIONS"}:
                     origin = req.headers.get("Origin")
                     if origin and not self._same_origin(req, origin):
@@ -143,15 +142,6 @@ class WebPanel:
     def _same_origin(self, req, origin: str) -> bool:
         try:
             return URL(origin).origin() == URL(f"{req.scheme}://{req.host}").origin()
-        except ValueError:
-            return False
-
-    def _is_local_request(self, req) -> bool:
-        remote = req.remote or ""
-        if remote in {"localhost", "127.0.0.1", "::1"}:
-            return True
-        try:
-            return ipaddress.ip_address(remote).is_loopback
         except ValueError:
             return False
 

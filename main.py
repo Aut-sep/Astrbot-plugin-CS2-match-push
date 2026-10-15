@@ -92,10 +92,10 @@ class CSMatchPlugin(Star):
         self._sync_runtime_config_from_store()
         self.client = PandaScoreClient(self._token)
         self._scheduled: list    = []
+        self._schedule_data_ready = False
         self._loop_task           = None
         self._daily_push_task     = None
         self._tournament_task     = None
-        self._last_daily_push_key = ""
         self._match_tasks: dict   = {}   # mid -> 赛前提醒任务
         self._scheduled_mids: set = set()
         self._result_tasks: dict  = {}   # mid -> 结果轮询任务（比赛开始后独立追踪）
@@ -495,24 +495,119 @@ class CSMatchPlugin(Star):
     # ── 每日定时推送循环 ──────────────────
 
     async def _daily_push_loop(self):
-        """每分钟检查一次是否到达推送时间点"""
+        """只观察本次运行期间的日报时间点，并恢复当天的 pending 事件。"""
+        startup_minute = now_cst().replace(second=0, microsecond=0)
+        scan_watermark = startup_minute - timedelta(minutes=1)
+        disabled_observed = False
+
+        def _observe_enabled(enabled, observed_at):
+            nonlocal scan_watermark, disabled_observed
+            if not enabled:
+                disabled_observed = True
+                if observed_at > scan_watermark:
+                    scan_watermark = observed_at
+            elif disabled_observed:
+                # The exact re-enable time is unknown; only observe its current minute.
+                recovery_boundary = observed_at.replace(second=0, microsecond=0) - timedelta(microseconds=1)
+                if recovery_boundary > scan_watermark:
+                    scan_watermark = recovery_boundary
+                disabled_observed = False
+
+        def _configured_events(day, times):
+            configured = {}
+            for hhmm in times:
+                if not isinstance(hhmm, str):
+                    continue
+                try:
+                    hour, minute = (int(part) for part in hhmm.split(":"))
+                    if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                        continue
+                except ValueError:
+                    continue
+                configured[f"daily:{day}_{hhmm}"] = hhmm
+            return configured
+
         while True:
             try:
                 await asyncio.sleep(60)
-                if not self.store.get("daily_push_enabled", False):
-                    continue
-                push_times = self.store.get("daily_push_times") or ["08:00"]
                 now_cst_dt = now_cst()
-                hhmm = now_cst_dt.strftime("%H:%M")
-                if hhmm in push_times:
-                    key = f"{now_cst_dt.strftime('%Y-%m-%d')}_{hhmm}"
-                    if self._last_daily_push_key == key:
+                today = now_cst_dt.strftime("%Y-%m-%d")
+                push_times = self.store.get("daily_push_times", ["08:00"])
+                configured = _configured_events(today, push_times)
+
+                enabled = self.store.get("daily_push_enabled", False)
+                _observe_enabled(enabled, now_cst_dt)
+                if enabled and now_cst_dt >= scan_watermark:
+                    due_events = []
+                    for key, hhmm in configured.items():
+                        hour, minute = (int(part) for part in hhmm.split(":"))
+                        scheduled = now_cst_dt.replace(
+                            hour=hour, minute=minute, second=0, microsecond=0,
+                        )
+                        if scan_watermark < scheduled <= now_cst_dt:
+                            due_events.append(key)
+
+                    # Register and persist observed triggers before any cleanup can fail.
+                    for key in due_events:
+                        status = self.store.get_daily_push_status(key)
+                        if status is None or status == "pending":
+                            self.store.mark_daily_push_status(key, "pending")
+                    self.store.flush_daily_push_state()
+
+                # A high-water mark prevents replay after clock rollback and downtime.
+                if now_cst_dt > scan_watermark:
+                    scan_watermark = now_cst_dt
+
+                # Only current-day configured keys survive; pruning follows registration.
+                self.store.prune_daily_push_events(set(configured))
+
+                for key, hhmm in sorted(configured.items()):
+                    # Settings may change while an earlier event is awaiting delivery.
+                    now_cst_dt = now_cst()
+                    today = now_cst_dt.strftime("%Y-%m-%d")
+                    enabled = self.store.get("daily_push_enabled", False)
+                    _observe_enabled(enabled, now_cst_dt)
+                    current_times = self.store.get("daily_push_times", ["08:00"])
+                    current_configured = _configured_events(today, current_times)
+                    self.store.prune_daily_push_events(set(current_configured))
+                    if not enabled:
+                        break
+                    if key not in current_configured:
                         continue
-                    self._last_daily_push_key = key
-                    days = int(self.store.get("daily_push_days") or 1)
-                    logger.info(f"[CS] 触发每日定时推送 {hhmm}，推送 {days} 天赛程")
+
+                    self.store.flush_daily_push_state()
+                    status = self.store.get_daily_push_status(key)
+                    if status != "pending":
+                        continue
+
+                    payload = self.store.get_daily_push_payload(key)
+                    if payload is None and not self._schedule_data_ready:
+                        continue
+                    if not self.store.get_groups():
+                        logger.info(f"[CS] 跳过日报 {hhmm}：未配置推送群，不补发")
+                        self.store.mark_daily_push_status(key, "skipped")
+                        continue
+                    if payload is None:
+                        days = int(self.store.get("daily_push_days") or 1)
+                        if not self._has_daily_matches_to_push(days):
+                            logger.info(f"[CS] 跳过日报 {hhmm}：当前没有可推送赛程，不补发")
+                            self.store.mark_daily_push_status(key, "skipped")
+                            continue
+                        payload = self._build_daily_push_payload(days)
+                        if payload is None:
+                            self.store.mark_daily_push_status(key, "skipped")
+                            continue
+                        # Freeze the original text and displayed schedule before any send.
+                        self.store.mark_daily_push_status(key, "pending", payload)
+
+                    logger.info(f"[CS] 处理每日定时推送 {hhmm}")
                     self.panel.push_log("OK", f"每日定时推送触发 {hhmm}")
-                    await self._do_instant_push(days)
+                    sent = await self._deliver_notification(
+                        key, lambda: self._push(payload["text"], matches=payload["matches"]),
+                    )
+                    if sent and self._daily_event_is_active(key):
+                        self.store.mark_daily_push_status(key, "complete")
+                        self.panel.push_log("OK", f"每日定时推送完成 {hhmm}")
             except asyncio.CancelledError:
                 raise
             except Exception as exc:
@@ -648,6 +743,16 @@ class CSMatchPlugin(Star):
         self.panel.push_log("OK", f"立即推送赛程完成，覆盖 {days} 天")
         return True
 
+    def _build_daily_push_payload(self, days: int) -> dict | None:
+        """Freeze the text and displayed match data for one scheduled event."""
+        matches = [self._match_with_snapshot_names(m) for m in self._scheduled]
+        if not self._has_daily_matches_to_push(days):
+            return None
+        return {
+            "text": fmt_daily_schedule(matches, self.store.get_followed_team_names(), days),
+            "matches": self._daily_notice_matches(matches, days),
+        }
+
     def _has_daily_matches_to_push(self, days: int) -> bool:
         now_cst_dt = now_cst()
         for raw_match in self._scheduled:
@@ -679,6 +784,8 @@ class CSMatchPlugin(Star):
                     break
 
     async def _fetch_and_schedule_locked(self):
+        # The cached list is not a fresh basis for skipping a pending daily event.
+        self._schedule_data_ready = False
         if not self._token:
             return
 
@@ -736,6 +843,7 @@ class CSMatchPlugin(Star):
                 to_schedule.append(m)
 
         self._scheduled = to_schedule
+        self._schedule_data_ready = True
         self.panel.push_log("INFO", f"日程刷新完成，共 {len(to_schedule)} 场符合条件的比赛")
 
         # ── 清理不再在列表中的旧任务 ──────────────────────────────────────
@@ -768,6 +876,14 @@ class CSMatchPlugin(Star):
                 sched_changed = old_snap.get("sched") != new_sched
                 t1_changed    = old_snap.get("t1") == "TBD" and new_t1 != "TBD"
                 t2_changed    = old_snap.get("t2") == "TBD" and new_t2 != "TBD"
+                old_t1        = str(old_snap.get("t1") or "").strip()
+                old_t2        = str(old_snap.get("t2") or "").strip()
+                old_teams_known = all(name and name != "TBD" for name in (old_t1, old_t2))
+                new_teams_known = all(name and name != "TBD" for name in (new_t1, new_t2))
+                teams_changed = (
+                    old_teams_known and new_teams_known
+                    and sorted((old_t1, old_t2)) != sorted((new_t1, new_t2))
+                )
 
                 if sched_changed:
                     old_fmt = fmt_time(old_snap.get("sched"))
@@ -789,6 +905,13 @@ class CSMatchPlugin(Star):
                     reason = "、".join(changed_teams)
                     logger.info(f"[CS] 比赛 {mid} 队伍确认：{reason}")
                     self.panel.push_log("INFO", f"比赛 {mid} 队伍确认：{reason}")
+                    needs_rebuild = True
+                    change_reason = (change_reason + " | " if change_reason else "") + reason
+
+                if teams_changed:
+                    reason = f"对阵变更：{old_t1} vs {old_t2}→{new_t1} vs {new_t2}"
+                    logger.info(f"[CS] 比赛 {mid} {reason}")
+                    self.panel.push_log("INFO", f"比赛 {mid} {reason}")
                     needs_rebuild = True
                     change_reason = (change_reason + " | " if change_reason else "") + reason
 
@@ -1301,6 +1424,25 @@ class CSMatchPlugin(Star):
     def _format_target_label(self, target_type: str, target_id: str) -> str:
         return f"{'私聊' if target_type == 'private' else '群聊'} {target_id}"
 
+    def _daily_event_is_active(self, key: str, target: tuple[str, str] | None = None) -> bool:
+        """Check current config/date before continuing a scheduled daily delivery."""
+        if not key.startswith("daily:"):
+            return True
+        event = key[len("daily:"):]
+        day, separator, hhmm = event.partition("_")
+        if not separator or day != now_cst().strftime("%Y-%m-%d"):
+            return False
+        if not self.store.get("daily_push_enabled", False):
+            return False
+        times = self.store.get("daily_push_times", ["08:00"])
+        if not isinstance(times, list) or hhmm not in times:
+            return False
+        if target is not None:
+            target_type, target_id = target
+            if target_type != "group" or str(target_id) not in {str(gid) for gid in self.store.get_groups()}:
+                return False
+        return True
+
     def _describe_test_target(self) -> str:
         target = self._get_test_target()
         if not target:
@@ -1347,11 +1489,25 @@ class CSMatchPlugin(Star):
         delivered = self.store.get_delivery_targets(key) if key else set()
         for target_type, target_id in targets:
             target_key = f"{target_type}:{target_id}"
-            if target_key in delivered:
-                sent_refs.append({"target_type": target_type, "target_id": target_id, "already_sent": True})
-                continue
             label = self._format_target_label(target_type, target_id)
             try:
+                # Rendering may await; scheduled daily events must still be active
+                # before counting a receipt or sending this target.
+                if key and key.startswith("daily:") and not self._daily_event_is_active(
+                    key, (target_type, target_id),
+                ):
+                    continue
+                # A preceding receipt write may have failed; flush before trusting it
+                # or sending another target in this event.
+                if key:
+                    delivered = self.store.get_delivery_targets(key)
+                if target_key in delivered:
+                    sent_refs.append({"target_type": target_type, "target_id": target_id, "already_sent": True})
+                    continue
+                if key and key.startswith("daily:") and not self._daily_event_is_active(
+                    key, (target_type, target_id),
+                ):
+                    continue
                 result = await send_target(
                     self.context, target_type, target_id, chain,
                     platform_id=self.store.get("push_platform_id") or None,
@@ -1683,7 +1839,7 @@ class CSMatchPlugin(Star):
             f"地址：{self._web_panel_url()}\n"
             f"带令牌地址：{self._web_panel_url(include_token=True)}\n"
             f"管理令牌：{token}\n"
-            f"（非本机访问需要令牌，请勿公开分享）"
+            f"（独立面板本机和远程访问均需管理令牌；请勿公开分享）"
         )
 
     @filter.permission_type(filter.PermissionType.ADMIN)
@@ -1771,7 +1927,7 @@ class CSMatchPlugin(Star):
         # /cs日报 → 显示当前配置
         if not arg:
             enabled    = self.store.get("daily_push_enabled", False)
-            times      = self.store.get("daily_push_times") or ["08:00"]
+            times      = self.store.get("daily_push_times", ["08:00"])
             days       = self.store.get("daily_push_days") or 1
             status_str = "✅ 开启" if enabled else "❌ 关闭"
             times_str  = "、".join(times)
@@ -1793,7 +1949,7 @@ class CSMatchPlugin(Star):
         # /cs日报 开/关
         if arg in ("开", "on"):
             self.store.set("daily_push_enabled", True)
-            times = "、".join(self.store.get("daily_push_times") or ["08:00"])
+            times = "、".join(self.store.get("daily_push_times", ["08:00"]))
             return event.plain_result(f"✅ 每日定时推送已开启\n推送时间：{times}（CST）")
 
         if arg in ("关", "off"):
