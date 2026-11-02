@@ -1,0 +1,4038 @@
+{
+  "verified_at": "2026-10-20",
+  "source": "HLTV player profiles: achievements, Top 20 and MVP overview",
+  "players": {
+    "hltv_19645": {
+      "id": "hltv_19645",
+      "name": "JamYoung",
+      "caption": "HLTV MVP×1 · 线下赛冠军×1",
+      "facts": [
+        "HLTV MVP×1",
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 3,
+        "lan_wins": 1,
+        "lan_played": 21,
+        "major_trophies": 0,
+        "notable_trophies": 1,
+        "mvps": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 2",
+        "Stage 2",
+        "Stage 2"
+      ],
+      "source": "https://www.hltv.org/player/19645/jamyoung",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_20895": {
+      "id": "hltv_20895",
+      "name": "Mercury",
+      "caption": "线下赛冠军×1",
+      "facts": [
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 3,
+        "lan_wins": 1,
+        "lan_played": 19,
+        "major_trophies": 0,
+        "notable_trophies": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 2",
+        "Stage 2",
+        "Stage 2"
+      ],
+      "source": "https://www.hltv.org/player/20895/mercury",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_21621": {
+      "id": "hltv_21621",
+      "name": "Moseyuh",
+      "caption": "线下赛冠军×1",
+      "facts": [
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 3,
+        "lan_wins": 1,
+        "lan_played": 17,
+        "major_trophies": 0,
+        "notable_trophies": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 2",
+        "Stage 2",
+        "Stage 2"
+      ],
+      "source": "https://www.hltv.org/player/21621/moseyuh",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_20702": {
+      "id": "hltv_20702",
+      "name": "Jee",
+      "caption": "线下赛冠军×1",
+      "facts": [
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 4,
+        "lan_wins": 1,
+        "lan_played": 17,
+        "major_trophies": 0,
+        "notable_trophies": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 2",
+        "Stage 2",
+        "Stage 2",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/20702/jee",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_24857": {
+      "id": "hltv_24857",
+      "name": "Zero",
+      "caption": "Major参赛×1",
+      "facts": [
+        "Major参赛×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 2"
+      ],
+      "source": "https://www.hltv.org/player/24857/zero",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_16551": {
+      "id": "hltv_16551",
+      "name": "Westmelon",
+      "caption": "Major参赛×4",
+      "facts": [
+        "Major参赛×4"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 4
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 1",
+        "Stage 1",
+        "Stage 3",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/16551/westmelon",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_18744": {
+      "id": "hltv_18744",
+      "name": "z4KR",
+      "caption": "Major参赛×4",
+      "facts": [
+        "Major参赛×4"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 4
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 1",
+        "Stage 1",
+        "Stage 3",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/18744/z4kr",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_22922": {
+      "id": "hltv_22922",
+      "name": "EmiliaQAQ",
+      "caption": "Major参赛×4",
+      "facts": [
+        "Major参赛×4"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 4
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 1",
+        "Stage 1",
+        "Stage 3",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/22922/emiliaqaq",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_20254": {
+      "id": "hltv_20254",
+      "name": "Starry",
+      "caption": "Major参赛×4",
+      "facts": [
+        "Major参赛×4"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 4
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 1",
+        "Stage 1",
+        "Stage 3",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/20254/starry",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_23100": {
+      "id": "hltv_23100",
+      "name": "C4LLM3SU3",
+      "caption": "Major参赛×3",
+      "facts": [
+        "Major参赛×3"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 3
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 1",
+        "Stage 1",
+        "Stage 3"
+      ],
+      "source": "https://www.hltv.org/player/23100/c4llm3su3",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_7028": {
+      "id": "hltv_7028",
+      "name": "Summer",
+      "caption": "Major参赛×6",
+      "facts": [
+        "Major参赛×6"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 6,
+        "lan_wins": 0,
+        "lan_played": 18
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 1",
+        "Challengers",
+        "Challengers",
+        "Challengers",
+        "Challengers",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/7028/summer",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_19681": {
+      "id": "hltv_19681",
+      "name": "ChildKing",
+      "caption": "Major参赛×2",
+      "facts": [
+        "Major参赛×2"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 2
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 1",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/19681/childking",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_21825": {
+      "id": "hltv_21825",
+      "name": "L1haNg",
+      "caption": "Major参赛×2",
+      "facts": [
+        "Major参赛×2"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 2
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 1",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/21825/l1hang",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_24306": {
+      "id": "hltv_24306",
+      "name": "3gl",
+      "caption": "个人荣誉暂未收录",
+      "facts": [
+        "个人荣誉暂未收录"
+      ],
+      "stats": {},
+      "top20": [],
+      "major_placements": [],
+      "source": "https://www.hltv.org/player/24306/3gl",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_8950": {
+      "id": "hltv_8950",
+      "name": "kaze",
+      "caption": "Major参赛×3",
+      "facts": [
+        "Major参赛×3"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 3
+      },
+      "top20": [],
+      "major_placements": [
+        "Challengers",
+        "Challengers",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/8950/kaze",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_7322": {
+      "id": "hltv_7322",
+      "name": "apEX",
+      "caption": "HLTV年度Top 15（2014） · Major冠军×4 · HLTV EVP×10",
+      "facts": [
+        "HLTV年度Top 15（2014）",
+        "Major冠军×4",
+        "HLTV EVP×10"
+      ],
+      "stats": {
+        "major_wins": 4,
+        "major_played": 22,
+        "lan_wins": 39,
+        "lan_played": 145,
+        "major_trophies": 4,
+        "notable_trophies": 39,
+        "evps": 10
+      },
+      "top20": [
+        {
+          "year": 2014,
+          "rank": 15
+        },
+        {
+          "year": 2015,
+          "rank": 18
+        }
+      ],
+      "major_placements": [
+        "1/4 final",
+        "1st",
+        "1st",
+        "1/4 final",
+        "3-4th",
+        "1st",
+        "Legends",
+        "Legends",
+        "1/4 final",
+        "1/4 final",
+        "Legends",
+        "1/4 final",
+        "Group stage",
+        "Group stage",
+        "Group stage",
+        "Group stage",
+        "1st",
+        "2nd",
+        "Group stage",
+        "3-4th",
+        "1/4 final",
+        "Group stage"
+      ],
+      "source": "https://www.hltv.org/player/7322/apex",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_11893": {
+      "id": "hltv_11893",
+      "name": "ZywOo",
+      "caption": "HLTV年度Top 1×4 · Major冠军×3 · Major MVP×3",
+      "facts": [
+        "HLTV年度Top 1×4",
+        "Major冠军×3",
+        "Major MVP×3"
+      ],
+      "stats": {
+        "major_wins": 3,
+        "major_played": 11,
+        "lan_wins": 27,
+        "lan_played": 79,
+        "major_trophies": 3,
+        "notable_trophies": 28,
+        "major_mvps": 3,
+        "mvps": 34,
+        "evps": 42
+      },
+      "top20": [
+        {
+          "year": 2019,
+          "rank": 1
+        },
+        {
+          "year": 2020,
+          "rank": 1
+        },
+        {
+          "year": 2021,
+          "rank": 2
+        },
+        {
+          "year": 2022,
+          "rank": 2
+        },
+        {
+          "year": 2023,
+          "rank": 1
+        },
+        {
+          "year": 2024,
+          "rank": 3
+        },
+        {
+          "year": 2025,
+          "rank": 1
+        }
+      ],
+      "major_placements": [
+        "1/4 final",
+        "1st",
+        "1st",
+        "1/4 final",
+        "3-4th",
+        "1st",
+        "Legends",
+        "Legends",
+        "1/4 final",
+        "1/4 final",
+        "Legends"
+      ],
+      "source": "https://www.hltv.org/player/11893/zywoo",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_16693": {
+      "id": "hltv_16693",
+      "name": "flameZ",
+      "caption": "HLTV年度Top 7×2 · Major冠军×2 · HLTV EVP×17",
+      "facts": [
+        "HLTV年度Top 7×2",
+        "Major冠军×2",
+        "HLTV EVP×17"
+      ],
+      "stats": {
+        "major_wins": 2,
+        "major_played": 7,
+        "lan_wins": 20,
+        "lan_played": 56,
+        "major_trophies": 2,
+        "notable_trophies": 20,
+        "evps": 17
+      },
+      "top20": [
+        {
+          "year": 2024,
+          "rank": 7
+        },
+        {
+          "year": 2025,
+          "rank": 7
+        }
+      ],
+      "major_placements": [
+        "1/4 final",
+        "1st",
+        "1st",
+        "1/4 final",
+        "3-4th",
+        "Challengers",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/16693/flamez",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_18462": {
+      "id": "hltv_18462",
+      "name": "mezii",
+      "caption": "HLTV年度Top 12（2025） · Major冠军×2 · HLTV EVP×5",
+      "facts": [
+        "HLTV年度Top 12（2025）",
+        "Major冠军×2",
+        "HLTV EVP×5"
+      ],
+      "stats": {
+        "major_wins": 2,
+        "major_played": 7,
+        "lan_wins": 19,
+        "lan_played": 56,
+        "major_trophies": 2,
+        "notable_trophies": 19,
+        "evps": 5
+      },
+      "top20": [
+        {
+          "year": 2025,
+          "rank": 12
+        }
+      ],
+      "major_placements": [
+        "1/4 final",
+        "1st",
+        "1st",
+        "1/4 final",
+        "3-4th",
+        "Legends",
+        "1/4 final"
+      ],
+      "source": "https://www.hltv.org/player/18462/mezii",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_11816": {
+      "id": "hltv_11816",
+      "name": "ropz",
+      "caption": "HLTV年度Top 3×2 · Major冠军×3 · HLTV MVP×6",
+      "facts": [
+        "HLTV年度Top 3×2",
+        "Major冠军×3",
+        "HLTV MVP×6"
+      ],
+      "stats": {
+        "major_wins": 3,
+        "major_played": 13,
+        "lan_wins": 32,
+        "lan_played": 109,
+        "major_trophies": 3,
+        "notable_trophies": 34,
+        "evps": 38,
+        "mvps": 6
+      },
+      "top20": [
+        {
+          "year": 2018,
+          "rank": 19
+        },
+        {
+          "year": 2019,
+          "rank": 10
+        },
+        {
+          "year": 2020,
+          "rank": 7
+        },
+        {
+          "year": 2021,
+          "rank": 18
+        },
+        {
+          "year": 2022,
+          "rank": 8
+        },
+        {
+          "year": 2023,
+          "rank": 3
+        },
+        {
+          "year": 2024,
+          "rank": 18
+        },
+        {
+          "year": 2025,
+          "rank": 3
+        }
+      ],
+      "major_placements": [
+        "1/4 final",
+        "1st",
+        "1st",
+        "2nd",
+        "2nd",
+        "1/4 final",
+        "Legends",
+        "1st",
+        "Legends",
+        "Legends",
+        "Legends",
+        "1/4 final",
+        "Group stage"
+      ],
+      "source": "https://www.hltv.org/player/11816/ropz",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_18317": {
+      "id": "hltv_18317",
+      "name": "magixx",
+      "caption": "Major冠军×1 · HLTV EVP×1 · 线下赛冠军×10",
+      "facts": [
+        "Major冠军×1",
+        "HLTV EVP×1",
+        "线下赛冠军×10"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 7,
+        "lan_wins": 10,
+        "lan_played": 38,
+        "major_trophies": 1,
+        "notable_trophies": 9,
+        "evps": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "3-4th",
+        "1/4 final",
+        "1st",
+        "1/4 final",
+        "1/4 final",
+        "3-4th",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/18317/magixx",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_21167": {
+      "id": "hltv_21167",
+      "name": "donk",
+      "caption": "HLTV年度Top 1（2024） · Major冠军×1 · Major MVP×1",
+      "facts": [
+        "HLTV年度Top 1（2024）",
+        "Major冠军×1",
+        "Major MVP×1"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 5,
+        "lan_wins": 12,
+        "lan_played": 38,
+        "major_trophies": 1,
+        "notable_trophies": 11,
+        "major_mvps": 1,
+        "mvps": 13,
+        "evps": 15
+      },
+      "top20": [
+        {
+          "year": 2024,
+          "rank": 1
+        },
+        {
+          "year": 2025,
+          "rank": 2
+        }
+      ],
+      "major_placements": [
+        "3-4th",
+        "3-4th",
+        "1/4 final",
+        "1st",
+        "1/4 final"
+      ],
+      "source": "https://www.hltv.org/player/21167/donk",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_20423": {
+      "id": "hltv_20423",
+      "name": "zont1x",
+      "caption": "Major冠军×1 · HLTV EVP×4 · 线下赛冠军×12",
+      "facts": [
+        "Major冠军×1",
+        "HLTV EVP×4",
+        "线下赛冠军×12"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 4,
+        "lan_wins": 12,
+        "lan_played": 34,
+        "major_trophies": 1,
+        "notable_trophies": 11,
+        "evps": 4
+      },
+      "top20": [],
+      "major_placements": [
+        "3-4th",
+        "1/4 final",
+        "1st",
+        "1/4 final"
+      ],
+      "source": "https://www.hltv.org/player/20423/zont1x",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_16920": {
+      "id": "hltv_16920",
+      "name": "sh1ro",
+      "caption": "HLTV年度Top 3（2022） · Major冠军×1 · HLTV MVP×4",
+      "facts": [
+        "HLTV年度Top 3（2022）",
+        "Major冠军×1",
+        "HLTV MVP×4"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 8,
+        "lan_wins": 13,
+        "lan_played": 58,
+        "major_trophies": 1,
+        "notable_trophies": 18,
+        "evps": 39,
+        "mvps": 4
+      },
+      "top20": [
+        {
+          "year": 2021,
+          "rank": 4
+        },
+        {
+          "year": 2022,
+          "rank": 3
+        },
+        {
+          "year": 2023,
+          "rank": 8
+        },
+        {
+          "year": 2024,
+          "rank": 6
+        },
+        {
+          "year": 2025,
+          "rank": 5
+        }
+      ],
+      "major_placements": [
+        "3-4th",
+        "3-4th",
+        "1/4 final",
+        "1st",
+        "1/4 final",
+        "1/4 final",
+        "Legends",
+        "3-4th"
+      ],
+      "source": "https://www.hltv.org/player/16920/sh1ro",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_19808": {
+      "id": "hltv_19808",
+      "name": "tN1R",
+      "caption": "Major四强 · HLTV EVP×3 · 线下赛冠军×3",
+      "facts": [
+        "Major四强",
+        "HLTV EVP×3",
+        "线下赛冠军×3"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 3,
+        "lan_wins": 3,
+        "lan_played": 20,
+        "major_trophies": 0,
+        "notable_trophies": 3,
+        "evps": 3
+      },
+      "top20": [],
+      "major_placements": [
+        "3-4th",
+        "3-4th",
+        "Stage 2"
+      ],
+      "source": "https://www.hltv.org/player/19808/tn1r",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_3741": {
+      "id": "hltv_3741",
+      "name": "NiKo",
+      "caption": "HLTV年度Top 2×2 · Major冠军×1 · HLTV MVP×10",
+      "facts": [
+        "HLTV年度Top 2×2",
+        "Major冠军×1",
+        "HLTV MVP×10"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 17,
+        "lan_wins": 18,
+        "lan_played": 130,
+        "major_trophies": 1,
+        "notable_trophies": 18,
+        "evps": 53,
+        "mvps": 10
+      },
+      "top20": [
+        {
+          "year": 2016,
+          "rank": 11
+        },
+        {
+          "year": 2017,
+          "rank": 2
+        },
+        {
+          "year": 2018,
+          "rank": 3
+        },
+        {
+          "year": 2019,
+          "rank": 11
+        },
+        {
+          "year": 2020,
+          "rank": 4
+        },
+        {
+          "year": 2021,
+          "rank": 3
+        },
+        {
+          "year": 2022,
+          "rank": 5
+        },
+        {
+          "year": 2023,
+          "rank": 2
+        },
+        {
+          "year": 2024,
+          "rank": 4
+        },
+        {
+          "year": 2025,
+          "rank": 18
+        }
+      ],
+      "major_placements": [
+        "1st",
+        "1/4 final",
+        "Stage 2",
+        "3-4th",
+        "3-4th",
+        "Legends",
+        "Legends",
+        "2nd",
+        "Legends",
+        "1/4 final",
+        "1/4 final",
+        "2nd",
+        "Group stage",
+        "Group stage",
+        "Group stage",
+        "Group stage",
+        "Group stage"
+      ],
+      "source": "https://www.hltv.org/player/3741/niko",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_12018": {
+      "id": "hltv_12018",
+      "name": "TeSeS",
+      "caption": "Major冠军×1 · HLTV EVP×10 · 线下赛冠军×5",
+      "facts": [
+        "Major冠军×1",
+        "HLTV EVP×10",
+        "线下赛冠军×5"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 9,
+        "lan_wins": 5,
+        "lan_played": 65,
+        "major_trophies": 1,
+        "notable_trophies": 7,
+        "evps": 10
+      },
+      "top20": [],
+      "major_placements": [
+        "1st",
+        "1/4 final",
+        "Stage 2",
+        "1/4 final",
+        "Legends",
+        "3-4th",
+        "2nd",
+        "1/4 final",
+        "3-4th"
+      ],
+      "source": "https://www.hltv.org/player/12018/teses",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_19230": {
+      "id": "hltv_19230",
+      "name": "m0NESY",
+      "caption": "HLTV年度Top 2（2024） · Major冠军×1 · Major MVP×1",
+      "facts": [
+        "HLTV年度Top 2（2024）",
+        "Major冠军×1",
+        "Major MVP×1"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 7,
+        "lan_wins": 7,
+        "lan_played": 57,
+        "major_trophies": 1,
+        "notable_trophies": 6,
+        "major_mvps": 1,
+        "mvps": 7,
+        "evps": 22
+      },
+      "top20": [
+        {
+          "year": 2022,
+          "rank": 7
+        },
+        {
+          "year": 2023,
+          "rank": 4
+        },
+        {
+          "year": 2024,
+          "rank": 2
+        },
+        {
+          "year": 2025,
+          "rank": 4
+        }
+      ],
+      "major_placements": [
+        "1st",
+        "1/4 final",
+        "Stage 2",
+        "3-4th",
+        "3-4th",
+        "Legends",
+        "Legends"
+      ],
+      "source": "https://www.hltv.org/player/19230/m0nesy",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_24177": {
+      "id": "hltv_24177",
+      "name": "kyousuke",
+      "caption": "Major冠军×1 · HLTV EVP×4 · 线下赛冠军×1",
+      "facts": [
+        "Major冠军×1",
+        "HLTV EVP×4",
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 2,
+        "lan_wins": 1,
+        "lan_played": 17,
+        "major_trophies": 1,
+        "notable_trophies": 0,
+        "evps": 4
+      },
+      "top20": [],
+      "major_placements": [
+        "1st",
+        "1/4 final"
+      ],
+      "source": "https://www.hltv.org/player/24177/kyousuke",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_429": {
+      "id": "hltv_429",
+      "name": "karrigan",
+      "caption": "Major冠军×2 · HLTV MVP×1 · HLTV EVP×3",
+      "facts": [
+        "Major冠军×2",
+        "HLTV MVP×1",
+        "HLTV EVP×3"
+      ],
+      "stats": {
+        "major_wins": 2,
+        "major_played": 22,
+        "lan_wins": 25,
+        "lan_played": 167,
+        "major_trophies": 2,
+        "notable_trophies": 25,
+        "evps": 3,
+        "mvps": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "1st",
+        "2nd",
+        "1/4 final",
+        "2nd",
+        "2nd",
+        "1/4 final",
+        "Legends",
+        "1st",
+        "Legends",
+        "Legends",
+        "1/4 final",
+        "2nd",
+        "Group stage",
+        "1/4 final",
+        "1/4 final",
+        "3-4th",
+        "1/4 final",
+        "3-4th",
+        "1/4 final",
+        "Group stage",
+        "Group stage",
+        "Group stage"
+      ],
+      "source": "https://www.hltv.org/player/429/karrigan",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_9960": {
+      "id": "hltv_9960",
+      "name": "frozen",
+      "caption": "HLTV年度Top 8（2025） · Major亚军 · HLTV MVP×1",
+      "facts": [
+        "HLTV年度Top 8（2025）",
+        "Major亚军",
+        "HLTV MVP×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 8,
+        "lan_wins": 6,
+        "lan_played": 73,
+        "major_trophies": 0,
+        "notable_trophies": 7,
+        "evps": 20,
+        "mvps": 1
+      },
+      "top20": [
+        {
+          "year": 2022,
+          "rank": 17
+        },
+        {
+          "year": 2023,
+          "rank": 12
+        },
+        {
+          "year": 2024,
+          "rank": 10
+        },
+        {
+          "year": 2025,
+          "rank": 8
+        }
+      ],
+      "major_placements": [
+        "2nd",
+        "1/4 final",
+        "2nd",
+        "2nd",
+        "Challengers",
+        "3-4th",
+        "Legends",
+        "Legends"
+      ],
+      "source": "https://www.hltv.org/player/9960/frozen",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_22383": {
+      "id": "hltv_22383",
+      "name": "jcobbb",
+      "caption": "Major亚军",
+      "facts": [
+        "Major亚军"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 1,
+        "lan_wins": 0,
+        "lan_played": 16
+      },
+      "top20": [],
+      "major_placements": [
+        "2nd"
+      ],
+      "source": "https://www.hltv.org/player/22383/jcobbb",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_10394": {
+      "id": "hltv_10394",
+      "name": "Twistzz",
+      "caption": "HLTV年度Top 9（2019） · Major冠军×1 · HLTV MVP×2",
+      "facts": [
+        "HLTV年度Top 9（2019）",
+        "Major冠军×1",
+        "HLTV MVP×2"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 11,
+        "lan_wins": 16,
+        "lan_played": 113,
+        "major_trophies": 1,
+        "notable_trophies": 19,
+        "evps": 31,
+        "mvps": 2
+      },
+      "top20": [
+        {
+          "year": 2018,
+          "rank": 12
+        },
+        {
+          "year": 2019,
+          "rank": 9
+        },
+        {
+          "year": 2021,
+          "rank": 17
+        },
+        {
+          "year": 2022,
+          "rank": 11
+        },
+        {
+          "year": 2023,
+          "rank": 20
+        },
+        {
+          "year": 2025,
+          "rank": 11
+        }
+      ],
+      "major_placements": [
+        "2nd",
+        "Stage 3",
+        "1/4 final",
+        "1/4 final",
+        "Legends",
+        "1st",
+        "Legends",
+        "1/4 final",
+        "1/4 final",
+        "3-4th",
+        "Legends"
+      ],
+      "source": "https://www.hltv.org/player/10394/twistzz",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_21972": {
+      "id": "hltv_21972",
+      "name": "Neityu",
+      "caption": "个人荣誉暂未收录",
+      "facts": [
+        "个人荣誉暂未收录"
+      ],
+      "stats": {
+        "lan_wins": 0,
+        "lan_played": 6
+      },
+      "top20": [],
+      "major_placements": [],
+      "source": "https://www.hltv.org/player/21972/neityu",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_22866": {
+      "id": "hltv_22866",
+      "name": "JBOEN",
+      "caption": "个人荣誉暂未收录",
+      "facts": [
+        "个人荣誉暂未收录"
+      ],
+      "stats": {
+        "lan_wins": 0,
+        "lan_played": 4
+      },
+      "top20": [],
+      "major_placements": [],
+      "source": "https://www.hltv.org/player/22866/jboen",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_18987": {
+      "id": "hltv_18987",
+      "name": "b1t",
+      "caption": "HLTV年度Top 9×2 · Major冠军×2 · HLTV MVP×1",
+      "facts": [
+        "HLTV年度Top 9×2",
+        "Major冠军×2",
+        "HLTV MVP×1"
+      ],
+      "stats": {
+        "major_wins": 2,
+        "major_played": 9,
+        "lan_wins": 11,
+        "lan_played": 60,
+        "major_trophies": 2,
+        "notable_trophies": 13,
+        "evps": 16,
+        "mvps": 1
+      },
+      "top20": [
+        {
+          "year": 2021,
+          "rank": 9
+        },
+        {
+          "year": 2022,
+          "rank": 16
+        },
+        {
+          "year": 2024,
+          "rank": 9
+        },
+        {
+          "year": 2025,
+          "rank": 20
+        }
+      ],
+      "major_placements": [
+        "Stage 3",
+        "3-4th",
+        "1/4 final",
+        "Legends",
+        "1st",
+        "Legends",
+        "1/4 final",
+        "2nd",
+        "1st"
+      ],
+      "source": "https://www.hltv.org/player/18987/b1t",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_9816": {
+      "id": "hltv_9816",
+      "name": "Aleksib",
+      "caption": "Major冠军×1 · 线下赛冠军×8",
+      "facts": [
+        "Major冠军×1",
+        "线下赛冠军×8"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 10,
+        "lan_wins": 8,
+        "lan_played": 71,
+        "major_trophies": 1,
+        "notable_trophies": 7
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3",
+        "3-4th",
+        "1/4 final",
+        "Legends",
+        "1st",
+        "Legends",
+        "Legends",
+        "Legends",
+        "1/4 final",
+        "2nd"
+      ],
+      "source": "https://www.hltv.org/player/9816/aleksib",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_14759": {
+      "id": "hltv_14759",
+      "name": "iM",
+      "caption": "HLTV年度Top 16（2024） · Major冠军×1 · HLTV MVP×1",
+      "facts": [
+        "HLTV年度Top 16（2024）",
+        "Major冠军×1",
+        "HLTV MVP×1"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 7,
+        "lan_wins": 6,
+        "lan_played": 44,
+        "major_trophies": 1,
+        "notable_trophies": 5,
+        "evps": 5,
+        "mvps": 1
+      },
+      "top20": [
+        {
+          "year": 2024,
+          "rank": 16
+        },
+        {
+          "year": 2025,
+          "rank": 19
+        }
+      ],
+      "major_placements": [
+        "Stage 3",
+        "3-4th",
+        "1/4 final",
+        "Legends",
+        "1st",
+        "2nd",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/14759/im",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_20127": {
+      "id": "hltv_20127",
+      "name": "w0nderful",
+      "caption": "HLTV年度Top 11（2024） · Major冠军×1 · HLTV MVP×1",
+      "facts": [
+        "HLTV年度Top 11（2024）",
+        "Major冠军×1",
+        "HLTV MVP×1"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 6,
+        "lan_wins": 6,
+        "lan_played": 44,
+        "major_trophies": 1,
+        "notable_trophies": 5,
+        "evps": 8,
+        "mvps": 1
+      },
+      "top20": [
+        {
+          "year": 2024,
+          "rank": 11
+        }
+      ],
+      "major_placements": [
+        "Stage 3",
+        "3-4th",
+        "1/4 final",
+        "Legends",
+        "1st",
+        "1/4 final"
+      ],
+      "source": "https://www.hltv.org/player/20127/w0nderful",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_22673": {
+      "id": "hltv_22673",
+      "name": "makazze",
+      "caption": "Major四强 · HLTV MVP×1 · HLTV EVP×4",
+      "facts": [
+        "Major四强",
+        "HLTV MVP×1",
+        "HLTV EVP×4"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 2,
+        "lan_wins": 2,
+        "lan_played": 18,
+        "major_trophies": 0,
+        "notable_trophies": 2,
+        "evps": 4,
+        "mvps": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3",
+        "3-4th"
+      ],
+      "source": "https://www.hltv.org/player/22673/makazze",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_18072": {
+      "id": "hltv_18072",
+      "name": "torzsi",
+      "caption": "HLTV年度Top 17（2025） · Major四强 · HLTV MVP×1",
+      "facts": [
+        "HLTV年度Top 17（2025）",
+        "Major四强",
+        "HLTV MVP×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 7,
+        "lan_wins": 5,
+        "lan_played": 58,
+        "major_trophies": 0,
+        "notable_trophies": 5,
+        "evps": 10,
+        "mvps": 1
+      },
+      "top20": [
+        {
+          "year": 2024,
+          "rank": 20
+        },
+        {
+          "year": 2025,
+          "rank": 17
+        }
+      ],
+      "major_placements": [
+        "Stage 3",
+        "1/4 final",
+        "3-4th",
+        "3-4th",
+        "1/4 final",
+        "Challengers",
+        "3-4th"
+      ],
+      "source": "https://www.hltv.org/player/18072/torzsi",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_20312": {
+      "id": "hltv_20312",
+      "name": "xertioN",
+      "caption": "HLTV年度Top 14（2024） · Major四强 · HLTV EVP×10",
+      "facts": [
+        "HLTV年度Top 14（2024）",
+        "Major四强",
+        "HLTV EVP×10"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 7,
+        "lan_wins": 5,
+        "lan_played": 53,
+        "major_trophies": 0,
+        "notable_trophies": 5,
+        "evps": 10
+      },
+      "top20": [
+        {
+          "year": 2024,
+          "rank": 14
+        },
+        {
+          "year": 2025,
+          "rank": 16
+        }
+      ],
+      "major_placements": [
+        "Stage 3",
+        "1/4 final",
+        "3-4th",
+        "3-4th",
+        "1/4 final",
+        "Challengers",
+        "3-4th"
+      ],
+      "source": "https://www.hltv.org/player/20312/xertion",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_18221": {
+      "id": "hltv_18221",
+      "name": "Spinx",
+      "caption": "HLTV年度Top 5（2023） · Major冠军×1 · HLTV MVP×1",
+      "facts": [
+        "HLTV年度Top 5（2023）",
+        "Major冠军×1",
+        "HLTV MVP×1"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 9,
+        "lan_wins": 9,
+        "lan_played": 61,
+        "major_trophies": 1,
+        "notable_trophies": 8,
+        "evps": 18,
+        "mvps": 1
+      },
+      "top20": [
+        {
+          "year": 2022,
+          "rank": 18
+        },
+        {
+          "year": 2023,
+          "rank": 5
+        },
+        {
+          "year": 2024,
+          "rank": 13
+        },
+        {
+          "year": 2025,
+          "rank": 10
+        }
+      ],
+      "major_placements": [
+        "Stage 3",
+        "1/4 final",
+        "3-4th",
+        "1/4 final",
+        "3-4th",
+        "1st",
+        "Legends",
+        "3-4th",
+        "Legends"
+      ],
+      "source": "https://www.hltv.org/player/18221/spinx",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_24457": {
+      "id": "hltv_24457",
+      "name": "xelex",
+      "caption": "HLTV EVP×1 · 线下赛冠军×1",
+      "facts": [
+        "HLTV EVP×1",
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 1,
+        "lan_wins": 1,
+        "lan_played": 9,
+        "major_trophies": 0,
+        "notable_trophies": 1,
+        "evps": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3"
+      ],
+      "source": "https://www.hltv.org/player/24457/xelex",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_22279": {
+      "id": "hltv_22279",
+      "name": "PR",
+      "caption": "HLTV EVP×1 · 线下赛冠军×1",
+      "facts": [
+        "HLTV EVP×1",
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 2,
+        "lan_wins": 1,
+        "lan_played": 21,
+        "major_trophies": 0,
+        "notable_trophies": 1,
+        "evps": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 2",
+        "Stage 1"
+      ],
+      "source": "https://www.hltv.org/player/22279/pr",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_3972": {
+      "id": "hltv_3972",
+      "name": "huNter-",
+      "caption": "HLTV年度Top 12（2021） · Major亚军 · HLTV MVP×2",
+      "facts": [
+        "HLTV年度Top 12（2021）",
+        "Major亚军",
+        "HLTV MVP×2"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 9,
+        "lan_wins": 7,
+        "lan_played": 69,
+        "major_trophies": 0,
+        "notable_trophies": 7,
+        "evps": 13,
+        "mvps": 2
+      },
+      "top20": [
+        {
+          "year": 2020,
+          "rank": 13
+        },
+        {
+          "year": 2021,
+          "rank": 12
+        },
+        {
+          "year": 2022,
+          "rank": 14
+        },
+        {
+          "year": 2023,
+          "rank": 13
+        }
+      ],
+      "major_placements": [
+        "1/4 final",
+        "Stage 3",
+        "Stage 3",
+        "3-4th",
+        "3-4th",
+        "Legends",
+        "Legends",
+        "2nd",
+        "Legends"
+      ],
+      "source": "https://www.hltv.org/player/3972/hunter",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_20447": {
+      "id": "hltv_20447",
+      "name": "HeavyGod",
+      "caption": "Major八强 · HLTV MVP×1 · HLTV EVP×3",
+      "facts": [
+        "Major八强",
+        "HLTV MVP×1",
+        "HLTV EVP×3"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 4,
+        "lan_wins": 1,
+        "lan_played": 25,
+        "major_trophies": 0,
+        "notable_trophies": 1,
+        "evps": 3,
+        "mvps": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "1/4 final",
+        "Stage 3",
+        "Stage 3",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/20447/heavygod",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_21062": {
+      "id": "hltv_21062",
+      "name": "MATYS",
+      "caption": "Major八强 · HLTV EVP×2 · 线下赛冠军×1",
+      "facts": [
+        "Major八强",
+        "HLTV EVP×2",
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 3,
+        "lan_wins": 1,
+        "lan_played": 22,
+        "major_trophies": 0,
+        "notable_trophies": 1,
+        "evps": 2
+      },
+      "top20": [],
+      "major_placements": [
+        "1/4 final",
+        "Stage 3",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/21062/matys",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_9436": {
+      "id": "hltv_9436",
+      "name": "NertZ",
+      "caption": "HLTV年度Top 14（2023） · Major八强 · HLTV EVP×6",
+      "facts": [
+        "HLTV年度Top 14（2023）",
+        "Major八强",
+        "HLTV EVP×6"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 6,
+        "lan_wins": 1,
+        "lan_played": 45,
+        "major_trophies": 0,
+        "notable_trophies": 1,
+        "evps": 6
+      },
+      "top20": [
+        {
+          "year": 2023,
+          "rank": 14
+        }
+      ],
+      "major_placements": [
+        "1/4 final",
+        "Stage 3",
+        "Stage 3",
+        "1/4 final",
+        "Legends",
+        "Legends"
+      ],
+      "source": "https://www.hltv.org/player/9436/nertz",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_20425": {
+      "id": "hltv_20425",
+      "name": "r1nkle",
+      "caption": "HLTV EVP×1",
+      "facts": [
+        "HLTV EVP×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 1,
+        "lan_wins": 0,
+        "lan_played": 11,
+        "evps": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 2"
+      ],
+      "source": "https://www.hltv.org/player/20425/r1nkle",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_8520": {
+      "id": "hltv_8520",
+      "name": "NAF",
+      "caption": "HLTV年度Top 6（2018） · Major四强 · HLTV MVP×5",
+      "facts": [
+        "HLTV年度Top 6（2018）",
+        "Major四强",
+        "HLTV MVP×5"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 14,
+        "lan_wins": 11,
+        "lan_played": 112,
+        "major_trophies": 0,
+        "notable_trophies": 13,
+        "evps": 30,
+        "mvps": 5
+      },
+      "top20": [
+        {
+          "year": 2018,
+          "rank": 6
+        },
+        {
+          "year": 2019,
+          "rank": 7
+        },
+        {
+          "year": 2021,
+          "rank": 14
+        }
+      ],
+      "major_placements": [
+        "Stage 1",
+        "Stage 3",
+        "Stage 3",
+        "1/4 final",
+        "1/4 final",
+        "Legends",
+        "Legends",
+        "Legends",
+        "1/4 final",
+        "1/4 final",
+        "3-4th",
+        "Challengers",
+        "Group stage",
+        "Group stage"
+      ],
+      "source": "https://www.hltv.org/player/8520/naf",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_8738": {
+      "id": "hltv_8738",
+      "name": "EliGE",
+      "caption": "HLTV年度Top 4（2019） · Major亚军 · HLTV MVP×4",
+      "facts": [
+        "HLTV年度Top 4（2019）",
+        "Major亚军",
+        "HLTV MVP×4"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 17,
+        "lan_wins": 9,
+        "lan_played": 123,
+        "major_trophies": 0,
+        "notable_trophies": 11,
+        "evps": 37,
+        "mvps": 4
+      },
+      "top20": [
+        {
+          "year": 2017,
+          "rank": 12
+        },
+        {
+          "year": 2018,
+          "rank": 15
+        },
+        {
+          "year": 2019,
+          "rank": 4
+        },
+        {
+          "year": 2020,
+          "rank": 8
+        },
+        {
+          "year": 2021,
+          "rank": 19
+        },
+        {
+          "year": 2024,
+          "rank": 19
+        }
+      ],
+      "major_placements": [
+        "Stage 1",
+        "Stage 3",
+        "1/4 final",
+        "Challengers",
+        "Legends",
+        "1/4 final",
+        "Legends",
+        "Legends",
+        "Legends",
+        "1/4 final",
+        "1/4 final",
+        "3-4th",
+        "Legends",
+        "Group stage",
+        "2nd",
+        "3-4th",
+        "Group stage"
+      ],
+      "source": "https://www.hltv.org/player/8738/elige",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_11617": {
+      "id": "hltv_11617",
+      "name": "malbsMd",
+      "caption": "HLTV年度Top 12（2024） · Major四强 · HLTV EVP×2",
+      "facts": [
+        "HLTV年度Top 12（2024）",
+        "Major四强",
+        "HLTV EVP×2"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 4,
+        "lan_wins": 3,
+        "lan_played": 33,
+        "major_trophies": 0,
+        "notable_trophies": 3,
+        "evps": 2
+      },
+      "top20": [
+        {
+          "year": 2024,
+          "rank": 12
+        }
+      ],
+      "major_placements": [
+        "Stage 1",
+        "Stage 3",
+        "Stage 3",
+        "3-4th"
+      ],
+      "source": "https://www.hltv.org/player/11617/malbsmd",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_24203": {
+      "id": "hltv_24203",
+      "name": "Jorko",
+      "caption": "个人荣誉暂未收录",
+      "facts": [
+        "个人荣誉暂未收录"
+      ],
+      "stats": {},
+      "top20": [],
+      "major_placements": [],
+      "source": "https://www.hltv.org/player/24203/jorko",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_11630": {
+      "id": "hltv_11630",
+      "name": "JT",
+      "caption": "Major参赛×6",
+      "facts": [
+        "Major参赛×6"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 6,
+        "lan_wins": 0,
+        "lan_played": 34
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3",
+        "Stage 1",
+        "Challengers",
+        "Legends",
+        "Challengers",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/11630/jt",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_12553": {
+      "id": "hltv_12553",
+      "name": "yuurih",
+      "caption": "HLTV年度Top 14（2020） · Major亚军 · HLTV MVP×3",
+      "facts": [
+        "HLTV年度Top 14（2020）",
+        "Major亚军",
+        "HLTV MVP×3"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 11,
+        "lan_wins": 5,
+        "lan_played": 62,
+        "major_trophies": 0,
+        "notable_trophies": 8,
+        "evps": 11,
+        "mvps": 3
+      },
+      "top20": [
+        {
+          "year": 2020,
+          "rank": 14
+        },
+        {
+          "year": 2022,
+          "rank": 19
+        }
+      ],
+      "major_placements": [
+        "2nd",
+        "1/4 final",
+        "1/4 final",
+        "Legends",
+        "Legends",
+        "Legends",
+        "3-4th",
+        "1/4 final",
+        "1/4 final",
+        "Challengers",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/12553/yuurih",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_15631": {
+      "id": "hltv_15631",
+      "name": "KSCERATO",
+      "caption": "HLTV年度Top 9×2 · Major亚军 · HLTV MVP×1",
+      "facts": [
+        "HLTV年度Top 9×2",
+        "Major亚军",
+        "HLTV MVP×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 11,
+        "lan_wins": 5,
+        "lan_played": 62,
+        "major_trophies": 0,
+        "notable_trophies": 8,
+        "evps": 28,
+        "mvps": 1
+      },
+      "top20": [
+        {
+          "year": 2020,
+          "rank": 18
+        },
+        {
+          "year": 2021,
+          "rank": 15
+        },
+        {
+          "year": 2022,
+          "rank": 9
+        },
+        {
+          "year": 2023,
+          "rank": 19
+        },
+        {
+          "year": 2025,
+          "rank": 9
+        }
+      ],
+      "major_placements": [
+        "2nd",
+        "1/4 final",
+        "1/4 final",
+        "Legends",
+        "Legends",
+        "Legends",
+        "3-4th",
+        "1/4 final",
+        "1/4 final",
+        "Challengers",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/15631/kscerato",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_2023": {
+      "id": "hltv_2023",
+      "name": "FalleN",
+      "caption": "HLTV年度Top 2（2016） · Major冠军×2 · HLTV MVP×4",
+      "facts": [
+        "HLTV年度Top 2（2016）",
+        "Major冠军×2",
+        "HLTV MVP×4"
+      ],
+      "stats": {
+        "major_wins": 2,
+        "major_played": 19,
+        "lan_wins": 18,
+        "lan_played": 140,
+        "major_trophies": 2,
+        "notable_trophies": 16,
+        "evps": 18,
+        "mvps": 4
+      },
+      "top20": [
+        {
+          "year": 2016,
+          "rank": 2
+        },
+        {
+          "year": 2017,
+          "rank": 6
+        }
+      ],
+      "major_placements": [
+        "2nd",
+        "1/4 final",
+        "1/4 final",
+        "Legends",
+        "Legends",
+        "Challengers",
+        "Legends",
+        "Legends",
+        "Legends",
+        "3-4th",
+        "3-4th",
+        "3-4th",
+        "1/4 final",
+        "3-4th",
+        "1st",
+        "1st",
+        "1/4 final",
+        "1/4 final",
+        "1/4 final"
+      ],
+      "source": "https://www.hltv.org/player/2023/fallen",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_24144": {
+      "id": "hltv_24144",
+      "name": "molodoy",
+      "caption": "HLTV年度Top 6（2025） · Major亚军 · HLTV MVP×2",
+      "facts": [
+        "HLTV年度Top 6（2025）",
+        "Major亚军",
+        "HLTV MVP×2"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 3,
+        "lan_wins": 4,
+        "lan_played": 25,
+        "major_trophies": 0,
+        "notable_trophies": 4,
+        "evps": 6,
+        "mvps": 2
+      },
+      "top20": [
+        {
+          "year": 2025,
+          "rank": 6
+        }
+      ],
+      "major_placements": [
+        "2nd",
+        "1/4 final",
+        "1/4 final"
+      ],
+      "source": "https://www.hltv.org/player/24144/molodoy",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_13915": {
+      "id": "hltv_13915",
+      "name": "YEKINDAR",
+      "caption": "HLTV年度Top 8（2021） · Major亚军 · HLTV EVP×12",
+      "facts": [
+        "HLTV年度Top 8（2021）",
+        "Major亚军",
+        "HLTV EVP×12"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 8,
+        "lan_wins": 4,
+        "lan_played": 51,
+        "major_trophies": 0,
+        "notable_trophies": 6,
+        "evps": 12
+      },
+      "top20": [
+        {
+          "year": 2021,
+          "rank": 8
+        },
+        {
+          "year": 2022,
+          "rank": 15
+        },
+        {
+          "year": 2025,
+          "rank": 15
+        }
+      ],
+      "major_placements": [
+        "2nd",
+        "1/4 final",
+        "1/4 final",
+        "1/4 final",
+        "1/4 final",
+        "Legends",
+        "Legends",
+        "1/4 final"
+      ],
+      "source": "https://www.hltv.org/player/13915/yekindar",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_21243": {
+      "id": "hltv_21243",
+      "name": "Wicadia",
+      "caption": "Major四强 · HLTV EVP×6 · 线下赛冠军×1",
+      "facts": [
+        "Major四强",
+        "HLTV EVP×6",
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 4,
+        "lan_wins": 1,
+        "lan_played": 36,
+        "major_trophies": 0,
+        "notable_trophies": 1,
+        "evps": 6
+      },
+      "top20": [],
+      "major_placements": [
+        "3-4th",
+        "Stage 2",
+        "Stage 3",
+        "1/4 final"
+      ],
+      "source": "https://www.hltv.org/player/21243/wicadia",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_8574": {
+      "id": "hltv_8574",
+      "name": "woxic",
+      "caption": "HLTV年度Top 12（2019） · Major四强 · HLTV MVP×1",
+      "facts": [
+        "HLTV年度Top 12（2019）",
+        "Major四强",
+        "HLTV MVP×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 8,
+        "lan_wins": 4,
+        "lan_played": 61,
+        "major_trophies": 0,
+        "notable_trophies": 4,
+        "evps": 8,
+        "mvps": 1
+      },
+      "top20": [
+        {
+          "year": 2019,
+          "rank": 12
+        }
+      ],
+      "major_placements": [
+        "3-4th",
+        "Stage 2",
+        "Stage 3",
+        "1/4 final",
+        "Challengers",
+        "Legends",
+        "Legends",
+        "1/4 final"
+      ],
+      "source": "https://www.hltv.org/player/8574/woxic",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_7938": {
+      "id": "hltv_7938",
+      "name": "XANTARES",
+      "caption": "HLTV年度Top 14（2025） · Major四强 · HLTV MVP×2",
+      "facts": [
+        "HLTV年度Top 14（2025）",
+        "Major四强",
+        "HLTV MVP×2"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 8,
+        "lan_wins": 1,
+        "lan_played": 51,
+        "major_trophies": 0,
+        "notable_trophies": 5,
+        "evps": 13,
+        "mvps": 2
+      },
+      "top20": [
+        {
+          "year": 2024,
+          "rank": 15
+        },
+        {
+          "year": 2025,
+          "rank": 14
+        }
+      ],
+      "major_placements": [
+        "3-4th",
+        "Stage 2",
+        "Stage 3",
+        "1/4 final",
+        "Challengers",
+        "Legends",
+        "Challengers",
+        "Legends"
+      ],
+      "source": "https://www.hltv.org/player/7938/xantares",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_18850": {
+      "id": "hltv_18850",
+      "name": "Jimpphat",
+      "caption": "HLTV年度Top 17（2024） · Major四强 · HLTV EVP×8",
+      "facts": [
+        "HLTV年度Top 17（2024）",
+        "Major四强",
+        "HLTV EVP×8"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 4,
+        "lan_wins": 4,
+        "lan_played": 42,
+        "major_trophies": 0,
+        "notable_trophies": 4,
+        "evps": 8
+      },
+      "top20": [
+        {
+          "year": 2024,
+          "rank": 17
+        }
+      ],
+      "major_placements": [
+        "1/4 final",
+        "3-4th",
+        "3-4th",
+        "1/4 final"
+      ],
+      "source": "https://www.hltv.org/player/18850/jimpphat",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_19677": {
+      "id": "hltv_19677",
+      "name": "kyxsan",
+      "caption": "Major四强 · 线下赛冠军×1",
+      "facts": [
+        "Major四强",
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 5,
+        "lan_wins": 1,
+        "lan_played": 41,
+        "major_trophies": 0,
+        "notable_trophies": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "1/4 final",
+        "Stage 2",
+        "1/4 final",
+        "Legends",
+        "3-4th"
+      ],
+      "source": "https://www.hltv.org/player/19677/kyxsan",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_20194": {
+      "id": "hltv_20194",
+      "name": "bLitz",
+      "caption": "Major亚军 · HLTV EVP×1 · 线下赛冠军×2",
+      "facts": [
+        "Major亚军",
+        "HLTV EVP×1",
+        "线下赛冠军×2"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 8,
+        "lan_wins": 2,
+        "lan_played": 42,
+        "major_trophies": 0,
+        "notable_trophies": 2,
+        "evps": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3",
+        "1/4 final",
+        "2nd",
+        "1/4 final",
+        "Legends",
+        "Challengers",
+        "Challengers",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/20194/blitz",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_20275": {
+      "id": "hltv_20275",
+      "name": "Techno",
+      "caption": "Major亚军 · HLTV MVP×1 · 线下赛冠军×2",
+      "facts": [
+        "Major亚军",
+        "HLTV MVP×1",
+        "线下赛冠军×2"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 8,
+        "lan_wins": 2,
+        "lan_played": 41,
+        "major_trophies": 0,
+        "notable_trophies": 2,
+        "mvps": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3",
+        "1/4 final",
+        "2nd",
+        "1/4 final",
+        "Legends",
+        "Challengers",
+        "Challengers",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/20275/techno",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_21809": {
+      "id": "hltv_21809",
+      "name": "910",
+      "caption": "Major亚军 · HLTV MVP×1 · HLTV EVP×4",
+      "facts": [
+        "Major亚军",
+        "HLTV MVP×1",
+        "HLTV EVP×4"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 5,
+        "lan_wins": 2,
+        "lan_played": 39,
+        "major_trophies": 0,
+        "notable_trophies": 2,
+        "evps": 4,
+        "mvps": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3",
+        "1/4 final",
+        "2nd",
+        "1/4 final",
+        "Legends"
+      ],
+      "source": "https://www.hltv.org/player/21809/910",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_23402": {
+      "id": "hltv_23402",
+      "name": "cobrazera",
+      "caption": "Major参赛×2",
+      "facts": [
+        "Major参赛×2"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 2,
+        "lan_wins": 0,
+        "lan_played": 11
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3",
+        "Stage 1"
+      ],
+      "source": "https://www.hltv.org/player/23402/cobrazera",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_15072": {
+      "id": "hltv_15072",
+      "name": "nin9",
+      "caption": "Major参赛×2",
+      "facts": [
+        "Major参赛×2"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 2
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 1",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/15072/nin9",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_7998": {
+      "id": "hltv_7998",
+      "name": "s1mple",
+      "caption": "HLTV年度Top 1×3 · Major冠军×1 · Major MVP×1",
+      "facts": [
+        "HLTV年度Top 1×3",
+        "Major冠军×1",
+        "Major MVP×1"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 14,
+        "lan_wins": 13,
+        "lan_played": 86,
+        "major_trophies": 1,
+        "notable_trophies": 17,
+        "major_mvps": 1,
+        "mvps": 21,
+        "evps": 37
+      },
+      "top20": [
+        {
+          "year": 2016,
+          "rank": 4
+        },
+        {
+          "year": 2017,
+          "rank": 8
+        },
+        {
+          "year": 2018,
+          "rank": 1
+        },
+        {
+          "year": 2019,
+          "rank": 2
+        },
+        {
+          "year": 2020,
+          "rank": 2
+        },
+        {
+          "year": 2021,
+          "rank": 1
+        },
+        {
+          "year": 2022,
+          "rank": 1
+        },
+        {
+          "year": 2023,
+          "rank": 7
+        }
+      ],
+      "major_placements": [
+        "1/4 final",
+        "Legends",
+        "1/4 final",
+        "2nd",
+        "1st",
+        "1/4 final",
+        "3-4th",
+        "2nd",
+        "3-4th",
+        "Group stage",
+        "1/4 final",
+        "2nd",
+        "3-4th",
+        "1/4 final"
+      ],
+      "source": "https://www.hltv.org/player/7998/s1mple",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_20903": {
+      "id": "hltv_20903",
+      "name": "Senzu",
+      "caption": "HLTV年度Top 13（2025） · Major亚军 · HLTV EVP×6",
+      "facts": [
+        "HLTV年度Top 13（2025）",
+        "Major亚军",
+        "HLTV EVP×6"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 3,
+        "lan_wins": 2,
+        "lan_played": 26,
+        "major_trophies": 0,
+        "notable_trophies": 2,
+        "evps": 6
+      },
+      "top20": [
+        {
+          "year": 2025,
+          "rank": 13
+        }
+      ],
+      "major_placements": [
+        "2nd",
+        "1/4 final",
+        "Legends"
+      ],
+      "source": "https://www.hltv.org/player/20903/senzu",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_9032": {
+      "id": "hltv_9032",
+      "name": "Magisk",
+      "caption": "HLTV年度Top 5（2019） · Major冠军×4 · Major MVP×1",
+      "facts": [
+        "HLTV年度Top 5（2019）",
+        "Major冠军×4",
+        "Major MVP×1"
+      ],
+      "stats": {
+        "major_wins": 4,
+        "major_played": 11,
+        "lan_wins": 22,
+        "lan_played": 97,
+        "major_trophies": 4,
+        "notable_trophies": 23,
+        "major_mvps": 1,
+        "mvps": 2,
+        "evps": 32
+      },
+      "top20": [
+        {
+          "year": 2016,
+          "rank": 14
+        },
+        {
+          "year": 2018,
+          "rank": 7
+        },
+        {
+          "year": 2019,
+          "rank": 5
+        },
+        {
+          "year": 2020,
+          "rank": 11
+        },
+        {
+          "year": 2023,
+          "rank": 17
+        }
+      ],
+      "major_placements": [
+        "Stage 2",
+        "Stage 2",
+        "1st",
+        "Legends",
+        "Legends",
+        "Legends",
+        "1st",
+        "1st",
+        "1st",
+        "1/4 final",
+        "1/4 final"
+      ],
+      "source": "https://www.hltv.org/player/9032/magisk",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_21001": {
+      "id": "hltv_21001",
+      "name": "mzinho",
+      "caption": "Major亚军 · HLTV EVP×2 · 线下赛冠军×2",
+      "facts": [
+        "Major亚军",
+        "HLTV EVP×2",
+        "线下赛冠军×2"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 5,
+        "lan_wins": 2,
+        "lan_played": 36,
+        "major_trophies": 0,
+        "notable_trophies": 2,
+        "evps": 2
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3",
+        "1/4 final",
+        "2nd",
+        "1/4 final",
+        "Legends"
+      ],
+      "source": "https://www.hltv.org/player/21001/mzinho",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_18545": {
+      "id": "hltv_18545",
+      "name": "asap",
+      "caption": "Major参赛×1",
+      "facts": [
+        "Major参赛×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 1"
+      ],
+      "source": "https://www.hltv.org/player/18545/asap",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_20304": {
+      "id": "hltv_20304",
+      "name": "Staehr",
+      "caption": "HLTV EVP×3",
+      "facts": [
+        "HLTV EVP×3"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 3,
+        "lan_wins": 0,
+        "lan_played": 38,
+        "evps": 3
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 2",
+        "Stage 2",
+        "Legends"
+      ],
+      "source": "https://www.hltv.org/player/20304/staehr",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_16726": {
+      "id": "hltv_16726",
+      "name": "phzy",
+      "caption": "HLTV EVP×2",
+      "facts": [
+        "HLTV EVP×2"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 3,
+        "lan_wins": 0,
+        "lan_played": 16,
+        "evps": 2
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 2",
+        "Stage 1",
+        "Legends"
+      ],
+      "source": "https://www.hltv.org/player/16726/phzy",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_21217": {
+      "id": "hltv_21217",
+      "name": "ryu",
+      "caption": "Major参赛×1",
+      "facts": [
+        "Major参赛×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 1,
+        "lan_wins": 0,
+        "lan_played": 10
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 2"
+      ],
+      "source": "https://www.hltv.org/player/21217/ryu",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_22674": {
+      "id": "hltv_22674",
+      "name": "cmtry",
+      "caption": "HLTV MVP×1 · 线下赛冠军×1",
+      "facts": [
+        "HLTV MVP×1",
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 1,
+        "lan_wins": 1,
+        "lan_played": 10,
+        "major_trophies": 0,
+        "notable_trophies": 1,
+        "mvps": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3"
+      ],
+      "source": "https://www.hltv.org/player/22674/cmtry",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_16820": {
+      "id": "hltv_16820",
+      "name": "siuhy",
+      "caption": "Major亚军 · HLTV EVP×1 · 线下赛冠军×3",
+      "facts": [
+        "Major亚军",
+        "HLTV EVP×1",
+        "线下赛冠军×3"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 7,
+        "lan_wins": 3,
+        "lan_played": 36,
+        "major_trophies": 0,
+        "notable_trophies": 3,
+        "evps": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 1",
+        "Stage 3",
+        "Stage 3",
+        "3-4th",
+        "1/4 final",
+        "2nd",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/16820/siuhy",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_8183": {
+      "id": "hltv_8183",
+      "name": "rain",
+      "caption": "HLTV年度Top 4（2017） · Major冠军×1 · Major MVP×1",
+      "facts": [
+        "HLTV年度Top 4（2017）",
+        "Major冠军×1",
+        "Major MVP×1"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 19,
+        "lan_wins": 17,
+        "lan_played": 131,
+        "major_trophies": 1,
+        "notable_trophies": 19,
+        "major_mvps": 1,
+        "mvps": 4,
+        "evps": 19
+      },
+      "top20": [
+        {
+          "year": 2017,
+          "rank": 4
+        },
+        {
+          "year": 2018,
+          "rank": 18
+        },
+        {
+          "year": 2022,
+          "rank": 13
+        }
+      ],
+      "major_placements": [
+        "1/4 final",
+        "2nd",
+        "2nd",
+        "1/4 final",
+        "Legends",
+        "1st",
+        "Legends",
+        "Legends",
+        "1/4 final",
+        "1/4 final",
+        "2nd",
+        "Group stage",
+        "1/4 final",
+        "Group stage",
+        "Group stage",
+        "3-4th",
+        "1/4 final",
+        "Group stage",
+        "Group stage"
+      ],
+      "source": "https://www.hltv.org/player/8183/rain",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_23397": {
+      "id": "hltv_23397",
+      "name": "poiii",
+      "caption": "个人荣誉暂未收录",
+      "facts": [
+        "个人荣誉暂未收录"
+      ],
+      "stats": {},
+      "top20": [],
+      "major_placements": [],
+      "source": "https://www.hltv.org/player/23397/poiii",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_22695": {
+      "id": "hltv_22695",
+      "name": "sirah",
+      "caption": "个人荣誉暂未收录",
+      "facts": [
+        "个人荣誉暂未收录"
+      ],
+      "stats": {},
+      "top20": [],
+      "major_placements": [],
+      "source": "https://www.hltv.org/player/22695/sirah",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_7592": {
+      "id": "hltv_7592",
+      "name": "device",
+      "caption": "HLTV年度Top 2（2018） · Major冠军×4 · Major MVP×2",
+      "facts": [
+        "HLTV年度Top 2（2018）",
+        "Major冠军×4",
+        "Major MVP×2"
+      ],
+      "stats": {
+        "major_wins": 4,
+        "major_played": 17,
+        "lan_wins": 25,
+        "lan_played": 134,
+        "major_trophies": 4,
+        "notable_trophies": 26,
+        "major_mvps": 2,
+        "mvps": 19,
+        "evps": 44
+      },
+      "top20": [
+        {
+          "year": 2014,
+          "rank": 20
+        },
+        {
+          "year": 2015,
+          "rank": 3
+        },
+        {
+          "year": 2016,
+          "rank": 3
+        },
+        {
+          "year": 2017,
+          "rank": 5
+        },
+        {
+          "year": 2018,
+          "rank": 2
+        },
+        {
+          "year": 2019,
+          "rank": 3
+        },
+        {
+          "year": 2020,
+          "rank": 3
+        },
+        {
+          "year": 2021,
+          "rank": 11
+        },
+        {
+          "year": 2023,
+          "rank": 11
+        }
+      ],
+      "major_placements": [
+        "Stage 2",
+        "1/4 final",
+        "1st",
+        "1st",
+        "1st",
+        "Legends",
+        "3-4th",
+        "1st",
+        "1/4 final",
+        "3-4th",
+        "1/4 final",
+        "3-4th",
+        "1/4 final",
+        "1/4 final",
+        "3-4th",
+        "3-4th",
+        "1/4 final"
+      ],
+      "source": "https://www.hltv.org/player/7592/device",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_21816": {
+      "id": "hltv_21816",
+      "name": "Gizmy",
+      "caption": "Major参赛×1",
+      "facts": [
+        "Major参赛×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3"
+      ],
+      "source": "https://www.hltv.org/player/21816/gizmy",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_14148": {
+      "id": "hltv_14148",
+      "name": "sjuush",
+      "caption": "Major亚军 · HLTV EVP×2 · 线下赛冠军×4",
+      "facts": [
+        "Major亚军",
+        "HLTV EVP×2",
+        "线下赛冠军×4"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 7,
+        "lan_wins": 4,
+        "lan_played": 48,
+        "major_trophies": 0,
+        "notable_trophies": 5,
+        "evps": 2
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 2",
+        "1/4 final",
+        "Legends",
+        "3-4th",
+        "2nd",
+        "1/4 final",
+        "3-4th"
+      ],
+      "source": "https://www.hltv.org/player/14148/sjuush",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_23372": {
+      "id": "hltv_23372",
+      "name": "xKacpersky",
+      "caption": "Major参赛×1",
+      "facts": [
+        "Major参赛×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 2"
+      ],
+      "source": "https://www.hltv.org/player/23372/xkacpersky",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_10994": {
+      "id": "hltv_10994",
+      "name": "stavn",
+      "caption": "HLTV年度Top 9（2023） · Major亚军 · HLTV EVP×17",
+      "facts": [
+        "HLTV年度Top 9（2023）",
+        "Major亚军",
+        "HLTV EVP×17"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 4,
+        "lan_wins": 3,
+        "lan_played": 55,
+        "major_trophies": 0,
+        "notable_trophies": 6,
+        "evps": 17
+      },
+      "top20": [
+        {
+          "year": 2020,
+          "rank": 12
+        },
+        {
+          "year": 2021,
+          "rank": 16
+        },
+        {
+          "year": 2022,
+          "rank": 10
+        },
+        {
+          "year": 2023,
+          "rank": 9
+        }
+      ],
+      "major_placements": [
+        "3-4th",
+        "2nd",
+        "1/4 final",
+        "3-4th"
+      ],
+      "source": "https://www.hltv.org/player/10994/stavn",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_19899": {
+      "id": "hltv_19899",
+      "name": "Krimbo",
+      "caption": "Major参赛×3",
+      "facts": [
+        "Major参赛×3"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 3,
+        "lan_wins": 0,
+        "lan_played": 21,
+        "major_trophies": 0,
+        "notable_trophies": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Legends",
+        "Legends",
+        "Legends"
+      ],
+      "source": "https://www.hltv.org/player/19899/krimbo",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_20878": {
+      "id": "hltv_20878",
+      "name": "adamb",
+      "caption": "Major参赛×1",
+      "facts": [
+        "Major参赛×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 1"
+      ],
+      "source": "https://www.hltv.org/player/20878/adamb",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_13776": {
+      "id": "hltv_13776",
+      "name": "Jame",
+      "caption": "HLTV年度Top 10（2021） · Major冠军×1 · Major MVP×1",
+      "facts": [
+        "HLTV年度Top 10（2021）",
+        "Major冠军×1",
+        "Major MVP×1"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 10,
+        "lan_wins": 4,
+        "lan_played": 55,
+        "major_trophies": 1,
+        "notable_trophies": 5,
+        "major_mvps": 1,
+        "mvps": 3,
+        "evps": 10
+      },
+      "top20": [
+        {
+          "year": 2021,
+          "rank": 10
+        },
+        {
+          "year": 2022,
+          "rank": 20
+        }
+      ],
+      "major_placements": [
+        "Stage 3",
+        "Stage 3",
+        "Challengers",
+        "Legends",
+        "1st",
+        "Legends",
+        "1/4 final",
+        "2nd",
+        "Legends",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/13776/jame",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_22471": {
+      "id": "hltv_22471",
+      "name": "xiELO",
+      "caption": "线下赛冠军×1",
+      "facts": [
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 2,
+        "lan_wins": 1,
+        "lan_played": 14,
+        "major_trophies": 0,
+        "notable_trophies": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3",
+        "Stage 3"
+      ],
+      "source": "https://www.hltv.org/player/22471/xielo",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_23685": {
+      "id": "hltv_23685",
+      "name": "zweih",
+      "caption": "Major四强 · HLTV EVP×3 · 线下赛冠军×3",
+      "facts": [
+        "Major四强",
+        "HLTV EVP×3",
+        "线下赛冠军×3"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 3,
+        "lan_wins": 3,
+        "lan_played": 21,
+        "major_trophies": 0,
+        "notable_trophies": 3,
+        "evps": 3
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3",
+        "3-4th",
+        "Stage 3"
+      ],
+      "source": "https://www.hltv.org/player/23685/zweih",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_12732": {
+      "id": "hltv_12732",
+      "name": "FL1T",
+      "caption": "Major冠军×1 · HLTV EVP×8 · 线下赛冠军×2",
+      "facts": [
+        "Major冠军×1",
+        "HLTV EVP×8",
+        "线下赛冠军×2"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 7,
+        "lan_wins": 2,
+        "lan_played": 46,
+        "major_trophies": 1,
+        "notable_trophies": 1,
+        "evps": 8
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3",
+        "Challengers",
+        "Legends",
+        "1st",
+        "Legends",
+        "1/4 final",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/12732/fl1t",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_8528": {
+      "id": "hltv_8528",
+      "name": "HObbit",
+      "caption": "HLTV年度Top 6（2021） · Major冠军×1 · HLTV MVP×3",
+      "facts": [
+        "HLTV年度Top 6（2021）",
+        "Major冠军×1",
+        "HLTV MVP×3"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 9,
+        "lan_wins": 5,
+        "lan_played": 58,
+        "major_trophies": 1,
+        "notable_trophies": 10,
+        "evps": 15,
+        "mvps": 3
+      },
+      "top20": [
+        {
+          "year": 2017,
+          "rank": 11
+        },
+        {
+          "year": 2021,
+          "rank": 6
+        }
+      ],
+      "major_placements": [
+        "1/4 final",
+        "1/4 final",
+        "Legends",
+        "3-4th",
+        "Legends",
+        "Challengers",
+        "Legends",
+        "1st",
+        "1/4 final"
+      ],
+      "source": "https://www.hltv.org/player/8528/hobbit",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_20584": {
+      "id": "hltv_20584",
+      "name": "dem0n",
+      "caption": "HLTV EVP×2 · 线下赛冠军×1",
+      "facts": [
+        "HLTV EVP×2",
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 1,
+        "lan_wins": 1,
+        "lan_played": 10,
+        "major_trophies": 0,
+        "notable_trophies": 1,
+        "evps": 2
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3"
+      ],
+      "source": "https://www.hltv.org/player/20584/dem0n",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_23553": {
+      "id": "hltv_23553",
+      "name": "dziugss",
+      "caption": "HLTV EVP×1 · 线下赛冠军×1",
+      "facts": [
+        "HLTV EVP×1",
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 1,
+        "lan_wins": 1,
+        "lan_played": 10,
+        "major_trophies": 0,
+        "notable_trophies": 1,
+        "evps": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3"
+      ],
+      "source": "https://www.hltv.org/player/23553/dziugss",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_22203": {
+      "id": "hltv_22203",
+      "name": "Krabeni",
+      "caption": "线下赛冠军×1",
+      "facts": [
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 1,
+        "lan_wins": 1,
+        "lan_played": 10,
+        "major_trophies": 0,
+        "notable_trophies": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3"
+      ],
+      "source": "https://www.hltv.org/player/22203/krabeni",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_19187": {
+      "id": "hltv_19187",
+      "name": "xfl0ud",
+      "caption": "HLTV EVP×1",
+      "facts": [
+        "HLTV EVP×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 3,
+        "lan_wins": 0,
+        "lan_played": 14,
+        "evps": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 1",
+        "Stage 2",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/19187/xfl0ud",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_19164": {
+      "id": "hltv_19164",
+      "name": "SunPayus",
+      "caption": "HLTV年度Top 6（2023） · Major八强 · HLTV MVP×1",
+      "facts": [
+        "HLTV年度Top 6（2023）",
+        "Major八强",
+        "HLTV MVP×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 6,
+        "lan_wins": 2,
+        "lan_played": 40,
+        "major_trophies": 0,
+        "notable_trophies": 2,
+        "evps": 5,
+        "mvps": 1
+      },
+      "top20": [
+        {
+          "year": 2023,
+          "rank": 6
+        }
+      ],
+      "major_placements": [
+        "1/4 final",
+        "Stage 3",
+        "Stage 2",
+        "Legends",
+        "Legends",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/19164/sunpayus",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_15698": {
+      "id": "hltv_15698",
+      "name": "dumau",
+      "caption": "HLTV EVP×1 · 线下赛冠军×3",
+      "facts": [
+        "HLTV EVP×1",
+        "线下赛冠军×3"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 6,
+        "lan_wins": 3,
+        "lan_played": 22,
+        "major_trophies": 0,
+        "notable_trophies": 3,
+        "evps": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3",
+        "Stage 1",
+        "Stage 3",
+        "Challengers",
+        "Challengers",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/15698/dumau",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_19045": {
+      "id": "hltv_19045",
+      "name": "latto",
+      "caption": "HLTV MVP×3 · HLTV EVP×2 · 线下赛冠军×3",
+      "facts": [
+        "HLTV MVP×3",
+        "HLTV EVP×2",
+        "线下赛冠军×3"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 6,
+        "lan_wins": 3,
+        "lan_played": 21,
+        "major_trophies": 0,
+        "notable_trophies": 3,
+        "evps": 2,
+        "mvps": 3
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3",
+        "Stage 1",
+        "Stage 3",
+        "Challengers",
+        "Challengers",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/19045/latto",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_19686": {
+      "id": "hltv_19686",
+      "name": "n1ssim",
+      "caption": "HLTV EVP×2 · 线下赛冠军×3",
+      "facts": [
+        "HLTV EVP×2",
+        "线下赛冠军×3"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 4,
+        "lan_wins": 3,
+        "lan_played": 18,
+        "major_trophies": 0,
+        "notable_trophies": 3,
+        "evps": 2
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3",
+        "Stage 1",
+        "Stage 3",
+        "Legends"
+      ],
+      "source": "https://www.hltv.org/player/19686/n1ssim",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_12521": {
+      "id": "hltv_12521",
+      "name": "arT",
+      "caption": "Major四强 · HLTV EVP×2 · 线下赛冠军×3",
+      "facts": [
+        "Major四强",
+        "HLTV EVP×2",
+        "线下赛冠军×3"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 10,
+        "lan_wins": 3,
+        "lan_played": 36,
+        "major_trophies": 0,
+        "notable_trophies": 6,
+        "evps": 2
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3",
+        "Stage 1",
+        "Stage 1",
+        "Legends",
+        "Legends",
+        "3-4th",
+        "1/4 final",
+        "1/4 final",
+        "Challengers",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/12521/art",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_19869": {
+      "id": "hltv_19869",
+      "name": "try",
+      "caption": "HLTV EVP×1 · 线下赛冠军×1",
+      "facts": [
+        "HLTV EVP×1",
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 4,
+        "lan_wins": 1,
+        "lan_played": 16,
+        "major_trophies": 0,
+        "notable_trophies": 1,
+        "evps": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "Stage 3",
+        "Stage 1",
+        "Challengers",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/19869/try",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_12092": {
+      "id": "hltv_12092",
+      "name": "max",
+      "caption": "Major八强 · 线下赛冠军×1",
+      "facts": [
+        "Major八强",
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 3,
+        "lan_wins": 1,
+        "lan_played": 19,
+        "major_trophies": 0,
+        "notable_trophies": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "1/4 final",
+        "Challengers",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/12092/max",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_22613": {
+      "id": "hltv_22613",
+      "name": "HUASOPEEK",
+      "caption": "Major八强 · HLTV MVP×1 · 线下赛冠军×1",
+      "facts": [
+        "Major八强",
+        "HLTV MVP×1",
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 1,
+        "lan_wins": 1,
+        "lan_played": 15,
+        "major_trophies": 0,
+        "notable_trophies": 1,
+        "mvps": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "1/4 final"
+      ],
+      "source": "https://www.hltv.org/player/22613/huasopeek",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_20394": {
+      "id": "hltv_20394",
+      "name": "luchov",
+      "caption": "Major八强 · HLTV EVP×2 · 线下赛冠军×1",
+      "facts": [
+        "Major八强",
+        "HLTV EVP×2",
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 1,
+        "lan_wins": 1,
+        "lan_played": 9,
+        "major_trophies": 0,
+        "notable_trophies": 1,
+        "evps": 2
+      },
+      "top20": [],
+      "major_placements": [
+        "1/4 final"
+      ],
+      "source": "https://www.hltv.org/player/20394/luchov",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_14737": {
+      "id": "hltv_14737",
+      "name": "meyern",
+      "caption": "Major八强 · 线下赛冠军×1",
+      "facts": [
+        "Major八强",
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 1,
+        "lan_wins": 1,
+        "lan_played": 14,
+        "major_trophies": 0,
+        "notable_trophies": 1
+      },
+      "top20": [],
+      "major_placements": [
+        "1/4 final"
+      ],
+      "source": "https://www.hltv.org/player/14737/meyern",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_14736": {
+      "id": "hltv_14736",
+      "name": "dgt",
+      "caption": "Major四强 · HLTV EVP×2 · 线下赛冠军×1",
+      "facts": [
+        "Major四强",
+        "HLTV EVP×2",
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 5,
+        "lan_wins": 1,
+        "lan_played": 27,
+        "major_trophies": 0,
+        "notable_trophies": 1,
+        "evps": 2
+      },
+      "top20": [],
+      "major_placements": [
+        "1/4 final",
+        "Stage 3",
+        "3-4th",
+        "Challengers",
+        "Challengers"
+      ],
+      "source": "https://www.hltv.org/player/14736/dgt",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_18053": {
+      "id": "hltv_18053",
+      "name": "broky",
+      "caption": "HLTV年度Top 6（2022） · Major冠军×1 · HLTV MVP×3",
+      "facts": [
+        "HLTV年度Top 6（2022）",
+        "Major冠军×1",
+        "HLTV MVP×3"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 7,
+        "lan_wins": 9,
+        "lan_played": 67,
+        "major_trophies": 1,
+        "notable_trophies": 11,
+        "evps": 18,
+        "mvps": 3
+      },
+      "top20": [
+        {
+          "year": 2021,
+          "rank": 20
+        },
+        {
+          "year": 2022,
+          "rank": 6
+        },
+        {
+          "year": 2023,
+          "rank": 10
+        },
+        {
+          "year": 2024,
+          "rank": 8
+        }
+      ],
+      "major_placements": [
+        "2nd",
+        "2nd",
+        "2nd",
+        "1/4 final",
+        "Legends",
+        "1st",
+        "Legends"
+      ],
+      "source": "https://www.hltv.org/player/18053/broky",
+      "verified_at": "2026-10-17"
+    },
+    "hltv_2553": {
+      "id": "hltv_2553",
+      "name": "Snax",
+      "caption": "Major冠军×1 · HLTV Top20×4（最高第4） · 线下赛冠军×15",
+      "facts": [
+        "Major冠军×1",
+        "HLTV Top20×4（最高第4）",
+        "线下赛冠军×15"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 17,
+        "lan_wins": 15,
+        "lan_played": 104
+      },
+      "top20": [
+        {
+          "year": 2014,
+          "rank": 4
+        },
+        {
+          "year": 2015,
+          "rank": 4
+        },
+        {
+          "year": 2016,
+          "rank": 5
+        },
+        {
+          "year": 2017,
+          "rank": 20
+        }
+      ],
+      "source": "https://www.hltv.org/player/2553/snax",
+      "verified_at": "2026-10-20"
+    },
+    "hltv_9278": {
+      "id": "hltv_9278",
+      "name": "REZ",
+      "caption": "线下赛冠军×2",
+      "facts": [
+        "线下赛冠军×2"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 9,
+        "lan_wins": 2,
+        "lan_played": 81
+      },
+      "top20": [],
+      "source": "https://www.hltv.org/player/9278/rez",
+      "verified_at": "2026-10-20"
+    },
+    "hltv_16555": {
+      "id": "hltv_16555",
+      "name": "Ax1Le",
+      "caption": "HLTV Top20×2（最高第4） · 线下赛冠军×2",
+      "facts": [
+        "HLTV Top20×2（最高第4）",
+        "线下赛冠军×2"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 6,
+        "lan_wins": 2,
+        "lan_played": 30
+      },
+      "top20": [
+        {
+          "year": 2021,
+          "rank": 5
+        },
+        {
+          "year": 2022,
+          "rank": 4
+        }
+      ],
+      "source": "https://www.hltv.org/player/16555/ax1le",
+      "verified_at": "2026-10-20"
+    },
+    "hltv_16921": {
+      "id": "hltv_16921",
+      "name": "nafany",
+      "caption": "线下赛冠军×2",
+      "facts": [
+        "线下赛冠军×2"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 3,
+        "lan_wins": 2,
+        "lan_played": 24
+      },
+      "top20": [],
+      "source": "https://www.hltv.org/player/16921/nafany",
+      "verified_at": "2026-10-20"
+    },
+    "hltv_20101": {
+      "id": "hltv_20101",
+      "name": "fame",
+      "caption": "Major冠军×1 · 线下赛冠军×2",
+      "facts": [
+        "Major冠军×1",
+        "线下赛冠军×2"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 4,
+        "lan_wins": 2,
+        "lan_played": 37
+      },
+      "top20": [],
+      "source": "https://www.hltv.org/player/20101/fame",
+      "verified_at": "2026-10-20"
+    },
+    "hltv_21348": {
+      "id": "hltv_21348",
+      "name": "ArtFr0st",
+      "caption": "线下赛冠军×1",
+      "facts": [
+        "线下赛冠军×1"
+      ],
+      "stats": {
+        "lan_wins": 1,
+        "lan_played": 4
+      },
+      "top20": [],
+      "source": "https://www.hltv.org/player/21348/artfr0st",
+      "verified_at": "2026-10-20"
+    },
+    "hltv_11840": {
+      "id": "hltv_11840",
+      "name": "Boombl4",
+      "caption": "Major冠军×1 · 线下赛冠军×5",
+      "facts": [
+        "Major冠军×1",
+        "线下赛冠军×5"
+      ],
+      "stats": {
+        "major_wins": 1,
+        "major_played": 10,
+        "lan_wins": 5,
+        "lan_played": 35
+      },
+      "top20": [],
+      "source": "https://www.hltv.org/player/11840/boombl4",
+      "verified_at": "2026-10-20"
+    },
+    "hltv_15662": {
+      "id": "hltv_15662",
+      "name": "zorte",
+      "caption": "Major参赛×4",
+      "facts": [
+        "Major参赛×4"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 4,
+        "lan_wins": 0,
+        "lan_played": 13
+      },
+      "top20": [],
+      "source": "https://www.hltv.org/player/15662/zorte",
+      "verified_at": "2026-10-20"
+    },
+    "hltv_18506": {
+      "id": "hltv_18506",
+      "name": "S1ren",
+      "caption": "Major参赛×3",
+      "facts": [
+        "Major参赛×3"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 3,
+        "lan_wins": 0,
+        "lan_played": 20
+      },
+      "top20": [],
+      "source": "https://www.hltv.org/player/18506/s1ren",
+      "verified_at": "2026-10-20"
+    },
+    "hltv_15165": {
+      "id": "hltv_15165",
+      "name": "blameF",
+      "caption": "HLTV Top20×4（最高第6）",
+      "facts": [
+        "HLTV Top20×4（最高第6）"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 4,
+        "lan_wins": 0,
+        "lan_played": 30
+      },
+      "top20": [
+        {
+          "year": 2020,
+          "rank": 6
+        },
+        {
+          "year": 2021,
+          "rank": 13
+        },
+        {
+          "year": 2022,
+          "rank": 12
+        },
+        {
+          "year": 2023,
+          "rank": 16
+        }
+      ],
+      "source": "https://www.hltv.org/player/15165/blamef",
+      "verified_at": "2026-10-20"
+    },
+    "hltv_5794": {
+      "id": "hltv_5794",
+      "name": "tabseN",
+      "caption": "Major参赛×10",
+      "facts": [
+        "Major参赛×10"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 10,
+        "lan_wins": 0,
+        "lan_played": 58
+      },
+      "top20": [],
+      "source": "https://www.hltv.org/player/5794/tabsen",
+      "verified_at": "2026-10-20"
+    },
+    "hltv_13666": {
+      "id": "hltv_13666",
+      "name": "Brollan",
+      "caption": "HLTV Top20×2（最高第15） · 线下赛冠军×4",
+      "facts": [
+        "HLTV Top20×2（最高第15）",
+        "线下赛冠军×4"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 9,
+        "lan_wins": 4,
+        "lan_played": 67
+      },
+      "top20": [
+        {
+          "year": 2019,
+          "rank": 19
+        },
+        {
+          "year": 2020,
+          "rank": 15
+        }
+      ],
+      "source": "https://www.hltv.org/player/13666/brollan",
+      "verified_at": "2026-10-20"
+    },
+    "hltv_7687": {
+      "id": "hltv_7687",
+      "name": "nitr0",
+      "caption": "线下赛冠军×9",
+      "facts": [
+        "线下赛冠军×9"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 14,
+        "lan_wins": 9,
+        "lan_played": 95
+      },
+      "top20": [],
+      "source": "https://www.hltv.org/player/7687/nitr0",
+      "verified_at": "2026-10-20"
+    },
+    "hltv_13578": {
+      "id": "hltv_13578",
+      "name": "Grim",
+      "caption": "Major参赛×8",
+      "facts": [
+        "Major参赛×8"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 8,
+        "lan_wins": 0,
+        "lan_played": 37
+      },
+      "top20": [],
+      "source": "https://www.hltv.org/player/13578/grim",
+      "verified_at": "2026-10-20"
+    },
+    "hltv_21037": {
+      "id": "hltv_21037",
+      "name": "insani",
+      "caption": "Major参赛×4",
+      "facts": [
+        "Major参赛×4"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 4,
+        "lan_wins": 0,
+        "lan_played": 23
+      },
+      "top20": [],
+      "source": "https://www.hltv.org/player/21037/insani",
+      "verified_at": "2026-10-20"
+    },
+    "hltv_4679": {
+      "id": "hltv_4679",
+      "name": "jks",
+      "caption": "HLTV Top20×2（最高第15） · 线下赛冠军×5",
+      "facts": [
+        "HLTV Top20×2（最高第15）",
+        "线下赛冠军×5"
+      ],
+      "stats": {
+        "major_wins": 0,
+        "major_played": 11,
+        "lan_wins": 5,
+        "lan_played": 66
+      },
+      "top20": [
+        {
+          "year": 2019,
+          "rank": 15
+        },
+        {
+          "year": 2020,
+          "rank": 19
+        }
+      ],
+      "source": "https://www.hltv.org/player/4679/jks",
+      "verified_at": "2026-10-20"
+    }
+  }
+}

@@ -15,11 +15,14 @@ def normalize_name(name):
 
 
 class TeamLogoCatalog:
-    def __init__(self):
+    def __init__(self, enabled=True):
         self.images = {}
         self.web_images = {}
         self.web_dark_names = []
+        if not enabled:
+            return
         path = ROOT / "team_logos.json"
+        logo_dir = LOGO_DIR
         if not path.is_file():
             return
         try:
@@ -35,7 +38,7 @@ class TeamLogoCatalog:
             if not re.fullmatch(r"[A-Za-z0-9_-]+\.(png|webp|jpg)", filename):
                 continue
             try:
-                data = (LOGO_DIR / filename).read_bytes()
+                data = (logo_dir / filename).read_bytes()
             except OSError:
                 continue
             if not data or len(data) > 1024 * 1024:
@@ -52,7 +55,7 @@ class TeamLogoCatalog:
                 continue
             mime = "image/jpeg" if filename.endswith(".jpg") else "image/" + filename.rsplit(".", 1)[1]
             web_image = f"data:{mime};base64," + base64.b64encode(data).decode("ascii")
-            for alias in [name, *entry.get("aliases", [])]:
+            for alias in [name, entry.get("name", ""), entry.get("acronym", ""), *entry.get("aliases", [])]:
                 key = normalize_name(alias)
                 if key:
                     self.images[key] = data

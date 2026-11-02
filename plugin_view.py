@@ -21,11 +21,12 @@ ROUTES = (
     ("POST", r"/api/config/import", "import_config"),
     ("POST", r"/api/setup/check", "check_setup"),
     ("GET", r"/api/matches", "get_matches"),
+    ("GET", r"/api/tools/preview", "preview_tool"),
     ("POST", r"/api/refresh", "refresh"),
     ("POST", r"/api/push_now", "push_now"),
     ("POST", r"/api/test", "send_test"),
     ("POST", r"/api/groups", "add_group"),
-    ("DELETE", r"/api/groups/(?P<gid>[0-9]+)", "remove_group"),
+    ("DELETE", r"/api/groups/(?P<gid>[A-Za-z0-9_-]+)", "remove_group"),
     ("GET", r"/api/teams/search", "search_teams"),
     ("GET", r"/api/teams/popular", "popular_teams"),
     ("POST", r"/api/teams", "add_team"),
@@ -106,12 +107,13 @@ class PluginView:
                 body = envelope.get("body")
             if not isinstance(path, str) or not isinstance(method, str):
                 raise ConfigError("invalid panel operation")
+            panel = self.plugin.panel
             for allowed_method, pattern, handler_name in ROUTES:
                 match = re.fullmatch(pattern, path)
                 if method == allowed_method and match:
                     # A GET envelope cannot invoke writes. The explicit method
                     # and path pair is checked before any business code runs.
-                    result = await getattr(self.plugin.panel, handler_name)(
+                    result = await getattr(panel, handler_name)(
                         PanelRequest(method, query, body, match.groupdict())
                     )
                     payload = json.loads(result.text)

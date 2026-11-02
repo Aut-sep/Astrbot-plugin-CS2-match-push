@@ -1,9 +1,12 @@
 import { createSetupGuide } from './setup.js';
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+const gameLabel = "CS2";
 const bridge = window.AstrBotPluginView || window.AstrBotPluginPage;
 const state = {
   config: {},
+  subscriptionsDraft: null,
+  saving: false,
   matches: [],
   teams: [],
   searchResultsReady: false,
@@ -137,31 +140,49 @@ function dialog(
   });
 }
 
+function subscriptionValues() {
+  return state.subscriptionsDraft || state.config;
+}
+
+function editSubscriptions(edit) {
+  if (!state.ready || state.saving) return;
+  state.subscriptionsDraft ||= structuredClone({
+    push_groups: state.config.push_groups || [],
+    followed_teams: state.config.followed_teams || [],
+  });
+  edit(state.subscriptionsDraft);
+  renderSubscriptions();
+  syncTeamFollowedState();
+  checkDirty("subscriptions");
+}
+
 function updateDirtyIndicators() {
+  $("#save-all-bar").hidden = !state.dirty.size;
+  $("#save-all").disabled = state.saving;
+  $("#discard-all").disabled = state.saving;
   $$("form[data-section]").forEach((form) => {
     const section = form.dataset.section;
     const dirty = state.dirty.has(section);
-    $(".save-bar", form).classList.toggle("dirty", dirty);
-    $(".save-state", form).textContent = dirty
-      ? "有未保存的修改"
-      : "设置已保存";
-    $('.save-bar button[type="submit"]', form).disabled =
-      !dirty || state.pending.has($('.save-bar button[type="submit"]', form));
-    $("[data-discard]", form).disabled = !dirty;
     $(`#tab-${section} .tab-dirty`).hidden = !dirty;
   });
 }
 
 function formValues(section) {
   const form = $(`#${section}-form`);
-  const values = {};
+  const values = section === "subscriptions" && state.subscriptionsDraft
+    ? structuredClone(state.subscriptionsDraft) : {};
   const tiers = $$('[data-key="min_tiers"]:checked', form).map(
     (input) => input.value,
   );
   $$("[data-key]", form).forEach((input) => {
+    if (input.disabled) return;
     const key = input.dataset.key;
     if (key === "min_tiers") {
       values[key] = tiers;
+      return;
+    }
+    if (key === "official_features" || key === "official_platform_ids") {
+      values[key] = $$(`[data-key="${key}"]:checked`, form).map((item) => item.value);
       return;
     }
     if (secretKeys.has(key)) {
@@ -169,7 +190,8 @@ function formValues(section) {
       else if (input.value.trim()) values[key] = input.value.trim();
       return;
     }
-    if (input.type === "checkbox") values[key] = input.checked;
+    if (input.multiple) values[key] = [...input.selectedOptions].map((option) => option.value);
+    else if (input.type === "checkbox") values[key] = input.checked;
     else if (input.type === "number") values[key] = Number(input.value);
     else if (input.dataset.type === "lines")
       values[key] = splitLines(input.value).map((value) => value.toLowerCase());
@@ -208,8 +230,10 @@ function fillForm(section) {
       input.type = "password";
       return;
     }
-    if (key === "min_tiers")
+    if (key === "min_tiers" || key === "official_features" || key === "official_platform_ids")
       input.checked = (value || []).includes(input.value);
+    else if (input.multiple)
+      [...input.options].forEach((option) => { option.selected = (value || []).includes(option.value); });
     else if (input.type === "checkbox") input.checked = !!value;
     else if (input.dataset.type === "lines")
       input.value = (value || []).join("\n");
@@ -230,6 +254,7 @@ function fillForm(section) {
 async function loadConfig() {
   const result = await api("/api/config");
   state.config = result.data;
+  renderOfficialPlatforms(result.official_platforms || [], result.official_platforms_note || "");
   state.teamLogos = result.team_logos || {};
   state.teamLogoDarkNames = new Set(result.team_logo_dark_names || []);
   state.tokenConfigured = !!result.token_configured;
@@ -246,39 +271,135 @@ async function loadConfig() {
   renderSubscriptions();
   syncTeamFollowedState();
   renderStats();
+  renderPushSummary();
   updateDirtyIndicators();
   setupGuide?.sync();
 }
 
-async function saveSection(section, button) {
-  const form = $(`#${section}-form`);
-  if (!form.reportValidity()) return;
-  const values = formValues(section);
-  if (values.daily_push_enabled && !values.daily_push_times.length)
-    throw new Error("每日推送开启时，请至少填写一个推送时间。");
-  if (
-    values.daily_push_times?.some(
-      (time) => !/^([01]\d|2[0-3]):[0-5]\d$/.test(time),
-    )
-  )
-    throw new Error("推送时间请使用 HH:MM，例如 08:00。");
-  if (values.test_mode_enabled && !/^\d+$/.test(values.test_target_id))
-    throw new Error("启用测试模式时，请填写有效的目标号码。");
-  const inputs = $$("input,select,textarea,button", form);
-  const disabledStates = inputs.map((input) => input.disabled);
-  inputs.forEach((input) => {
-    input.disabled = true;
+function renderOfficialPlatforms(platforms, note) {
+  const list = $("#official-platform-list");
+  const selected = state.dirty.has("advanced")
+    ? $$('[data-key="official_platform_ids"]:checked', list).map((input) => input.value)
+    : (state.config.official_platform_ids || []);
+  const available = new Map((platforms || [])
+    .filter((platform) => typeof platform?.id === "string" && platform.id)
+    .map((platform) => [platform.id, platform]));
+  const entries = [...available.values()];
+  for (const id of selected) {
+    if (!available.has(id)) entries.push({ id, name: "当前未连接的官方机器人" });
+  }
+  list.innerHTML = entries.length
+    ? entries.map((platform) => {
+      const offline = !available.has(platform.id);
+      const label = offline
+        ? `${platform.name} · ${platform.id}（当前不可用，仍保留）`
+        : `${platform.name || "QQ 官方机器人"} · ${platform.id}`;
+      return `<label class="inline-check"><input type="checkbox" data-key="official_platform_ids" value="${escaped(platform.id)}"><span>${escaped(label)}</span></label>`;
+    }).join("")
+    : '<p class="muted">未发现可选的 QQ 官方机器人实例。</p>';
+  $("#official-platforms-note").textContent = note || "只显示 AstrBot 已配置的 QQ 官方实例；不会读取或展示登录凭据。";
+  $$('[data-key="official_platform_ids"]', list).forEach((input) => {
+    input.checked = selected.includes(input.value);
   });
+}
+
+async function saveSection() {
+  if (state.saving || !state.dirty.size) return;
+  const sections = [...state.dirty];
+  const values = {};
+  for (const section of sections) {
+    const form = $(`#${section}-form`);
+    if (!form.checkValidity()) {
+      activateTab(section);
+      form.reportValidity();
+      return;
+    }
+    Object.assign(values, Object.fromEntries(Object.entries(formValues(section)).filter(
+      ([key, value]) => JSON.stringify(value) !== JSON.stringify(state.config[key]),
+    )));
+  }
+  if (values.daily_push_enabled && !(values.daily_push_times || state.config.daily_push_times)?.length)
+    throw new Error("每日推送开启时，请至少填写一个推送时间。");
+  if (values.daily_push_times?.some(time => !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)))
+    throw new Error("推送时间请使用 HH:MM，例如 08:00。");
+  const merged = { ...state.config, ...values };
+  if (merged.test_mode_enabled && !/^[1-9][0-9]*$/.test(merged.test_target_id))
+    throw new Error("启用测试模式时，请填写纯数字 QQ 号或群号。");
+  state.saving = true;
+  const inputs = $$("input,select,textarea,button", $("#app"));
+  const disabledStates = inputs.map(input => input.disabled);
+  inputs.forEach(input => { input.disabled = true; });
   try {
     await api("/api/config", "PATCH", values);
-    state.dirty.delete(section);
-    await loadConfig();
-    toast("设置已保存并生效。");
+    Object.assign(state.config, values);
+    state.subscriptionsDraft = null;
+    state.dirty.clear();
+    sections.forEach(fillForm);
+    renderSubscriptions();
+    syncTeamFollowedState();
+    renderStats();
+    renderPushSummary();
+    try { await loadConfig(); }
+    catch { toast("配置已保存，页面刷新失败，可稍后重新打开页面。", true); }
+    toast("全部配置已保存并生效。");
   } finally {
-    inputs.forEach((input, index) => {
-      input.disabled = disabledStates[index];
-    });
+    state.saving = false;
+    inputs.forEach((input, index) => { input.disabled = disabledStates[index]; });
     updateDirtyIndicators();
+  }
+}
+
+function renderPushSummary() {
+  const cfg = state.config;
+  $("#push-target-summary").textContent = `${cfg.push_groups?.length || 0} 个接收群`;
+  $("#push-format-summary").textContent = cfg.image_push_enabled ? "图片 + 战队标识" : "文字 + 直播链接";
+  $("#push-rule-summary").textContent = `赛前 ${cfg.remind_minutes || 10} 分钟 · ${cfg.daily_push_enabled ? "日报已开启" : "日报已关闭"}`;
+  const missing = [];
+  if (!state.tokenConfigured) missing.push("尚未配置数据源 Token，请在高级维护中填写");
+  if (!cfg.push_groups?.length) missing.push("尚未配置接收群，请在订阅管理中添加");
+  $("#push-readiness").hidden = !missing.length;
+  $("#push-readiness").textContent = missing.join("；") + (missing.length ? "。" : "");
+}
+
+let previewSequence = 0;
+async function previewTool(kind, overrides = {}) {
+  if (!state.ready) throw new Error("页面正在连接，请稍后重试。");
+  if (state.saving || state.dirty.size) throw new Error("请先保存或放弃未保存的修改，再查询预览。");
+  const days = overrides.days ?? Number($(kind === "results" ? "#tool-results-days" : "#tool-days").value);
+  if ((kind === "schedule" || kind === "results") && (!Number.isInteger(days) || days < 1 || days > 30))
+    throw new Error("查询天数应为 1～30 的整数。");
+  const matchId = $("#tool-match-id").value.trim();
+  if (kind === "results" && matchId && !/^[1-9][0-9]*$/.test(matchId))
+    throw new Error("比赛 ID 应为正整数。");
+  activateTab("tools");
+  const sequence = ++previewSequence;
+  const panel = $("#tool-preview");
+  const titles = { schedule: "赛程预览", bracket: "晋级对阵图", results: "最近赛果" };
+  $("#tool-preview-title").textContent = `${gameLabel} · ${titles[kind] || "查询预览"}`;
+  $("#tool-preview-error").hidden = true;
+  $("#tool-preview-image").hidden = true;
+  $("#tool-preview-image").removeAttribute("src");
+  $("#tool-preview-text").textContent = "正在查询，请稍候…";
+  $("#tool-preview-note").textContent = "使用已保存设置查询，结果仅在网页展示。";
+  panel.setAttribute("aria-busy", "true");
+  try {
+    const result = await api("/api/tools/preview", "GET", undefined, {
+      kind, days, stage: $("#tool-stage").value, match_id: matchId,
+    });
+    if (sequence !== previewSequence) return;
+    $("#tool-preview-text").textContent = result.text || "暂无可展示内容。";
+    $("#tool-preview-note").textContent = result.note || "查询完成，结果仅在网页展示。";
+    if (result.image) {
+      $("#tool-preview-image").src = `data:image/png;base64,${result.image}`;
+      $("#tool-preview-image").hidden = false;
+    }
+  } catch (error) {
+    if (sequence !== previewSequence) return;
+    $("#tool-preview-error").textContent = error.message || "查询失败，请重试。";
+    $("#tool-preview-error").hidden = false;
+    $("#tool-preview-text").textContent = "未获取到结果，可重新查询。";
+  } finally {
+    if (sequence === previewSequence) panel.setAttribute("aria-busy", "false");
   }
 }
 
@@ -318,7 +439,7 @@ function teamAvatar(team, name = team?.name || "TBD") {
 }
 
 function isTeamFollowed(candidate) {
-  return (state.config.followed_teams || []).some((item) =>
+  return (subscriptionValues().followed_teams || []).some((item) =>
     typeof item === "string"
       ? item.toLowerCase() === String(candidate.name || "").toLowerCase()
       : item.id
@@ -519,8 +640,8 @@ async function loadMatches({ quiet = false } = {}) {
 }
 
 function renderSubscriptions() {
-  const groups = state.config.push_groups || [];
-  const teams = state.config.followed_teams || [];
+  const groups = subscriptionValues().push_groups || [];
+  const teams = subscriptionValues().followed_teams || [];
   $("#group-count").textContent = groups.length;
   $("#team-count").textContent = teams.length;
   $("#group-list").innerHTML = groups.length
@@ -581,6 +702,23 @@ function activateTab(name, { focus = false } = {}) {
 }
 
 function installEvents() {
+  $$("[data-navigate]").forEach(button => button.addEventListener("click", () => activateTab(button.dataset.navigate, { focus: true })));
+  $$("[data-preview]").forEach(button => button.addEventListener("click", () => run(button, () => previewTool(button.dataset.preview))));
+  $("#preview-daily").addEventListener("click", () => {
+    activateTab("tools");
+    $("#tool-days").value = Number(state.config.daily_push_days || 1);
+    $("#tool-days").focus();
+  });
+  $("#save-all").addEventListener("click", event => run(event.currentTarget, saveSection));
+  $("#discard-all").addEventListener("click", () => {
+    const sections = [...state.dirty];
+    state.subscriptionsDraft = null;
+    state.dirty.clear();
+    sections.forEach(fillForm);
+    renderSubscriptions();
+    syncTeamFollowedState();
+    updateDirtyIndicators();
+  });
   document.addEventListener(
     "error",
     (event) => {
@@ -622,20 +760,8 @@ function installEvents() {
   $$("form[data-section]").forEach((form) => {
     form.addEventListener("input", () => checkDirty(form.dataset.section));
     form.addEventListener("change", () => checkDirty(form.dataset.section));
-    form.addEventListener("submit", (event) => {
-      event.preventDefault();
-      const button = $('[type="submit"]', form);
-      run(button, () => saveSection(form.dataset.section, button));
-    });
+    form.addEventListener("submit", (event) => event.preventDefault());
   });
-  $$("[data-discard]").forEach((button) =>
-    button.addEventListener("click", () => {
-      const section = button.dataset.discard;
-      state.dirty.delete(section);
-      fillForm(section);
-      updateDirtyIndicators();
-    }),
-  );
   $$("[data-reveal]").forEach((button) =>
     button.addEventListener("click", () => {
       const input = $(`[data-key="${button.dataset.reveal}"]`);
@@ -660,12 +786,12 @@ function installEvents() {
     event.preventDefault();
     run($("button", event.currentTarget), async () => {
       const gid = $("#group-id").value.trim();
-      if (!/^\d+$/.test(gid) || BigInt(gid) < 1n)
-        throw new Error("请输入有效的 QQ 群号。");
-      const result = await api("/api/groups", "POST", { gid });
+      if (!/^[1-9][0-9]*$/.test(gid))
+        throw new Error("请输入纯数字 QQ 群号。");
+      editSubscriptions(draft => {
+        if (!draft.push_groups.includes(gid)) draft.push_groups.push(gid);
+      });
       $("#group-id").value = "";
-      await loadConfig();
-      toast(result.added ? "群组已添加。" : "该群组已在推送列表中。");
     });
   });
   $("#team-search-form").addEventListener("submit", (event) => {
@@ -706,58 +832,19 @@ function installEvents() {
     const button = event.target.closest("button");
     if (!button) return;
     if (button.hasAttribute("data-group-remove"))
-      run(button, async () => {
-        if (
-          !(await dialog(
-            "移除推送群组",
-            `确定不再向群 ${button.dataset.groupRemove} 推送比赛消息？`,
-            { confirm: "移除" },
-          ))
-        )
-          return;
-        await api(
-          `/api/groups/${encodeURIComponent(button.dataset.groupRemove)}`,
-          "DELETE",
-        );
-        await loadConfig();
-        toast("群组已移除。");
+      editSubscriptions(draft => {
+        draft.push_groups = draft.push_groups.filter(gid => String(gid) !== button.dataset.groupRemove);
       });
     if (button.hasAttribute("data-team-remove"))
-      run(button, async () => {
-        const team =
-          state.config.followed_teams[Number(button.dataset.teamRemove)];
-        const name = typeof team === "string" ? team : team.name;
-        if (
-          !(await dialog("取消战队关注", `确定取消关注 ${name}？`, {
-            confirm: "取消关注",
-          }))
-        )
-          return;
-        await api(
-          "/api/teams/unfollow",
-          "POST",
-          typeof team === "object" && team.id ? { id: team.id } : { name },
-        );
-        await loadConfig();
-        toast("已取消关注。");
+      editSubscriptions(draft => { draft.followed_teams.splice(Number(button.dataset.teamRemove), 1); });
+    if (button.hasAttribute("data-team-follow")) {
+      const teams = button.dataset.teamSource === "popular" ? state.popularTeams : state.teams;
+      const team = teams[Number(button.dataset.teamFollow)];
+      if (!team?.id) return toast("无法确认这支战队的资料，请重新搜索后再试。", true);
+      if (!isTeamFollowed(team)) editSubscriptions(draft => {
+        draft.followed_teams.push({ id: team.id, name: team.name, slug: team.slug || "", image_url: team.image_url || "" });
       });
-    if (button.hasAttribute("data-team-follow"))
-      run(button, async () => {
-        const teams = button.dataset.teamSource === "popular"
-          ? state.popularTeams
-          : state.teams;
-        const team = teams[Number(button.dataset.teamFollow)];
-        if (!team?.id)
-          throw new Error("无法确认这支战队的资料，请重新搜索后再试。");
-        await api("/api/teams", "POST", {
-          id: team.id,
-          name: team.name,
-          slug: team.slug || "",
-          image_url: team.image_url || "",
-        });
-        await loadConfig();
-        toast(`已关注 ${team.name}。`);
-      });
+    }
     if (button.hasAttribute("data-stream-remove")) {
       button.closest(".stream-row").remove();
       checkDirty("push");
@@ -797,8 +884,8 @@ function installEvents() {
   });
   $("#push-now").addEventListener("click", (event) =>
     run(event.currentTarget, async () => {
-      if (state.dirty.has("push"))
-        throw new Error("请先保存推送设置，再立即推送。");
+      if (state.dirty.size || state.saving)
+        throw new Error("请先保存全部修改，再立即推送。");
       if (!state.config.push_groups?.length)
         throw new Error("请先在订阅管理中添加推送群组。");
       const days = Number(state.config.daily_push_days || 1);
@@ -820,11 +907,13 @@ function installEvents() {
   );
   $("#send-test").addEventListener("click", (event) =>
     run(event.currentTarget, async () => {
-      if (state.dirty.has("advanced"))
-        throw new Error("请先保存连接设置，再发送测试消息。");
+      if (state.dirty.size || state.saving)
+        throw new Error("请先保存全部修改，再发送测试消息。");
       if (!state.config.test_mode_enabled || !state.config.test_target_id)
         throw new Error("请启用测试模式并保存目标号码。");
       const action = $("#test-action").value;
+      const days = ["日报", "全部"].includes(action) ? Number($("#test-days").value) : 1;
+      if (!Number.isInteger(days) || days < 1 || days > 30) throw new Error("测试日报天数应为 1～30 的整数。");
       if (
         !(await dialog(
           "发送测试消息",
@@ -833,7 +922,7 @@ function installEvents() {
         ))
       )
         return;
-      const result = await api("/api/test", "POST", { action });
+      const result = await api("/api/test", "POST", { action, days });
       toast(result.msg || "测试消息已发送。");
       await loadLogs();
     }),
@@ -965,6 +1054,8 @@ async function importConfig(input) {
 }
 
 async function initialize() {
+  document.title = `${gameLabel} 比赛推送`;
+  $(".identity h1").textContent = `${gameLabel} 比赛推送`;
   installEvents();
   setupGuide = createSetupGuide({ api, getState: () => state, loadConfig, activateTab, toast });
   try {
@@ -976,9 +1067,7 @@ async function initialize() {
           document.documentElement.dataset.theme = next.isDark
             ? "dark"
             : "light";
-        document.title =
-          bridge.t?.("views.management.title", "CS2 比赛推送") ||
-          "CS2 比赛推送";
+        document.title = `${gameLabel} 比赛推送`;
       };
       applyContext(context);
       const unsubscribe = bridge.onContext(applyContext);
@@ -1004,7 +1093,7 @@ async function initialize() {
         /* HttpOnly session cookies remain usable if browser storage is unavailable. */
       }
       if (new URLSearchParams(location.search).has("token"))
-        history.replaceState(null, "", location.pathname);
+        { const u = new URL(location.href); u.searchParams.delete("token"); history.replaceState(null, "", u.pathname + u.search); }
       $("#host-mode").textContent = "独立 Web 管理面板";
     }
     await loadConfig();
