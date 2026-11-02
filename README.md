@@ -1,51 +1,85 @@
 # CS2 比赛推送插件
 
-面向 AstrBot 的 CS2 赛事插件，提供赛程查询、战队关注、赛前提醒、赛后结果、赛程日报、赛事开幕通知、Major 晋级对阵图和管理面板。支持 OneBot（aiocqhttp）及 QQ 官方适配器。数据来自 PandaScore。
+在 QQ 中查赛程、看比分、关注主队，自动接收 CS2 赛事提醒；还可以查看 Major 晋级图、抽取今日选手。普通机器人负责完整功能和自动推送，QQ 官方机器人可作为带 Markdown 和按钮的查询入口。比赛数据来自 PandaScore。
 
-版本 `4.3.0` 为本分支的纯 CS2 版本草稿。功能与变更见[更新记录](CHANGELOG.md)。QQ 官方菜单和 127 人今日选手功能见[QQ 官方说明](docs/qq-official.md)；Major 晋级图见[Major 说明](docs/cs-major.md)。
+> 本页介绍开发分支 `4.3.0` 的纯 CS2 功能，尚未正式发布。[main 分支](https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push/tree/main) 保持稳定版；从默认仓库地址安装时，请以稳定版说明为准。
 
-## 功能
+## 特色功能
 
-- 统一赛程查询：`/cs比赛 [天数]` 可查看指定天数范围；`/cs今日赛程` 和 `/cs未来赛程` 是便捷入口。后两项保留为兼容快捷指令。
-- 依赛事等级、关注战队和黑名单筛选赛程；支持战队别称、缩写和拼写容错，并提供常看战队快捷关注。
-- 赛前提醒、赛程变更、赛后结果、赛程日报及赛事开幕提醒。开幕提醒按整届赛事合并参赛队伍并去重。
-- OneBot（aiocqhttp）完整支持查询指令、今日选手、管理指令及主动赛事推送。赛程和赛果查询只回复当前会话，不改变定时推送配置。
-- QQ 官方适配器可作为默认关闭的查询扩展；只响应用户在当前会话中的请求，不主动推送赛事通知，也不转发到普通 QQ 群。可按需开放帮助、赛程、Major 对阵图、赛果、今日选手、关注列表和简版状态。
-- `/cs对阵图` 查看 CS Major 晋级图，默认显示当前阶段，可选阶段或完整赛事。旧 Major 指令别名继续兼容；帮助和菜单以 `/cs对阵图` 为主入口。
-- 面板内置赛程、赛果、Major 对阵图和配置管理工具。赛果查询支持最近 1–30 个北京时间自然日或比赛 ID，仅在面板展示。
-- 赛程图片与 Major 对阵图使用缓存，减少重复读取、下载及绘图。
-- `/cs` 提供文字菜单；`/cs今日选手` 在 OneBot 和 QQ 官方适配器均可使用，返回文字资料及本地图片。QQ 官方可选用带按钮的卡片回复。每日选手池为 127 人，当天全局不重复；详见[QQ 官方扩展和选手规则](docs/qq-official.md)。
+- **主队优先**：按赛事级别、关注战队和黑名单筛选；支持中文外号、简称与拼写容错，快速找到想看的比赛。
+- **完整赛事播报**：赛前提醒、临时改期、赛后比分、赛程日报和赛事开幕通知。已追踪比赛提前开赛且未提醒时，补发“已开赛”通知；日报按群记录发送结果，失败时重试未成功的群。
+- **图片看比赛**：双方队标、开赛时间、比分和各局胜负集中展示；赛程按赛事分组，也可切换文字模式。
+- **Major 晋级图**：`/cs对阵图` 默认查看当前阶段，支持瑞士轮、淘汰赛或整届赛事；只展示数据源已公布的对阵与晋级关系。详见 [Major 说明](docs/cs-major.md)。
+- **127 人今日选手**：`/cs今日选手` 抽取或查看当日选手，展示照片、战队、位置、国籍、年龄及已收录成就。两种机器人都能使用；当天共用不重复选手池，重复查看保留原结果，重载不清空记录。
+- **官方 Markdown 与按钮**：官方端可用标题、加粗、引用、图片和快捷按钮呈现查询结果，返回菜单、切换查询范围更方便；普通端保留文字命令和图片回复。
+- **AstrBot 内嵌管理**：新手引导、订阅管理、推送设置、赛程／赛果／对阵图工具和配置备份集中在插件面板。查询只在当前会话或页面展示，不改变推送配置。
 
-## 管理面板
+功能变更见[更新记录](CHANGELOG.md)，选手池与跨平台身份规则见 [QQ 官方扩展说明](docs/qq-official.md)。
 
-可从 AstrBot 插件详情打开「CS2 管理」内嵌页面，页面使用 AstrBot 自身登录。也可启用独立 Web 面板；独立面板在本机和远程访问时都必须使用有效面板令牌登录，管理员私聊机器人发送 `/cs面板` 获取地址和令牌。
+## 普通机器人与官方机器人怎么选
 
-面板修改先暂存在当前页面。点击一次全局「保存配置」统一提交；切换页面或板块不会分别保存设置。可以预览内容、向测试目标实际发送测试消息，以及按已保存规则正式推送：预览只显示结果，不发送消息；测试会实际发送到配置的测试目标；正式推送使用已保存的目标和规则。
+| 能力 | 普通 QQ 机器人（OneBot／NapCat） | QQ 官方机器人扩展 |
+| --- | --- | --- |
+| 赛程、赛果、Major、今日选手等查询 | 支持文字指令与图片回复 | 支持已开放的查询，可用 Markdown 和按钮 |
+| 今日选手照片与成就图片 | 支持 | 支持；可配合 Markdown 资料排版 |
+| Markdown 卡片与快捷按钮 | 使用普通图文和指令交互 | 本插件官方端的特色体验，取决于账号权限与接口支持 |
+| 赛前提醒、日报、赛果等自动推送 | 支持 | 本插件官方端不提供 |
+| 群组、关注和推送配置管理命令 | 支持，管理操作需管理员权限 | 不开放；由管理员在插件面板配置 |
+| 是否必须配置 | 需要自动赛事推送时使用 | 可选，默认关闭 |
 
-赛事工具中的赛程、赛果和对阵图查询仅供查看，不会触发群推送或修改发送记录。每日赛程失败后会按任务规则重试尚未成功的群；已成功的群会跳过。发送成功但进程在写入回执前退出，重试仍可能造成该群重复收到消息。
+**官方端的优点**是 Markdown 排版更清楚、卡片更美观、按钮操作更便捷；与普通端共用赛程、配置和选手池，无需另部署一套插件。**限制**是本插件仅在用户触发的当前会话中回复，不主动推送赛事，也不会把官方回复转发到普通群。Markdown 或按钮被接口拒绝时，会回退为文字指令和图片。
 
-## 推送效果
+**开启方法**：先在 AstrBot 接入 QQ 官方机器人，再到「插件详情 → CS2 管理 → 高级维护 → 官方机器人扩展」启用，选择账号和开放功能；「使用图片卡片和富文本回复」可控制 Markdown／卡片体验。插件直接使用 AstrBot 已配置的账号，无需重复填写官方账号凭据。官方图片内嵌需要可访问的公开图片地址；未配置或不可用时发送本地图片。详见[配置说明](docs/qq-official.md)。
 
-以下图片展示 CS2 推送样式。对阵、时间、赛事等级和比分均为演示数据，不代表真实赛程。
+## 图片效果展示
+
+以下使用插件已有的实际输出图片，可点击查看原图。赛前提醒、变更、开幕、日报与赛程列表展示图使用示例数据；FaZe 赛果与 Major 图取自服务器已保存的数据。图片内容不是实时赛程。
+
+### 赛事图片：两端可查看，自动推送由普通机器人承担
 
 <table>
   <tr>
-    <td width="50%"><strong>赛前提醒</strong><br>双方队标与开赛时间。<br><br><img src="docs/images/push-upcoming.png" width="320" alt="CS2 赛前提醒图片示例"></td>
-    <td width="50%"><strong>比赛结果</strong><br>突出比分及各局胜负。<br><br><img src="docs/images/push-result.png" width="320" alt="CS2 比赛结果图片示例"></td>
+    <td width="50%"><strong>赛前提醒 · 普通机器人自动推送</strong><br>双方队标与开赛时间。<br><br><a href="docs/images/push-upcoming.png"><img src="docs/images/push-upcoming.png" width="320" alt="普通机器人赛前提醒图片，示例赛程"></a></td>
+    <td width="50%"><strong>实际赛果 · FaZe 2:1 ASTRAL</strong><br>中央比分与各局胜负；两端均可查询。<br><br><a href="docs/images/result-faze-astral.png"><img src="docs/images/result-faze-astral.png" width="320" alt="插件实际生成的 FaZe 对 ASTRAL 赛果图片"></a></td>
   </tr>
   <tr>
-    <td><strong>赛程变更</strong><br>展示调整前后的时间。<br><br><img src="docs/images/push-reschedule.png" width="320" alt="CS2 赛程变更图片示例"></td>
-    <td><strong>赛事开幕</strong><br>展示赛事名称、时间与参赛队伍。<br><br><img src="docs/images/push-opening.png" width="320" alt="CS2 赛事开幕图片示例"></td>
+    <td><strong>赛程变更 · 普通机器人自动推送</strong><br>展示调整前后的时间。<br><br><a href="docs/images/push-reschedule.png"><img src="docs/images/push-reschedule.png" width="320" alt="普通机器人赛程变更图片示例"></a></td>
+    <td><strong>赛事开幕 · 普通机器人自动推送</strong><br>展示赛事名称、时间与参赛队伍。<br><br><a href="docs/images/push-opening.png"><img src="docs/images/push-opening.png" width="320" alt="普通机器人赛事开幕图片示例"></a></td>
   </tr>
   <tr>
-    <td><strong>赛程日报</strong><br>按赛事整理比赛。<br><br><img src="docs/images/push-daily.png" width="320" alt="CS2 赛程日报图片示例"></td>
-    <td><strong>赛程查询</strong><br>使用 <code>/cs比赛 [天数]</code> 查询。<br><br><img src="docs/images/query-schedule.png" width="320" alt="CS2 指令查询赛程图片示例"></td>
+    <td><strong>赛程日报 · 普通机器人定时推送</strong><br>按赛事整理比赛；官方端可主动查询赛程。<br><br><a href="docs/images/push-daily.png"><img src="docs/images/push-daily.png" width="320" alt="普通机器人赛程日报图片示例"></a></td>
+    <td><strong>赛程查询 · 两端通用</strong><br>使用 <code>/cs比赛 [天数]</code> 查询；官方端可配合快捷按钮。<br><br><a href="docs/images/query-schedule.png"><img src="docs/images/query-schedule.png" width="320" alt="普通和官方机器人均可返回的赛程图片"></a></td>
   </tr>
 </table>
 
+### Major 晋级图：两端通用
+
+淘汰赛沿已公布的晋级关系连接对阵；瑞士轮按轮次排列，不推测后续抽签。使用 `/cs对阵图` 或在官方菜单点击「Major 对阵」查看。
+
+[![插件实际生成的 Major 淘汰赛晋级图，两端通用](docs/images/major-knockout.png)](docs/images/major-knockout.png)
+
+<details>
+  <summary>展开查看瑞士轮实际输出图片</summary>
+  <p><a href="docs/images/major-swiss.png"><img src="docs/images/major-swiss.png" alt="插件实际生成的 Major 瑞士轮对阵图，两端通用"></a></p>
+</details>
+
+### 今日选手：图片两端通用，Markdown 与按钮为官方特色
+
+两端发送 `/cs今日选手` 都能抽取选手。下面是插件内置的实际选手照片与成就图片素材；普通机器人同样可以收到这张图片。
+
+<p><a href="player_cards/hltv_11893_compact.png"><img src="player_cards/hltv_11893_compact.png" width="160" alt="ZywOo 的实际选手照片与已收录成就图片，两端均可使用"></a></p>
+
+**官方端专有的展示方式**：用 Markdown 标题突出选手名，引用块显示日期与抽取状态，加粗显示战队；图片、国籍、年龄等资料配合「返回菜单」「查看今日选手」「指令帮助」按钮展示。这里展示的是实际图片素材，完整 Markdown 与按钮由 QQ 客户端渲染。资料以插件收录时为准；年龄或荣誉缺少可靠来源时不显示为确定事实。
+
+## 管理面板
+
+**建议优先在 AstrBot「插件详情 → CS2 管理」中配置**，内嵌页面使用 AstrBot 自身登录，新手引导会介绍普通机器人与官方扩展的分工。也可启用独立 Web 面板；独立面板在本机和远程访问时均需有效面板令牌，管理员可私聊机器人发送 `/cs面板` 获取。
+
+面板修改先保存在当前页面，点击全局「保存配置」统一提交。赛程、赛果和对阵图查询只供查看，不触发群推送；「预览」不发送消息，「测试」会向测试目标实际发送，「正式推送」按已保存配置执行。日报会重试未成功的群；发送成功但回执尚未保存时中断，仍可能造成重发。
+
 ## 安装与配置
 
-在 AstrBot 插件管理中使用仓库地址安装插件，填写 PandaScore API Token 并重载。Token 获取方式见 [PandaScore 文档](https://developers.pandascore.co/docs/authentication)。首次打开管理页面时按新手引导填写数据源和接收群；机器人必须在线并已加入目标群。引导中的连接检查不会发送测试消息。
+在 AstrBot 插件管理中使用仓库地址安装稳定版，填写 PandaScore API Token 并重载。新版测试请使用本开发分支代码。Token 获取方式见 [PandaScore 文档](https://developers.pandascore.co/docs/authentication)。优先打开「插件详情 → CS2 管理」，按新手引导填写数据源和接收群；普通机器人必须在线并已加入目标群。引导中的连接检查不会发送测试消息。
 
 ```text
 https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push
