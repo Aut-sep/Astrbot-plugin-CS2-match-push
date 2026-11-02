@@ -65,7 +65,7 @@ class DataStore:
         "web_panel_port":              8765,
         "web_panel_enabled":           True,
         "web_panel_token":             "",
-        "fetch_interval_min":          10,
+        "fetch_interval_min":          5,
         "fetch_ahead_days":            2,
         "custom_streams":              [],
         "blacklist_teams":             [],

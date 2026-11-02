@@ -9,8 +9,8 @@
   "fetch_interval_min": {
     "description": "自动刷新间隔（分钟）",
     "type": "int",
-    "hint": "每隔多少分钟自动拉取一次比赛日程，建议 10~30；请求额度以 PandaScore 账户方案为准",
-    "default": 10
+    "hint": "每隔多少分钟自动拉取一次比赛日程，默认 5 分钟；请求额度以 PandaScore 账户方案为准",
+    "default": 5
   },
   "push_platform_id": {
     "description": "推送平台 ID",

@@ -152,7 +152,7 @@ class CSMatchPlugin(Star):
                 return default
 
         self._token          = str(_get("pandascore_token", "") or "").strip()
-        self._fetch_interval = max(1, _get_int("fetch_interval_min", 10))
+        self._fetch_interval = max(1, _get_int("fetch_interval_min", 5))
         self._qq_player_photo_base_url = str(_get("qq_player_photo_base_url", "") or "").strip()
 
         fetch_ahead_days = _get("fetch_ahead_days", None)

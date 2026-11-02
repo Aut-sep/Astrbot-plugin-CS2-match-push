@@ -70,7 +70,7 @@ https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push
 | `pandascore_token` | 空 | 必填，PandaScore API Token |
 | `push_platform_id` | 空 | 多机器人时指定 AstrBot 平台实例 ID |
 | `image_push_enabled` | `true` | 使用赛事图片；关闭后使用文字和队标条 |
-| `fetch_interval_min` | `10` | 自动刷新赛程的间隔（分钟） |
+| `fetch_interval_min` | `5` | 自动刷新赛程的间隔（分钟） |
 | `fetch_ahead_days` | `2` | 自动获取的未来赛程范围 |
 | `web_panel_enabled` | `true` | 开启独立 Web 管理面板 |
 | `web_panel_host` | `127.0.0.1` | 面板监听地址 |
