@@ -53,6 +53,7 @@ from .bracket_data import format_bracket
 from .cs_major import MajorBracketService, STAGE_ALIASES as MAJOR_STAGE_ALIASES
 from .bracket_images import BracketImages
 from .daily_image_cache import DailyImageCache, daily_image_key
+from .reschedule_notices import queue_change, schedule_changed, send_pending as send_pending_reschedules
 
 # 每个并发推送独立关联通知，避免重试时重复发送给已成功的群。
 _delivery_key: ContextVar[str | None] = ContextVar("cs_delivery_key", default=None)
@@ -67,7 +68,7 @@ WEB_PANEL_HOST        = "127.0.0.1"
     "astrbot_plugin_cs_match",
     "Aut-sep",
     "每N分钟静默刷新，时间变更时提醒，精确倒计时推送赛前提醒和赛后结果，内置 Web 管理面板",
-    "4.3.0",
+    "4.3.1",
 )
 class CSMatchPlugin(Star):
 
@@ -108,7 +109,6 @@ class CSMatchPlugin(Star):
         self._result_tasks: dict  = {}   # mid -> 结果轮询任务（比赛开始后独立追踪）
         self._result_meta: dict   = {}   # mid -> {attempt, deadline, match}
         self._tournament_tasks: dict = {}
-        self._notified_reschedule: dict = {}
         self._pending_reschedules: dict = {}
         self._team_image_cache: dict = {}
         self._banner_renderer = BannerRenderer()
@@ -897,14 +897,18 @@ class CSMatchPlugin(Star):
 
         # ── 清理不再在列表中的旧任务 ──────────────────────────────────────
         current_mids = {m["id"] for m in to_schedule}
-        for mid in list(self._scheduled_mids):
+        outside_changes = []
+        unverified_changes = set()
+        for mid in list(self._scheduled_mids | self._pending_reschedules.keys()):
             if mid not in current_mids:
                 # Leaving /upcoming can mean an early start, not cancellation.
                 # Resolve the known match before removing its reminder/tracking.
                 fresh = await self.client.get_match_result(mid)
                 if not fresh or str(fresh.get("id")) != str(mid) or not fresh.get("status"):
                     self.panel.push_log("WARN", f"比赛 {mid} 移出赛程但状态未核实，保留原追踪任务")
+                    unverified_changes.add(mid)
                     continue
+                fresh_start = None
                 if fresh["status"] == "not_started" and _should_track(fresh):
                     try:
                         fresh_start = parse_dt(sched_str(fresh))
@@ -919,6 +923,16 @@ class CSMatchPlugin(Star):
                     task.cancel()
                 self._scheduled_mids.discard(mid)
                 self._match_tasks.pop(mid, None)
+                if fresh_start and fresh_start > cutoff:
+                    # A near match postponed beyond the fetch window still needs
+                    # one correction, and any failed group must remain retryable.
+                    old = self.store.get_match_snapshot(mid) or {}
+                    if old.get("sched") and schedule_changed(old["sched"], sched_str(fresh)):
+                        queue_change(self, fresh, old["sched"], now)
+                    self.store.set_match_snapshot(mid, sched_str(fresh), team_name(fresh, 0), team_name(fresh, 1))
+                    self.store.set_match_schedule(mid, sched_str(fresh))
+                    outside_changes.append(fresh)
+                    continue
                 if fresh["status"] in {"running", "finished"} and _should_track(fresh):
                     self.store.set_match_snapshot(mid, sched_str(fresh), team_name(fresh, 0), team_name(fresh, 1))
                     self.store.set_match_schedule(mid, sched_str(fresh))
@@ -950,7 +964,7 @@ class CSMatchPlugin(Star):
             change_reason = None
 
             if old_snap:
-                sched_changed = old_snap.get("sched") != new_sched
+                sched_changed = schedule_changed(old_snap.get("sched"), new_sched)
                 t1_changed    = old_snap.get("t1") == "TBD" and new_t1 != "TBD"
                 t2_changed    = old_snap.get("t2") == "TBD" and new_t2 != "TBD"
                 old_t1        = str(old_snap.get("t1") or "").strip()
@@ -967,9 +981,7 @@ class CSMatchPlugin(Star):
                     new_fmt = fmt_time(new_sched)
                     logger.info(f"[CS] 比赛 {mid} 时间变更：{old_fmt} → {new_fmt}")
                     self.panel.push_log("WARN", f"比赛 {mid} 时间变更 {old_fmt} → {new_fmt}")
-                    last_notified = self._notified_reschedule.get(mid)
-                    if last_notified != new_sched and self.store.get_reschedule_notify():
-                        self._pending_reschedules[mid] = (match, old_fmt, new_fmt, new_sched)
+                    queue_change(self, match, old_snap.get("sched"), now)
                     needs_rebuild = True
                     change_reason = f"时间变更 {old_fmt}→{new_fmt}"
 
@@ -1022,15 +1034,8 @@ class CSMatchPlugin(Star):
             logger.info(f"[CS] 已安排比赛 {mid}（{new_t1} vs {new_t2}）提醒任务，提前 {remind_min} 分钟")
 
         self._schedule_daily_image_warm()
-        for mid, (match, old_fmt, new_fmt, new_sched) in list(self._pending_reschedules.items()):
-            if mid not in current_mids or not self.store.get_reschedule_notify():
-                self._pending_reschedules.pop(mid, None)
-                continue
-            key = f"reschedule:{mid}:{new_sched}"
-            if await self._deliver_notification(key, lambda: self._push(self._format(fmt_reschedule, match, old_fmt, new_fmt), match=match)):
-                self._notified_reschedule[mid] = new_sched
-                self._pending_reschedules.pop(mid, None)
-                self.store.clear_delivery(key)
+        await send_pending_reschedules(self, to_schedule + outside_changes, now_utc(),
+                                       unverified=unverified_changes)
 
     async def _schedule_match(self, match: dict, remind_min: int):
         mid = match["id"]

@@ -375,6 +375,70 @@ class BannerRenderer:
             str(text or ""),
         )
 
+    def render_reschedules(self, changes, output_path: str, team_marks) -> str:
+        """Compact change rows in the same palette as the single-match cards."""
+        from PIL import Image as PILImage, ImageDraw
+        from .bracket_data import bracket_team_name
+        from .formatters import fmt_time
+
+        width, padding = 640, 30
+        ink, muted = '#243447', '#66758a'
+        marks = self._team_mark_index(team_marks)
+        measure = ImageDraw.Draw(PILImage.new('RGB', (width, 1)))
+        heading_font = self._pick_banner_font(17)
+        groups = []
+        for change in changes:
+            league = (change.match.get('league') or {}).get('name') or '未知联赛'
+            if not groups or groups[-1][0] != league:
+                groups.append((league, []))
+            groups[-1][1].append(change)
+        layout = [(self._wrap_notification_text(measure, league, heading_font, width - 2 * padding), rows)
+                  for league, rows in groups]
+        height = 148 + sum(26 * len(titles) + 22 + 46 * len(rows) + 12 for titles, rows in layout) + 42
+        image = PILImage.new('RGB', (width, height), '#f4f6f9')
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((0, 0, width, 96), fill='#132033')
+        draw.rectangle((0, 0, 8, 96), fill='#ff6848')
+        self._draw_card_text(draw, self.game_label, padding, 20, self._pick_banner_font(14), '#ff8a70')
+        self._draw_card_text(draw, 'CS2 赛程变更汇总', padding, 50, self._pick_banner_font(23), '#ffffff')
+        self._draw_card_text(draw, f'共 {len(changes)} 场 · 北京时间', padding, 112,
+                             self._pick_banner_font(14), muted)
+        cursor = 148
+        for titles, rows in layout:
+            for title in titles:
+                self._draw_card_text(draw, title, padding, cursor, heading_font, ink)
+                cursor += 26
+            label_font = self._pick_banner_font(12)
+            self._draw_card_text(draw, '对阵', padding, cursor, label_font, muted)
+            self._draw_card_text(draw, '原定 → 调整', 352, cursor, label_font, muted)
+            cursor += 22
+            for change in rows:
+                opponents = [slot.get('opponent') or {} for slot in change.match['opponents']]
+                for index, team in enumerate(opponents[:2]):
+                    x = padding if index == 0 else 190
+                    name = bracket_team_name(team)
+                    mark = marks.get(self._team_key(team.get('name', '')))
+                    self._draw_small_mark(image, draw, x, cursor + 8, mark, 22, name)
+                    font = self._fit_banner_font(draw, name, 106, 16, 11)
+                    shown = self._shorten_banner_text(draw, name, font, 106)
+                    self._draw_card_text(draw, shown, x + 28, cursor + 12, font, ink)
+                self._draw_card_text(draw, 'vs', 176, cursor + 14, label_font, muted,
+                                     centered=True)
+                times = f'{fmt_time(change.old_time)} → {fmt_time(change.new_time)}'
+                font = self._fit_banner_font(draw, times, width - padding - 352, 14, 11)
+                self._draw_card_text(draw, times, 352, cursor + 13, font, ink)
+                draw.line((padding, cursor + 41, width - padding, cursor + 41), fill='#d3dce7')
+                cursor += 46
+            cursor += 12
+        draw.rectangle((0, height - 42, width, height), fill='#e5ebf2')
+        self._draw_card_text(draw, 'CS2 比赛推送', padding, height - 26, self._pick_banner_font(12), muted)
+        footer = '以最新赛程为准'
+        font = self._pick_banner_font(12)
+        text_width = draw.textlength(footer, font=font)
+        self._draw_card_text(draw, footer, width - padding - text_width, height - 26, font, muted)
+        image.save(output_path, format='PNG', optimize=True)
+        return output_path
+
     @staticmethod
     def _team_key(name: str) -> str:
         return " ".join(str(name or "").casefold().split())
