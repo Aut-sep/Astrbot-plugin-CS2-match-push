@@ -1,7 +1,7 @@
 /** Guided setup uses the same authenticated operations as the management forms. */
 export function createSetupGuide({ api, getState, loadConfig, activateTab, toast }) {
   const $ = (selector) => document.querySelector(selector);
-  let step = 0, busy = false, verified = false, checks = null;
+  let step = 0, busy = false, verified = false, checks = null, draft = {};
   const titles = ['连接数据源', '添加接收群', '选择推送方式', '检查并完成'];
   const setError = (message = '') => {
     $('#setup-error').textContent = message;
@@ -13,7 +13,7 @@ export function createSetupGuide({ api, getState, loadConfig, activateTab, toast
     $('#setup-summary').textContent = ready ? '基础配置已填写，可随时重新检查或调整。' : '先完成 2 项必填配置，再按需选择提醒和日报。';
     $('#setup-open').disabled = !state.ready;
     $('#setup-token-hint').textContent = state.tokenConfigured ? '已保存 Token。留空使用当前 Token，填写新值可替换。' : '还没有 Token？按下面步骤获取后粘贴到这里。';
-    $('#setup-groups-status').textContent = state.config.push_groups?.length ? `已保存 ${state.config.push_groups.length} 个接收群；可继续添加。` : '尚未添加接收群。';
+    $('#setup-groups-status').textContent = draft.push_groups?.length ? `已选择 ${draft.push_groups.length} 个接收群，完成引导后统一保存。` : '尚未添加接收群。';
   }
   function showStep(next) {
     step = next;
@@ -31,6 +31,7 @@ export function createSetupGuide({ api, getState, loadConfig, activateTab, toast
   function open() {
     if (getState().dirty.size) return toast('请先保存或放弃页面中尚未保存的修改，再开始引导。', true);
     const config = getState().config;
+    draft = { push_groups: [...(config.push_groups || [])] };
     $('#setup-token').value = '';
     $('#setup-group').value = '';
     $('#setup-bot-confirm').checked = false;
@@ -53,6 +54,7 @@ export function createSetupGuide({ api, getState, loadConfig, activateTab, toast
     $('#setup-wizard').hidden = true;
     $('#setup-open').hidden = false;
     $('#setup-token').value = '';
+    draft = {};
     setError();
     $('#setup-open').focus({ preventScroll: true });
   }
@@ -92,8 +94,9 @@ export function createSetupGuide({ api, getState, loadConfig, activateTab, toast
   }
   async function goToCheck() {
     showStep(3);
-    $('#setup-checks').textContent = '正在检查已保存的配置…';
-    const result = await api('/api/setup/check', 'POST', {});
+    $('#setup-checks').textContent = '正在检查待保存的配置…';
+    const result = await api('/api/setup/check', 'POST', draft.pandascore_token ? { pandascore_token: draft.pandascore_token } : {});
+    result.groups = { ok: !!draft.push_groups?.length, message: `已选择 ${draft.push_groups?.length || 0} 个接收群，保存后生效。` };
     showChecks(result);
   }
   $('#setup-open').addEventListener('click', open);
@@ -107,9 +110,8 @@ export function createSetupGuide({ api, getState, loadConfig, activateTab, toast
       if (!token && !getState().tokenConfigured) throw new Error('请先填写 PandaScore Token。');
       const result = await api('/api/setup/check', 'POST', token ? { pandascore_token: token } : {});
       if (!result.source?.ok) throw new Error(result.source?.message || '数据源验证失败，请检查 Token。');
-      if (token) await api('/api/config', 'PATCH', { pandascore_token: token });
-      $('#setup-token').value = '';
-      await loadConfig();
+      if (token) draft.pandascore_token = token;
+      else delete draft.pandascore_token;
       verified = true;
       showStep(1);
     });
@@ -119,12 +121,12 @@ export function createSetupGuide({ api, getState, loadConfig, activateTab, toast
     action($('#setup-group-next'), async () => {
       const gid = $('#setup-group').value.trim();
       if (gid) {
-        if (!/^\d+$/.test(gid) || BigInt(gid) < 1n) throw new Error('请填写 QQ 群号，不是群名称或机器人 QQ 号。');
-        await api('/api/groups', 'POST', { gid });
+        if (!/^[A-Za-z0-9_-]{1,128}$/.test(gid) || (/^\d+$/.test(gid) && BigInt(gid) < 1n)) throw new Error('请填写 QQ 群号或官方群 OpenID。');
+        if (!draft.push_groups.includes(gid)) draft.push_groups.push(gid);
         $('#setup-group').value = '';
-        await loadConfig();
+        sync();
       }
-      if (!getState().config.push_groups?.length) throw new Error('请至少添加一个接收群。');
+      if (!draft.push_groups?.length) throw new Error('请至少添加一个接收群。');
       showStep(2);
     });
   });
@@ -140,9 +142,7 @@ export function createSetupGuide({ api, getState, loadConfig, activateTab, toast
       values.daily_push_times = [...new Set($('#setup-daily-times').value.split(/[,，\s]+/).filter(Boolean))];
       if (values.daily_push_enabled && !values.daily_push_times.length) throw new Error('开启日报时，请填写至少一个推送时间，例如 08:00。');
       if (values.daily_push_times.some(time => !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))) throw new Error('日报时间请使用 HH:MM，例如 08:00、18:00。');
-      const changed = Object.fromEntries(Object.entries(values).filter(([key, value]) => JSON.stringify(value) !== JSON.stringify(getState().config[key])));
-      if (Object.keys(changed).length) await api('/api/config', 'PATCH', changed);
-      await loadConfig();
+      Object.assign(draft, values);
       await goToCheck();
     });
   });
@@ -152,6 +152,9 @@ export function createSetupGuide({ api, getState, loadConfig, activateTab, toast
     if (!verified || !checks?.source?.ok || !checks?.groups?.ok) throw new Error('请完成数据源和接收群配置，并通过检查后继续。');
     if (!$('#setup-bot-confirm').checked) throw new Error('请先确认 QQ 机器人在线，并且已经加入接收群。');
     if (checks.platform?.ok === false) throw new Error(checks.platform.message || '请先连接 QQ 机器人，再重新检查。');
+    await api('/api/config', 'PATCH', draft);
+    draft = {};
+    await loadConfig();
     await api('/api/refresh', 'POST', {});
     $('#setup-wizard').hidden = true;
     $('#setup-open').hidden = false;

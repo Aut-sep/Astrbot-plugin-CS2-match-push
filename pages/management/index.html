@@ -28,6 +28,11 @@
         </div>
       </header>
       <div id="page-error" class="notice error" role="alert" hidden></div>
+      <div id="save-all-bar" class="save-all-bar" hidden role="region" aria-label="待保存配置">
+        <span>有未保存的修改，切换标签页会保留</span>
+        <div><button type="button" class="button" id="discard-all">放弃全部修改</button>
+        <button type="button" class="button primary" id="save-all">保存配置</button></div>
+      </div>
       <section class="card setup-guide" id="setup-guide" aria-labelledby="setup-title">
         <div class="card-header">
           <div><h2 id="setup-title">新手引导</h2><p id="setup-summary">先完成必填配置，再按需选择推送方式。</p></div>
@@ -44,17 +49,17 @@
           <div class="notice error" id="setup-error" role="alert" hidden></div>
           <form id="setup-source-form" data-setup-step="0">
             <p>插件需要 PandaScore 提供 CS2 赛程。先连接数据源，再配置接收群。</p>
-            <ol class="setup-instructions"><li>打开 <a href="https://developers.pandascore.co/docs/authentication" target="_blank" rel="noopener noreferrer">PandaScore 官方 Token 说明</a>，从其中的 Dashboard 入口登录或注册。</li><li>在 Dashboard 复制你的 API Token，粘贴到下方。</li><li>点击「验证并保存」。验证失败时，新 Token 不会覆盖原配置。</li></ol>
+            <ol class="setup-instructions"><li>打开 <a href="https://developers.pandascore.co/docs/authentication" target="_blank" rel="noopener noreferrer">PandaScore 官方 Token 说明</a>，从其中的 Dashboard 入口登录或注册。</li><li>在 Dashboard 复制你的 API Token，粘贴到下方。</li><li>点击「验证并继续」。所有填写内容将在最后一步统一保存。</li></ol>
             <label class="field">PandaScore Token <span class="setup-required">必填</span><input id="setup-token" type="password" autocomplete="new-password" spellcheck="false" placeholder="粘贴 API Token；已有配置时可留空"><small id="setup-token-hint"></small></label>
             <p class="setup-note">Token 不在页面回显。只在你点击验证时发送到插件服务器，由服务器连接 PandaScore；无需发送到聊天中。</p>
-            <div class="setup-actions"><button type="submit" id="setup-source-save" class="button primary">验证并保存，下一步</button></div>
+            <div class="setup-actions"><button type="submit" id="setup-source-save" class="button primary">验证并继续</button></div>
           </form>
           <form id="setup-group-form" data-setup-step="1" hidden>
             <p>比赛提醒和赛报会自动发送到你添加的 QQ 群。</p>
-            <ol class="setup-instructions"><li>先在 AstrBot「机器人」页面连接 QQ 机器人，确认机器人在线。</li><li>将机器人加入目标群，在 QQ 群资料中复制群号。</li><li>在下方填写群号并继续。群名称、机器人 QQ 号都不是接收群号。</li></ol>
+            <ol class="setup-instructions"><li>先在 AstrBot「机器人」页面连接 QQ 机器人，确认机器人在线。</li><li>普通 QQ 填写群号；官方 QQ 由管理员在目标群 @机器人发送 /cs设置群，自动登记当前群。</li><li>也可在下方填写官方群 OpenID，不能将普通群号用于官方机器人。</li></ol>
             <p id="setup-groups-status" class="notice"></p>
-            <label class="field">接收 QQ 群号 <span class="setup-required">必填</span><input id="setup-group" inputmode="numeric" autocomplete="off" placeholder="例如：123456789；已有接收群时可留空"><small>只需一个群即可开始。更多接收群可在「订阅管理」中添加。</small></label>
-            <div class="setup-actions"><button type="button" data-setup-back class="button">上一步</button><button type="submit" id="setup-group-next" class="button primary">保存接收群，下一步</button></div>
+            <label class="field">接收群标识 <span class="setup-required">必填</span><input id="setup-group" autocomplete="off" placeholder="QQ 群号或官方群 OpenID；已有接收群时可留空"><small>只需一个群即可开始。更多接收群可在「订阅管理」中添加。</small></label>
+            <div class="setup-actions"><button type="button" data-setup-back class="button">上一步</button><button type="submit" id="setup-group-next" class="button primary">确认接收群，下一步</button></div>
           </form>
           <form id="setup-options-form" data-setup-step="2" hidden>
             <p>以下全部为可选项。保持当前设置即可开始使用，之后可随时调整。</p>
@@ -71,14 +76,14 @@
               <label class="field">日报包含未来几天<input type="number" min="1" max="30" required data-setup-key="daily_push_days"><small>1 为今天，2 为今天和明天。</small></label>
             </div>
             <p class="setup-note">直播链接、开幕预告、黑名单和更多设置，可在完成后进入「推送设置」或「订阅管理」。</p>
-            <div class="setup-actions"><button type="button" data-setup-back class="button">上一步</button><button type="button" id="setup-options-skip" class="button">保留当前设置</button><button type="submit" id="setup-options-save" class="button primary">保存可选设置，继续</button></div>
+            <div class="setup-actions"><button type="button" data-setup-back class="button">上一步</button><button type="button" id="setup-options-skip" class="button">保留当前设置</button><button type="submit" id="setup-options-save" class="button primary">确认可选设置，继续</button></div>
           </form>
           <div data-setup-step="3" hidden>
             <p>检查数据源和接收目标。接口能正常连接但暂无赛程，也视为数据源连接成功。</p>
             <ul id="setup-checks" class="setup-checks" aria-live="polite"></ul>
             <label class="inline-check"><input type="checkbox" id="setup-bot-confirm">我已确认 QQ 机器人在线，并且已加入接收群。</label>
-            <p class="setup-note">保存的配置已生效。完成后将获取最新赛程，不会发送测试消息。首次安装可在群里发送 <code>/cs比赛</code> 检查查询；自动提醒会在符合推送条件的比赛临近时发送。</p>
-            <div class="setup-actions"><button type="button" data-setup-back class="button">上一步</button><button type="button" id="setup-recheck" class="button">重新检查</button><button type="button" id="setup-finish" class="button primary">完成配置，查看赛程</button></div>
+            <p class="setup-note">点击完成后统一保存配置并获取最新赛程，不会发送测试消息。首次安装可在群里发送 <code>/cs比赛</code> 检查查询；自动提醒会在符合推送条件的比赛临近时发送。</p>
+            <div class="setup-actions"><button type="button" data-setup-back class="button">上一步</button><button type="button" id="setup-recheck" class="button">重新检查</button><button type="button" id="setup-finish" class="button primary">保存配置并完成，查看赛程</button></div>
           </div>
         </div>
       </section>
@@ -112,6 +117,7 @@
         >
           推送设置<span class="tab-dirty" hidden>●</span>
         </button>
+        <button id="tab-tools" role="tab" aria-controls="tools" aria-selected="false" tabindex="-1" data-tab="tools">赛事工具</button>
         <button
           id="tab-advanced"
           role="tab"
@@ -125,7 +131,7 @@
       </nav>
 
       <section id="overview" role="tabpanel" aria-labelledby="tab-overview">
-        <div class="stats">
+<div class="stats">
           <div class="stat">
             <span>当前赛程</span><strong id="stat-matches">—</strong
             ><small>已缓存的比赛</small>
@@ -200,7 +206,7 @@
       >
         <div class="section-heading">
           <h2>选择你关心的比赛</h2>
-          <p>群组和战队修改立即生效；赛事筛选在保存后生效。</p>
+          <p>群组、战队和筛选可连续修改，点击「保存配置」后统一生效。</p>
         </div>
         <div class="two-columns">
           <div class="card">
@@ -214,10 +220,9 @@
             <form id="group-form" class="add-row">
               <input
                 id="group-id"
-                inputmode="numeric"
-                pattern="[0-9]+"
-                placeholder="输入 QQ 群号"
-                aria-label="QQ 群号"
+                pattern="[A-Za-z0-9_\-]+"
+                placeholder="QQ 群号或官方群 OpenID"
+                aria-label="接收群标识"
                 required
               /><button class="button primary" type="submit">添加群组</button>
             </form>
@@ -257,7 +262,7 @@
           </div>
         </div>
         <form id="subscriptions-form" data-section="subscriptions">
-          <div class="card padded">
+<div class="card padded">
             <h3>赛事范围</h3>
             <p class="description">
               同时满足赛事级别和黑名单筛选的比赛才会进入推送范围。关注优先开启后，关注战队可绕过级别限制，仍受黑名单限制。
@@ -316,33 +321,30 @@
               >
             </div>
           </div>
-          <div class="save-bar">
-            <span class="save-state">设置已保存</span>
-            <div>
-              <button
-                type="button"
-                class="button ghost"
-                data-discard="subscriptions"
-                disabled
-              >
-                放弃修改</button
-              ><button type="submit" class="button primary" disabled>
-                保存筛选设置
-              </button>
-            </div>
-          </div>
-        </form>
+</form>
       </section>
 
       <section id="push" role="tabpanel" aria-labelledby="tab-push" hidden>
         <div class="section-heading">
-          <h2>让消息在合适的时间到达</h2>
-          <p>统一设置推送时机、日程和消息样式。</p>
+          <div class="eyebrow">DELIVERY SETTINGS</div>
+          <h2>推送配置</h2>
+          <p id="push-description">配置比赛提醒、赛程日报和消息样式，修改后统一保存。</p>
+        </div>
+        <div class="push-summary card" aria-label="已保存的推送配置">
+          <div><span class="summary-label">接收群组</span><strong id="push-target-summary">正在读取</strong></div>
+          <div><span class="summary-label">消息样式</span><strong id="push-format-summary">正在读取</strong></div>
+          <div><span class="summary-label">自动推送</span><strong id="push-rule-summary">正在读取</strong></div>
+        </div>
+        <div id="push-readiness" class="notice" role="status" hidden></div>
+        <div class="push-shortcuts">
+          <button type="button" class="button ghost" data-navigate="subscriptions">管理接收群与订阅 →</button>
+          <button type="button" class="button ghost" data-navigate="tools">查看赛程、赛果与对阵图 →</button>
+          <span class="muted">上方概览显示已保存配置</span>
         </div>
         <form id="push-form" data-section="push">
           <div class="two-columns">
             <div class="card padded">
-              <h3>比赛提醒</h3>
+              <div class="settings-title"><span class="settings-number">01</span><h3>比赛提醒与投递</h3></div>
               <p class="description">
                 赛前提醒与赛后结果推送使用订阅管理中的群组。
               </p>
@@ -384,7 +386,7 @@
               >
             </div>
             <div class="card padded">
-              <h3>每日赛程</h3>
+              <div class="settings-title"><span class="settings-number">02</span><h3>赛程日报</h3></div>
               <p class="description">定时发送接下来几天的比赛安排。</p>
               <label class="switch-row"
                 ><span
@@ -407,18 +409,18 @@
                   min="1"
                   max="30"
                   required
-                /><small>1 表示未来 24 小时内的赛程。</small></label
+                /><small>按北京时间自然日计算：1 为今天，2 为今天和明天。仅包含已获取、符合筛选条件且双方已确定的比赛。</small></label
               >
               <div class="inset">
-                <span>需要临时发送一份赛程？</span
-                ><button type="button" class="button" id="push-now">
+                <span>按已保存范围临时发送一份赛程</span>
+                <button type="button" class="button ghost" id="preview-daily">预览日报</button><button type="button" class="button" id="push-now">
                   立即推送</button
                 ><small>按已保存的天数发送到全部推送群组。</small>
               </div>
             </div>
           </div>
           <div class="card padded">
-            <h3>赛事开幕</h3>
+            <div class="settings-title"><span class="settings-number">03</span><h3>赛事开幕预告</h3></div>
             <label class="switch-row"
               ><span
                 ><strong>启用开幕预告</strong
@@ -438,29 +440,71 @@
             >
           </div>
           <div class="card padded">
-            <h3>直播入口</h3>
-            <p class="description">附加到比赛消息中的常用直播链接。</p>
+            <div class="settings-title"><span class="settings-number">04</span><h3>直播入口</h3></div>
+            <p class="description">在文字消息中附加常用直播链接；图片内不展示可点击链接。</p>
             <div id="stream-list"></div>
             <button type="button" class="button ghost" id="add-stream">
               ＋ 添加直播链接
             </button>
           </div>
-          <div class="save-bar">
-            <span class="save-state">设置已保存</span>
-            <div>
-              <button
-                type="button"
-                class="button ghost"
-                data-discard="push"
-                disabled
-              >
-                放弃修改</button
-              ><button type="submit" class="button primary" disabled>
-                保存推送设置
-              </button>
+          <div class="card padded">
+            <div class="settings-title"><span class="settings-number">05</span><h3>推送测试</h3><span class="settings-tag">实际发送</span></div>
+            <p class="description">
+              向指定目标发送模拟消息，验证消息样式和投递情况。
+            </p>
+            <label class="switch-row"
+              ><span
+                ><strong>启用测试模式</strong
+                ><small>只影响手动测试，不替代正常推送目标。</small></span
+              ><input
+                type="checkbox"
+                role="switch"
+                data-key="test_mode_enabled"
+            /></label>
+            <div class="form-grid">
+              <label class="field"
+                >目标类型<select data-key="test_target_type">
+                  <option value="private">私聊 QQ</option>
+                  <option value="group">QQ 群</option>
+                </select></label
+              ><label class="field"
+                >目标标识<input
+                  data-key="test_target_id"
+                  pattern="[A-Za-z0-9_\-]*"
+                  placeholder="QQ 号、群号或官方 OpenID"
+              /></label>
+            </div>
+            <label class="field narrow">测试日报天数<input type="number" id="test-days" min="1" max="30" value="1"><small>仅用于「日报」或「全部」测试，不改变正式日报范围。</small></label>
+            <div class="test-row">
+              <select id="test-action" aria-label="测试消息类型">
+                <option>赛前</option>
+                <option>赛果</option>
+                <option>变更</option>
+                <option>开幕</option>
+                <option>日报</option>
+                <option>全部</option></select
+              ><button type="button" class="button" id="send-test">
+                发送测试消息</button
+              ><span class="muted">使用已保存的测试设置</span>
             </div>
           </div>
-        </form>
+</form>
+      </section>
+
+      <section id="tools" role="tabpanel" aria-labelledby="tab-tools" hidden>
+        <div class="section-heading"><div class="eyebrow">MATCH CENTER</div><h2>赛事工具</h2><p>查看未来赛程、比赛日赛果与晋级对阵；查询结果只显示在这里。</p></div>
+        <div class="tool-grid">
+          <article class="card padded tool-card"><span class="settings-tag">赛程查询</span><h3>未来赛程与日报预览</h3><p>按已公布的开赛时间查看赛程；日报预览可从推送设置快捷带入天数。</p><label class="field">查询范围（天）<input id="tool-days" type="number" value="3" min="1" max="30"></label><button type="button" class="button primary" data-preview="schedule">查看赛程</button><small id="schedule-source-note">使用本板块已缓存并筛选的赛程。</small></article>
+          <article class="card padded tool-card"><span class="settings-tag" id="bracket-game-label">CS Major</span><h3>晋级对阵图</h3><p>默认查看当前进行的阶段，也可选择完整赛程。</p><label class="field">赛事阶段<select id="tool-stage"><option value="current">当前阶段</option><option value="all">全部阶段</option><option value="stage1">第一阶段</option><option value="stage2">第二阶段</option><option value="stage3">第三阶段</option><option value="swiss">瑞士轮</option><option value="knockout">淘汰赛</option></select></label><button type="button" class="button primary" data-preview="bracket">查看对阵图</button><small>沿用后台预生成图片；当前无进行阶段时会明确提示。</small></article>
+          <article class="card padded tool-card" id="results-tool"><span class="settings-tag">赛果查询</span><h3 id="results-tool-title">最近赛果</h3><p id="results-tool-description">回看已结束的 CS 比赛，或按比赛 ID 查询最终比分。</p><label class="field">回看天数<input id="tool-results-days" type="number" value="3" min="1" max="30"><small>按北京时间计划开赛日期，1 为今天，3 为今天及前两天。</small></label><label class="field">比赛 ID（可选）<input id="tool-match-id" inputmode="numeric" placeholder="留空按回看天数查询"></label><button type="button" class="button primary" data-preview="results">查看赛果</button><small>查询不会触发群推送，也不会更改已发送记录。</small></article>
+          <article class="card padded tool-card"><span class="settings-tag">官方 QQ</span><h3>今日选手</h3><p>选手抽取、个人照片和成就卡片可通过官方机器人使用。</p><div class="command-line"><code>/cs今日选手</code></div><small>当天重复抽取继续展示原选手，保留已有抽取记录。</small><p class="muted">在 QQ 中发送指令，或在 CS 菜单点击「今日选手」。</p></article>
+        </div>
+        <article class="card padded tool-preview" id="tool-preview" aria-busy="false">
+          <div class="card-header"><div><h3 id="tool-preview-title">查询预览</h3><p id="tool-preview-note">选择上方工具开始查询。查询使用已保存的本板块设置。</p></div><span class="settings-tag">仅在网页展示</span></div>
+          <p class="notice error" id="tool-preview-error" role="alert" hidden></p>
+          <img id="tool-preview-image" alt="赛事晋级对阵图" hidden>
+          <pre id="tool-preview-text" aria-live="polite">尚未查询</pre>
+        </article>
       </section>
 
       <section
@@ -523,47 +567,6 @@
               >
             </div>
           </div>
-          <div class="card padded">
-            <h3>推送测试</h3>
-            <p class="description">
-              向指定目标发送模拟消息，验证消息样式和投递情况。
-            </p>
-            <label class="switch-row"
-              ><span
-                ><strong>启用测试模式</strong
-                ><small>只影响手动测试，不替代正常推送目标。</small></span
-              ><input
-                type="checkbox"
-                role="switch"
-                data-key="test_mode_enabled"
-            /></label>
-            <div class="form-grid">
-              <label class="field"
-                >目标类型<select data-key="test_target_type">
-                  <option value="private">私聊 QQ</option>
-                  <option value="group">QQ 群</option>
-                </select></label
-              ><label class="field"
-                >目标号码<input
-                  data-key="test_target_id"
-                  inputmode="numeric"
-                  pattern="[0-9]*"
-                  placeholder="QQ 号或群号"
-              /></label>
-            </div>
-            <div class="test-row">
-              <select id="test-action" aria-label="测试消息类型">
-                <option>赛前</option>
-                <option>赛果</option>
-                <option>变更</option>
-                <option>开幕</option>
-                <option>日报</option>
-                <option>全部</option></select
-              ><button type="button" class="button" id="send-test">
-                发送测试消息</button
-              ><span class="muted">使用已保存的测试设置</span>
-            </div>
-          </div>
           <details class="card disclosure">
             <summary>
               <span
@@ -622,22 +625,7 @@
               >
             </div>
           </details>
-          <div class="save-bar">
-            <span class="save-state">设置已保存</span>
-            <div>
-              <button
-                type="button"
-                class="button ghost"
-                data-discard="advanced"
-                disabled
-              >
-                放弃修改</button
-              ><button type="submit" class="button primary" disabled>
-                保存连接设置
-              </button>
-            </div>
-          </div>
-        </form>
+</form>
         <details class="card disclosure">
           <summary>
             <span

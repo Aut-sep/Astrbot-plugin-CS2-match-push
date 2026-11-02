@@ -23,6 +23,17 @@ class DataStore:
         "notified_round_summaries",
         "round_summary_enabled",
         "round_gap_hours",
+        # Ignore obsolete fields previously included in the shared CS defaults.
+        # The separate game data files are never opened or migrated here.
+        "lol_worlds_only",
+        "daily_results_enabled",
+        "daily_results_gap_hours",
+        "daily_results_confirm_minutes",
+        "daily_result_days",
+        "daily_result_batches",
+        "daily_results_reported_matches",
+        "daily_results_timezone",
+        "lol_results_only_initialized",
     )
 
     _DEFAULTS = {
@@ -35,7 +46,12 @@ class DataStore:
         "notified_upcoming":           [],
         "notified_finished":           [],
         "notified_tournaments":        [],
+        "notified_series":             [],  # 已播报的整届赛事，区别于旧版阶段 ID
         "delivery_receipts":           {},  # event -> 已成功推送的目标，支持部分失败重试
+        "daily_push_events":           {},  # 定时日报完成/跳过状态，键为本地日期与时间点
+        "daily_push_payloads":         {},  # pending日报的冻结文本与赛程快照
+        "result_recovery_ignored":     {},  # mid -> explicit user decision to skip an old result
+        "pending_results":             {},  # mid -> public match snapshot and fixed poll deadline
         "match_schedules":             {},
         "match_snapshots":             {},  # mid -> {sched, t1, t2} 用于检测 TBD 变更
         "custom_remind_minutes":       {},  # mid -> 自定义提醒分钟数（覆盖全局）
@@ -65,6 +81,8 @@ class DataStore:
         self.path = path
         os.makedirs(os.path.dirname(os.path.abspath(path)), exist_ok=True)
         self._data = self._load()
+        self._daily_push_state_dirty = False
+        self._delivery_receipts_dirty = False
 
     @staticmethod
     def _hours_to_days(hours, default: int = 2) -> int:
@@ -117,6 +135,8 @@ class DataStore:
                 f.flush()
                 os.fsync(f.fileno())
             os.replace(temp_path, self.path)
+            self._daily_push_state_dirty = False
+            self._delivery_receipts_dirty = False
         finally:
             if temp_path is not None and os.path.exists(temp_path):
                 os.unlink(temp_path)
@@ -246,10 +266,25 @@ class DataStore:
         return mid in self._data["notified_finished"]
 
     def mark_finished_notified(self, mid: int):
+        removed_pending = self._data["pending_results"].pop(str(mid), None) is not None
         if mid not in self._data["notified_finished"]:
             self._data["notified_finished"].append(mid)
             self._prune_delivery_receipts("finished", self._data["notified_finished"][:-500])
             self._data["notified_finished"] = self._data["notified_finished"][-500:]
+            self.save()
+        elif removed_pending:
+            self.save()
+
+    def save_pending_result(self, match: dict, deadline: str):
+        """Persist an unfinished result poll across plugin reloads."""
+        self._data["pending_results"][str(match["id"])] = {
+            "match": deepcopy(match), "deadline": deadline,
+        }
+        self.save()
+
+    def clear_pending_result(self, mid: int):
+        """Remove terminal result tracking without changing delivery receipts."""
+        if self._data["pending_results"].pop(str(mid), None) is not None:
             self.save()
 
     def clear_match_notifications(self):
@@ -263,6 +298,8 @@ class DataStore:
 
     def get_delivery_targets(self, key: str) -> set[str]:
         """读取事件已成功发送的目标，防止部分目标失败时重复通知。"""
+        if self._delivery_receipts_dirty:
+            self.save()
         targets = self._data["delivery_receipts"].get(key, [])
         return {target for target in targets if isinstance(target, str)} if isinstance(targets, list) else set()
 
@@ -272,11 +309,75 @@ class DataStore:
             targets = self._data["delivery_receipts"][key] = []
         if target not in targets:
             targets.append(target)
+            self._delivery_receipts_dirty = True
+        if self._delivery_receipts_dirty:
             self.save()
 
     def clear_delivery(self, key: str):
         if key in self._data["delivery_receipts"]:
             del self._data["delivery_receipts"][key]
+            self._delivery_receipts_dirty = True
+        if self._delivery_receipts_dirty:
+            self.save()
+
+    def get_daily_push_status(self, key: str) -> Optional[str]:
+        return self._data.get("daily_push_events", {}).get(key)
+
+    def get_daily_push_payload(self, key: str) -> Optional[dict]:
+        payload = self._data.get("daily_push_payloads", {}).get(key)
+        if (
+            isinstance(payload, dict)
+            and isinstance(payload.get("text"), str)
+            and isinstance(payload.get("matches"), list)
+        ):
+            return deepcopy(payload)
+        return None
+
+    def mark_daily_push_status(self, key: str, status: str, payload: dict | None = None):
+        if status not in {"pending", "complete", "skipped"}:
+            raise ValueError("daily push status must be pending, complete or skipped")
+        events = self._data.setdefault("daily_push_events", {})
+        payloads = self._data.setdefault("daily_push_payloads", {})
+        changed = events.get(key) != status
+        if status == "pending" and payload is not None:
+            if not isinstance(payload, dict):
+                raise ValueError("daily push payload must be an object")
+            copied_payload = deepcopy(payload)
+            if payloads.get(key) != copied_payload:
+                payloads[key] = copied_payload
+                changed = True
+        elif status in {"complete", "skipped"} and key in payloads:
+            del payloads[key]
+            changed = True
+        if changed:
+            events[key] = status
+            self._daily_push_state_dirty = True
+        if self._daily_push_state_dirty:
+            self.save()
+
+    def flush_daily_push_state(self):
+        if self._daily_push_state_dirty:
+            self.save()
+
+    def prune_daily_push_events(self, active_keys: set[str]):
+        """Keep only today's configured events and their per-target receipts."""
+        events = self._data.setdefault("daily_push_events", {})
+        payloads = self._data.setdefault("daily_push_payloads", {})
+        receipts = self._data.setdefault("delivery_receipts", {})
+        stale_events = [key for key in events if key not in active_keys]
+        stale_payloads = [key for key in payloads if key not in active_keys]
+        stale_receipts = [
+            key for key in receipts if key.startswith("daily:") and key not in active_keys
+        ]
+        if stale_events or stale_payloads or stale_receipts:
+            for key in stale_events:
+                del events[key]
+            for key in stale_payloads:
+                del payloads[key]
+            for key in stale_receipts:
+                del receipts[key]
+            self._daily_push_state_dirty |= bool(stale_events or stale_payloads)
+            self._delivery_receipts_dirty |= bool(stale_receipts)
             self.save()
 
     def _prune_delivery_receipts(self, kind: str, expired_ids: list):
@@ -348,6 +449,18 @@ class DataStore:
     def is_tournament_notified(self, tid: int) -> bool:
         return tid in self._data.get("notified_tournaments", [])
 
+    def is_series_notified(self, sid: str) -> bool:
+        return str(sid) in self._data.get("notified_series", [])
+
+    def mark_series_notified(self, sid: str):
+        sid = str(sid)
+        items = self._data.setdefault("notified_series", [])
+        if sid not in items:
+            items.append(sid)
+            self._prune_delivery_receipts("series", items[:-300])
+            self._data["notified_series"] = items[-300:]
+            self.save()
+
     def mark_tournament_notified(self, tid: int):
         lst = self._data.setdefault("notified_tournaments", [])
         if tid not in lst:
@@ -366,9 +479,14 @@ class DataStore:
         d.pop("notified_upcoming", None)
         d.pop("notified_finished", None)
         d.pop("notified_tournaments", None)
+        d.pop("notified_series", None)
+        d.pop("result_recovery_ignored", None)
+        d.pop("pending_results", None)
         d.pop("match_schedules", None)
         d.pop("match_snapshots", None)
         d.pop("delivery_receipts", None)
+        d.pop("daily_push_events", None)
+        d.pop("daily_push_payloads", None)
         return d
 
     def import_config(self, cfg: dict):

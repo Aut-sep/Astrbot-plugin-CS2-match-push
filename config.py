@@ -56,6 +56,18 @@ def string(value, name: str, *, nonempty: bool = False) -> str:
     return value
 
 
+def message_target_id(value, name: str = "target id") -> str:
+    """Accept a numeric QQ identifier or an opaque QQ official OpenID."""
+    if isinstance(value, int) and not isinstance(value, bool):
+        value = str(value)
+    value = string(value, name, nonempty=True)
+    if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", value):
+        raise ConfigError(f"{name} must be a QQ number or official OpenID")
+    if value.isdigit():
+        return str(integer(value, name, 1))
+    return value
+
+
 def _list(value, name: str) -> list:
     if not isinstance(value, list):
         raise ConfigError(f"{name} must be a list")
@@ -106,10 +118,8 @@ def validate_config(cfg: dict) -> dict:
     for key in STRING_KEYS:
         if key in cfg:
             result[key] = string(cfg[key], key)
-    if result.get("test_target_id") and not result["test_target_id"].isascii():
-        raise ConfigError("test_target_id must contain only digits")
-    if result.get("test_target_id") and not result["test_target_id"].isdigit():
-        raise ConfigError("test_target_id must contain only digits")
+    if result.get("test_target_id"):
+        result["test_target_id"] = message_target_id(result["test_target_id"], "test_target_id")
     if "web_panel_host" in cfg:
         result["web_panel_host"] = _host(cfg["web_panel_host"])
     if "test_target_type" in cfg:
@@ -128,7 +138,7 @@ def validate_config(cfg: dict) -> dict:
     if "push_groups" in cfg:
         groups = []
         for gid in _list(cfg["push_groups"], "push_groups"):
-            gid = str(integer(gid, "group id", 1))
+            gid = message_target_id(gid, "group id")
             if gid not in groups:
                 groups.append(gid)
         result["push_groups"] = groups

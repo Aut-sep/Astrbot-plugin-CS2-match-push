@@ -6,6 +6,7 @@ formatters.py — 消息格式化 & 工具函数
 import re
 from datetime import datetime, timezone, timedelta
 from typing import Optional
+from .tournament_events import event_name
 
 # ─────────────────────────────────────────
 # 时区常量
@@ -150,24 +151,29 @@ def translate_match_stage(name: str) -> str:
 # ─────────────────────────────────────────
 
 def fmt_schedule(matches: list, followed: list) -> str:
-    """赛程列表（~cs比赛 指令）"""
+    """赛程列表（/cs比赛），使用与日报一致的比赛行格式。"""
     followed = followed_terms(followed)
     matches = [m for m in matches if is_push_ready_match(m)]
     if not matches:
-        return "📭 未来 48 小时内没有符合条件的 CS2 比赛"
+        return "📭 当前没有符合条件的 CS2 比赛"
     lines = [f"📅 【已安排的 CS2 赛程】共 {len(matches)} 场"]
-    for m in matches:
-        t1    = team_name(m, 0)
-        t2    = team_name(m, 1)
-        sched = fmt_time(sched_str(m))
-        lg    = (m.get("league") or {}).get("name", "?")
-        num   = m.get("number_of_games", 0)
-        lines.append(
-            f"━━━━━━━━━━━━━\n"
-            f"🕒 {sched}\n"
-            f"⚔️  {t1}  vs  {t2}\n"
-            f"📋 BO{num} · {lg}"
-        )
+    dated = []
+    for match in matches:
+        try:
+            dated.append((parse_dt(sched_str(match)).astimezone(CST), match))
+        except (ValueError, TypeError):
+            continue
+    day_buckets = {}
+    for dt, match in sorted(dated, key=lambda item: item[0]):
+        day_buckets.setdefault(dt.strftime("%m-%d"), []).append((dt, match))
+    for date, items in day_buckets.items():
+        lines.append(f"\n🗓 {date}（共 {len(items)} 场）")
+        for dt, m in items:
+            t1 = team_name(m, 0)
+            t2 = team_name(m, 1)
+            lg = (m.get("league") or {}).get("name", "?")
+            num = m.get("number_of_games", 0)
+            lines.append(f"  {dt.strftime('%H:%M')}  {t1} vs {t2}  BO{num} · {lg}")
     return "\n".join(lines)
 
 
@@ -298,10 +304,9 @@ def fmt_tournament_announce(
     is_followed_tour: bool = False,
 ) -> str:
     """赛事开幕通知推送"""
-    name       = tour.get("name") or "未知赛事"
+    name       = event_name(tour)
     followed = followed_terms(followed)
     tier       = (tour.get("tier") or "unranked").upper()
-    lg         = (tour.get("league") or {}).get("name", "")
     begin_at   = fmt_time(tour.get("begin_at"))
     end_at     = fmt_time(tour.get("end_at"))
     location   = tour.get("country") or tour.get("location") or ""
@@ -328,8 +333,6 @@ def fmt_tournament_announce(
         f"{tier_icon} 赛事等级：{tier} 级",
         f"📌 赛事名称：{name}",
     ]
-    if lg:
-        lines.append(f"🏅 所属联赛：{lg}")
     lines.append(f"🕒 开赛时间：{begin_at}")
     if end_at and end_at != "未知":
         lines.append(f"🏁 预计结束：{end_at}")
@@ -369,7 +372,7 @@ def fmt_daily_schedule(matches: list, followed: list, days: int) -> str:
     if not day_buckets:
         return f"📭 未来 {days} 天内没有符合条件的 CS2 比赛"
 
-    header = f"📅 【CS2 赛程日报】{now_cst_dt.strftime('%m月%d日')} {now_cst_dt.strftime('%H:%M')} 播报"
+    header = f"📅 【CS2 赛程日报】{now_cst_dt.strftime('%m月%d日')}"
     lines  = [header]
 
     for day_label, items in day_buckets.items():

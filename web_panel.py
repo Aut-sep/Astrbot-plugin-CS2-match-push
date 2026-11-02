@@ -8,7 +8,6 @@ web_panel.py — Web 管理面板
 import asyncio
 from collections import deque
 import hmac
-import ipaddress
 import json
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
@@ -18,7 +17,7 @@ from yarl import URL
 
 from astrbot.api import logger
 
-from .config import ConfigError, integer, string, validate_config
+from .config import ConfigError, integer, message_target_id, string, validate_config
 from .client import PandaScoreClient
 from .delivery import DeliveryError
 
@@ -83,7 +82,7 @@ class WebPanel:
         if path == "/" or path.startswith("/api/"):
             token = self._request_token(req)
             token_ok = self._token_matches(token)
-            if token_ok or self._is_local_request(req):
+            if token_ok:
                 if req.method not in {"GET", "HEAD", "OPTIONS"}:
                     origin = req.headers.get("Origin")
                     if origin and not self._same_origin(req, origin):
@@ -146,15 +145,6 @@ class WebPanel:
         except ValueError:
             return False
 
-    def _is_local_request(self, req) -> bool:
-        remote = req.remote or ""
-        if remote in {"localhost", "127.0.0.1", "::1"}:
-            return True
-        try:
-            return ipaddress.ip_address(remote).is_loopback
-        except ValueError:
-            return False
-
     def _setup_routes(self):
         a = self.app.router
         a.add_get("/",                          self.index)
@@ -167,6 +157,7 @@ class WebPanel:
         a.add_post("/api/config/import",        self.import_config)
         a.add_post("/api/setup/check",          self.check_setup)
         a.add_get("/api/matches",               self.get_matches)
+        a.add_get("/api/tools/preview",         self.preview_tool)
         a.add_post("/api/refresh",              self.refresh)
         a.add_post("/api/push_now",             self.push_now)
         a.add_post("/api/test",                 self.send_test)
@@ -197,7 +188,7 @@ class WebPanel:
         if self._token_matches(token):
             bootstrap = (
                 "<script>\n"
-                "history.replaceState(null, '', location.pathname);\n"
+                "const u = new URL(location.href); u.searchParams.delete('token'); history.replaceState(null, '', u.pathname + u.search);\n"
                 "</script>\n"
             )
             html = html.replace("</head>", bootstrap + "</head>", 1)
@@ -215,6 +206,11 @@ class WebPanel:
                            "team_logo_dark_names": getattr(getattr(self.plugin, "team_logos", None), "web_dark_names", []),
                            "web_token_configured": bool(self.plugin.store.get("web_panel_token")),
                            "embedded_available": bool(getattr(self.plugin, "embedded_available", False))})
+
+    async def preview_tool(self, req):
+        from .panel_previews import timed_preview
+        result = await timed_preview(self.plugin, req.rel_url.query)
+        return self._json({"ok": True, **result})
 
     async def patch_config(self, req):
         return await self._apply_config(req, imported=False)
@@ -334,6 +330,7 @@ class WebPanel:
     async def send_test(self, req):
         body = await self._body(req, allow_empty=True)
         action = string(body.get("action", ""), "action") or "赛前"
+        days = integer(body.get("days", 1), "days", 1, 30)
         if not self.plugin.is_test_mode_enabled():
             return self._json({"ok": False, "msg": "测试模式未开启"}, 400)
         if not self.plugin.has_test_target():
@@ -342,19 +339,19 @@ class WebPanel:
         if action not in valid:
             return self._json({"ok": False, "msg": "未知测试动作"}, 400)
         try:
-            msg = await self.plugin.run_test_push(action, 1)
+            msg = await self.plugin.run_test_push(action, days)
         except DeliveryError as exc:
             return self._json({"ok": False, "msg": str(exc)}, 502)
         return self._json({"ok": True, "msg": msg})
 
     async def add_group(self, req):
         body = await self._body(req)
-        gid = str(integer(body.get("gid"), "group id", 1))
+        gid = message_target_id(body.get("gid"), "group id")
         added = self.plugin.store.add_group(gid)
         return self._json({"ok": True, "added": added})
 
     async def remove_group(self, req):
-        gid = str(integer(req.match_info["gid"], "group id", 1))
+        gid = message_target_id(req.match_info["gid"], "group id")
         self.plugin.store.remove_group(gid)
         return self._json({"ok": True})
 

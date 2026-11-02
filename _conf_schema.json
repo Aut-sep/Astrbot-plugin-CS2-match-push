@@ -2,7 +2,7 @@
   "pandascore_token": {
     "description": "PandaScore API Token",
     "type": "string",
-    "hint": "在 pandascore.co 注册后获取，用于拉取 CS2 比赛数据",
+    "hint": "在 pandascore.co 注册后获取，用于拉取 CS2 赛程、赛果和 Major 晋级对阵数据",
     "obvious_hint": true,
     "default": ""
   },
@@ -41,6 +41,12 @@
     "type": "int",
     "hint": "拉取未来 N 天内的比赛，建议 2",
     "default": 2
+  },
+  "qq_player_photo_base_url": {
+    "description": "QQ 今日选手公开图片目录",
+    "type": "string",
+    "hint": "填写无需登录即可访问的照片目录，例如 https://example.com/cs2-player-photos；照片文件来自插件的 player_photos 目录。留空时使用 Markdown 文字卡片并另发本地照片。",
+    "default": ""
   },
   "image_push_enabled": {
     "description": "图片推送",
