@@ -178,7 +178,7 @@ def fmt_schedule(matches: list, followed: list) -> str:
 
 
 def fmt_upcoming(match: dict, remind_min: int, custom_streams: list = None,
-                 followed: list = None) -> str:
+                 followed: list = None, *, started: bool = False) -> str:
     """赛前提醒推送"""
     followed = followed_terms(followed)
     t1     = team_name(match, 0)
@@ -186,6 +186,11 @@ def fmt_upcoming(match: dict, remind_min: int, custom_streams: list = None,
     lg     = (match.get("league") or {}).get("name", "未知联赛")
     num    = match.get("number_of_games", 0)
     sched  = fmt_time(sched_str(match))
+    if started:
+        try:
+            sched = fmt_time(parse_dt(match["begin_at"]).isoformat()) if match.get("begin_at") else "开赛时间待确认"
+        except (TypeError, ValueError, AttributeError):
+            sched = "开赛时间待确认"
     stream = next(
         (s.get("raw_url", "") for s in match.get("streams_list", []) if s.get("main")),
         "",
@@ -196,7 +201,8 @@ def fmt_upcoming(match: dict, remind_min: int, custom_streams: list = None,
     t2_starred = any(f in t2.lower() for f in followed)
     t1_str = t1
     t2_str = t2
-    header = "【CS2 赛前提醒 · 关注战队】" if (t1_starred or t2_starred) else "⏰ 【CS2 赛前提醒】"
+    kind = "已开赛" if started else "赛前提醒"
+    header = f"【CS2 {kind} · 关注战队】" if (t1_starred or t2_starred) else f"⏰ 【CS2 {kind}】"
 
     lines = [
         header,
@@ -206,12 +212,19 @@ def fmt_upcoming(match: dict, remind_min: int, custom_streams: list = None,
         f"📋 BO{num} · {lg}",
         "📺 直播：",
     ]
+    if started:
+        lines.insert(2, "比赛已开始，补发开赛通知。")
     if stream:
         lines.append(f"  🌐 官方：{stream}")
     if custom_streams:
         for cs in custom_streams:
             lines.append(f"  📡 {cs.get('name','自定义')}：{cs.get('url','')}")
     return "\n".join(lines)
+
+
+def fmt_started(match: dict, custom_streams: list = None, followed: list = None) -> str:
+    """A confirmed running match uses actual start time, never a countdown."""
+    return fmt_upcoming(match, 0, custom_streams, followed, started=True)
 
 
 def fmt_reschedule(match: dict, old_time: str, new_time: str) -> str:

@@ -39,7 +39,7 @@ from .formatters import (
     fmt_schedule,
     now_utc, now_cst, fmt_time, parse_dt,
     team_name, match_tier, sched_str, is_push_ready_match,
-    fmt_upcoming, fmt_reschedule, fmt_finished,
+    fmt_upcoming, fmt_started, fmt_reschedule, fmt_finished,
     fmt_tournament_announce, fmt_daily_schedule,
 )
 from .web_panel import WebPanel
@@ -1167,7 +1167,8 @@ class CSMatchPlugin(Star):
                 self.store.clear_pending_result(mid)
                 continue
             active = self._result_tasks.get(mid)
-            if scheduled > now or (active and not active.done()):
+            # An early-start handoff can be running before its planned start.
+            if (scheduled > now and match.get("status") not in {"running", "finished"}) or (active and not active.done()):
                 continue
             try:
                 deadline = parse_dt(entry["deadline"]) if entry.get("deadline") else scheduled + timedelta(hours=6)
@@ -1221,6 +1222,9 @@ class CSMatchPlugin(Star):
                 attempt += 1
                 self._result_meta[mid]["attempt"] = attempt
 
+                if result and result.get("status") == "running" and str(result.get("id")) == str(mid):
+                    await self._maybe_push_started_notice(result)
+
                 if result and result.get("status") == "finished":
                     if self.store.is_finished_notified(mid):
                         return
@@ -1248,6 +1252,40 @@ class CSMatchPlugin(Star):
             if self._result_tasks.get(mid) is asyncio.current_task():
                 self._result_tasks.pop(mid, None)
                 self._result_meta.pop(mid, None)
+
+    async def _maybe_push_started_notice(self, match: dict) -> bool:
+        """Fill a missed reminder for a known, confirmed-running match only.
+
+        Sharing upcoming:<id> receipts also excludes groups that already got a
+        pre-match reminder, including partial deliveries interrupted by reloads.
+        The existing result poll retries failures without a second scheduler.
+        """
+        mid = int(match["id"])
+        if (
+            match.get("status") != "running"
+            or self.store.is_upcoming_notified(mid)
+            or self.store.is_finished_notified(mid)
+            or str(mid) in self.store.get("result_recovery_ignored", {})
+            or not is_push_ready_match(match)
+        ):
+            return False
+        # This existing filter is status-agnostic and uses the saved CS rules.
+        from .cs_results import accepts_result
+        if not accepts_result(self.store, match):
+            return False
+        if await self._deliver_notification(
+            f"upcoming:{mid}", lambda: self._push_started(match),
+        ):
+            self.store.mark_upcoming_notified(mid)
+            self.panel.push_log("OK", f"已补发开赛通知：比赛 {mid}")
+            return True
+        return False
+
+    async def _push_started(self, match: dict):
+        match = self._match_with_snapshot_names(match)
+        text = self._format(fmt_started, match, self.store.get("custom_streams") or [],
+                            self.store.get_followed_team_names())
+        return await self._push_notification(text, match=match, started_notice=True)
 
     async def _push_upcoming(self, match: dict, remind_min: int,
                              custom_streams: list, followed: list,
@@ -1603,16 +1641,18 @@ class CSMatchPlugin(Star):
         return await self._push_notification(text, match=match, matches=matches, teams=teams, competition=competition, daily_days=daily_days)
 
     async def _push_notification(self, text: str, *, match=None, matches=None, teams=None,
-                                 center_text: str = "VS", test_target: bool = False, competition=None, daily_days=None):
+                                 center_text: str = "VS", test_target: bool = False, competition=None, daily_days=None,
+                                 started_notice: bool = False):
         sender = self._push_test_components if test_target else self._push_components
         components = await self._notification_components(
             text, match=match, matches=matches, teams=teams, center_text=center_text, competition=competition, daily_days=daily_days,
+            started_notice=started_notice,
         )
         return await sender(components)
 
     async def _notification_components(self, text: str, *, match=None, matches=None,
                                        teams=None, center_text: str = "VS", competition=None,
-                                       daily_days=None, output_path=None) -> list:
+                                       daily_days=None, output_path=None, started_notice: bool = False) -> list:
         """Queries and notifications use the same configured image/text mode."""
         if daily_days is not None and self.store.get("image_push_enabled", True):
             matches = [self._match_with_snapshot_names(m) for m in matches or []]
@@ -1642,6 +1682,11 @@ class CSMatchPlugin(Star):
         images = [next((m["image"] for m in marks if m["name"] == name), None) for name in names]
         is_result_notice = match is not None and "赛事结果" in text
         start_time = fmt_time(sched_str(match)).rsplit(" ", 1)[-1] if match is not None and not is_result_notice else ""
+        if started_notice:
+            try:
+                start_time = fmt_time(parse_dt(match["begin_at"]).isoformat()).rsplit(" ", 1)[-1] if match.get("begin_at") else ""
+            except (TypeError, ValueError, AttributeError):
+                start_time = ""
         round_winners = None
         winner_index = None
         if is_result_notice:
