@@ -2,7 +2,7 @@
 
 在 QQ 中查赛程、看比分、关注主队，自动接收 CS2 赛事提醒；还可以查看 Major 晋级图、抽取今日选手。普通机器人负责完整功能和自动推送，QQ 官方机器人可作为带 Markdown 和按钮的查询入口。比赛数据来自 PandaScore。
 
-> 本页介绍开发分支 `4.3.0` 的纯 CS2 功能，尚未正式发布。[main 分支](https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push/tree/main) 保持稳定版；从默认仓库地址安装时，请以稳定版说明为准。
+> 当前主分支源码版本为 `4.3.0`，仅包含 CS2 功能。更新内容见[更新记录](CHANGELOG.md)；GitHub Release 与插件市场的发布状态以各自页面为准。
 
 ## 特色功能
 
@@ -79,7 +79,7 @@
 
 ## 安装与配置
 
-在 AstrBot 插件管理中使用仓库地址安装稳定版，填写 PandaScore API Token 并重载。新版测试请使用本开发分支代码。Token 获取方式见 [PandaScore 文档](https://developers.pandascore.co/docs/authentication)。优先打开「插件详情 → CS2 管理」，按新手引导填写数据源和接收群；普通机器人必须在线并已加入目标群。引导中的连接检查不会发送测试消息。
+在 AstrBot 插件管理中使用仓库地址安装插件，填写 PandaScore API Token 并重载。Token 获取方式见 [PandaScore 文档](https://developers.pandascore.co/docs/authentication)。优先打开「插件详情 → CS2 管理」，按新手引导填写数据源和接收群；普通机器人必须在线并已加入目标群。引导中的连接检查不会发送测试消息。
 
 ```text
 https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push
