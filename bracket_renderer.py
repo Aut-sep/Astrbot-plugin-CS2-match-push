@@ -2,6 +2,7 @@
 from PIL import Image, ImageDraw
 
 from .formatters import fmt_time, translate_match_stage
+from .bracket_data import bracket_team_name
 from .team_logos import normalize_name
 
 
@@ -11,9 +12,9 @@ class BracketRenderer:
     def __init__(self, shared_renderer):
         self.shared = shared_renderer
 
-    def _text(self, draw, text, x, y, size=16, color='#132033', centered=False, bold=False):
+    def _text(self, draw, text, x, y, size=16, color='#243447', centered=False):
         self.shared._draw_card_text(draw, str(text), x, y, self.shared._pick_banner_font(size), color,
-                                    centered=centered, bold=bold)
+                                    centered=centered)
 
     def _positions(self, stage, width, top):
         columns = stage['columns']
@@ -71,9 +72,9 @@ class BracketRenderer:
         winner = match.get('winner_id') or (match.get('winner') or {}).get('id')
         for index, team in enumerate(opponents):
             row_top = y + 32 + index * 31
-            known = team.get('name') and str(team['name']).casefold() not in {'tbd', 'to be determined'}
+            label = bracket_team_name(team)
+            known = label != '待定'
             name = team.get('name') if known else '待定'
-            label = (team.get('acronym') or name) if known else '待定'
             is_winner = match.get('status') == 'finished' and winner is not None and team.get('id') is not None and str(team['id']) == str(winner)
             if is_winner:
                 draw.rounded_rectangle((x+4,row_top-2,x+self.CARD_W-4,row_top+27), radius=4, fill='#e1f1e9')
@@ -84,11 +85,11 @@ class BracketRenderer:
                 draw.ellipse((x+12,row_top+2,x+32,row_top+22),outline='#cbd5e1',width=1)
                 self._text(draw,'?',x+22,row_top+4,12,'#8a99aa',centered=True)
             font = self.shared._fit_banner_font(draw, str(label), self.CARD_W-82, 17, 11)
-            self.shared._draw_card_text(draw, str(label), x+42, row_top+3, font, '#132033', bold=is_winner)
+            self.shared._draw_card_text(draw, str(label), x+42, row_top+3, font, '#243447')
             score = scores.get(str(team.get('id')))
             show = match.get('status') in {'running','finished'} and isinstance(score,int) and not isinstance(score,bool) and score >= 0
             self._text(draw,score if show else '—',x+self.CARD_W-20,row_top+3,17,
-                       '#22654f' if is_winner else '#405369',centered=True,bold=is_winner)
+                       '#22654f' if is_winner else '#405369',centered=True)
         status = {'finished':'已结束','running':'进行中','canceled':'已取消','postponed':'已延期'}.get(match.get('status'),'待开赛')
         when = fmt_time(match.get('scheduled_at') or match.get('begin_at'))
         bo = f"BO{match['number_of_games']}" if match.get('number_of_games') else ''
@@ -119,7 +120,7 @@ class BracketRenderer:
         self._text(draw,self.shared.game_label,self.PAD,18,16,'#ff8a70')
         self._text(draw,snapshot['title']+' · 晋级对阵图',self.PAD,46,26,'#ffffff')
         for top,stage,positions,graph_height in layout:
-            self._text(draw,stage['title'],self.PAD,top+10,23,bold=True)
+            self._text(draw,stage['title'],self.PAD,top+10,23)
             note = ' · '.join(stage['notes']) if stage['notes'] else '实线：胜者晋级　虚线：败者转入败者组' if any(e['type']=='loser' for e in stage['edges']) else '按已公布晋级关系连接；未知队伍显示待定'
             self._text(draw,note,self.PAD,top+43,14,'#66758a')
             if not positions:

@@ -65,7 +65,7 @@ class BracketImages:
         for team in teams:
             data = self.plugin.team_logos.get(team['name']) or self.plugin.team_logos.get(team.get('acronym', ''))
             local.append((team['name'], hashlib.sha256(data).hexdigest() if data else None))
-        payload = {'version': 1, 'game': 'csgo', 'title': snapshot['title'],
+        payload = {'version': 2, 'game': 'csgo', 'title': snapshot['title'],
                    'stages': stages, 'local_marks': local}
         return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
 

@@ -3,6 +3,53 @@ from copy import deepcopy
 import re
 
 from .formatters import translate_match_stage
+from .team_logos import normalize_name
+
+
+# Use recognizable CS names rather than the data source's arbitrary acronyms.
+# Unknown teams keep their full name instead of inventing a new abbreviation.
+_TEAM_NAMES = {
+    'Spirit': ('Team Spirit', 'Spirit'),
+    'NAVI': ('Natus Vincere', 'NAVI'),
+    'Vitality': ('Team Vitality', 'Vitality'),
+    'Falcons': ('Team Falcons', 'Falcons', 'Falcons Esports'),
+    'Liquid': ('Team Liquid', 'Liquid'),
+    'Aurora': ('Aurora Gaming', 'Aurora'),
+    'BetBoom': ('BetBoom Team', 'BetBoom'),
+    'The MongolZ': ('The MongolZ', 'MongolZ'),
+    'G2': ('G2 Esports', 'G2'),
+    'FaZe': ('FaZe Clan', 'FaZe'),
+    'VP': ('Virtus.pro', 'Virtus Pro', 'VP'),
+    'NIP': ('Ninjas in Pyjamas', 'NIP'),
+    'paiN': ('paiN Gaming', 'paiN'),
+    'FURIA': ('FURIA Esports', 'FURIA'),
+    'FUT': ('FUT Esports', 'FUT'),
+    'GamerLegion': ('GamerLegion', 'Gamer Legion'),
+    'Complexity': ('Complexity Gaming', 'Complexity'),
+    'MOUZ': ('mousesports', 'MOUZ'),
+    'PARIVISION': ('PARIVISION',),
+    'HEROIC': ('HEROIC',),
+    'TYLOO': ('TYLOO',),
+    '9z': ('9z Team', '9z Globant', '9z'),
+    'Legacy': ('Legacy Esports', 'Legacy'),
+    'B8': ('B8 Esports', 'B8'),
+    'MIBR': ('Made in Brazil', 'MIBR'),
+    'NRG': ('NRG Esports', 'NRG'),
+    'ENCE': ('ENCE eSports', 'ENCE'),
+    'SINNERS': ('SINNERS Esports', 'SINNERS'),
+    'Nemiga': ('Nemiga Gaming', 'Nemiga'),
+    'Sangal': ('Sangal Esports', 'Sangal'),
+    'Sashi': ('Sashi Esport', 'Sashi Esports', 'Sashi'),
+}
+_TEAM_LABELS = {normalize_name(alias): label
+                for label, aliases in _TEAM_NAMES.items() for alias in aliases}
+
+
+def bracket_team_name(team):
+    name = str(team.get('name') or '').strip()
+    if not name or name.casefold() in {'tbd', 'to be determined'}:
+        return '待定'
+    return _TEAM_LABELS.get(normalize_name(name), name)
 
 
 def _order(match):
@@ -86,7 +133,7 @@ def format_bracket(snapshot, stages):
         for column in stage['columns']:
             lines.append(column['label'])
             for match in column['matches']:
-                names = [(slot.get('opponent') or {}).get('name') or '待定'
+                names = [bracket_team_name(slot.get('opponent') or {})
                          for slot in match.get('opponents') or []][:2]
                 names += ['待定'] * (2 - len(names))
                 scores = {str(r.get('team_id')): r.get('score') for r in match.get('results') or []}
