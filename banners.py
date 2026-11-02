@@ -394,7 +394,7 @@ class BannerRenderer:
             groups[-1][1].append(change)
         layout = [(self._wrap_notification_text(measure, league, heading_font, width - 2 * padding), rows)
                   for league, rows in groups]
-        height = 148 + sum(26 * len(titles) + 82 * len(rows) + 12 for titles, rows in layout) + 42
+        height = 148 + sum(26 * len(titles) + 22 + 46 * len(rows) + 12 for titles, rows in layout) + 42
         image = PILImage.new('RGB', (width, height), '#f4f6f9')
         draw = ImageDraw.Draw(image)
         draw.rectangle((0, 0, width, 96), fill='#132033')
@@ -408,26 +408,27 @@ class BannerRenderer:
             for title in titles:
                 self._draw_card_text(draw, title, padding, cursor, heading_font, ink)
                 cursor += 26
+            label_font = self._pick_banner_font(12)
+            self._draw_card_text(draw, '对阵', padding, cursor, label_font, muted)
+            self._draw_card_text(draw, '原定 → 调整', 352, cursor, label_font, muted)
+            cursor += 22
             for change in rows:
                 opponents = [slot.get('opponent') or {} for slot in change.match['opponents']]
                 for index, team in enumerate(opponents[:2]):
-                    x = padding if index == 0 else 338
+                    x = padding if index == 0 else 190
                     name = bracket_team_name(team)
                     mark = marks.get(self._team_key(team.get('name', '')))
-                    self._draw_small_mark(image, draw, x, cursor + 5, mark, 22, name)
-                    font = self._fit_banner_font(draw, name, 208 if index == 0 else 238, 17, 11)
-                    self._draw_card_text(draw, name, x + 30, cursor + 7, font, ink)
-                self._draw_card_text(draw, 'vs', 315, cursor + 9, self._pick_banner_font(12), muted,
+                    self._draw_small_mark(image, draw, x, cursor + 8, mark, 22, name)
+                    font = self._fit_banner_font(draw, name, 106, 16, 11)
+                    shown = self._shorten_banner_text(draw, name, font, 106)
+                    self._draw_card_text(draw, shown, x + 28, cursor + 12, font, ink)
+                self._draw_card_text(draw, 'vs', 176, cursor + 14, label_font, muted,
                                      centered=True)
-                font = self._pick_banner_font(14)
-                label = self._pick_banner_font(12)
-                self._draw_card_text(draw, '原定', padding, cursor + 42, label, muted)
-                self._draw_card_text(draw, fmt_time(change.old_time), padding + 38, cursor + 41, font, muted)
-                self._draw_card_text(draw, '→', 315, cursor + 41, font, muted, centered=True)
-                self._draw_card_text(draw, '调整', 338, cursor + 42, label, muted)
-                self._draw_card_text(draw, fmt_time(change.new_time), 376, cursor + 41, font, ink)
-                draw.line((padding, cursor + 73, width - padding, cursor + 73), fill='#d3dce7')
-                cursor += 82
+                times = f'{fmt_time(change.old_time)} → {fmt_time(change.new_time)}'
+                font = self._fit_banner_font(draw, times, width - padding - 352, 14, 11)
+                self._draw_card_text(draw, times, 352, cursor + 13, font, ink)
+                draw.line((padding, cursor + 41, width - padding, cursor + 41), fill='#d3dce7')
+                cursor += 46
             cursor += 12
         draw.rectangle((0, height - 42, width, height), fill='#e5ebf2')
         self._draw_card_text(draw, 'CS2 比赛推送', padding, height - 26, self._pick_banner_font(12), muted)
