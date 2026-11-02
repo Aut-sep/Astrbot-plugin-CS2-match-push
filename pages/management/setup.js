@@ -121,7 +121,7 @@ export function createSetupGuide({ api, getState, loadConfig, activateTab, toast
     action($('#setup-group-next'), async () => {
       const gid = $('#setup-group').value.trim();
       if (gid) {
-        if (!/^[A-Za-z0-9_-]{1,128}$/.test(gid) || (/^\d+$/.test(gid) && BigInt(gid) < 1n)) throw new Error('请填写 QQ 群号或官方群 OpenID。');
+        if (!/^\d+$/.test(gid) || BigInt(gid) < 1n) throw new Error('请填写普通机器人的数字 QQ 群号。');
         if (!draft.push_groups.includes(gid)) draft.push_groups.push(gid);
         $('#setup-group').value = '';
         sync();

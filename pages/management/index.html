@@ -56,16 +56,16 @@
           </form>
           <form id="setup-group-form" data-setup-step="1" hidden>
             <p>比赛提醒和赛报会自动发送到你添加的 QQ 群。</p>
-            <ol class="setup-instructions"><li>先在 AstrBot「机器人」页面连接 QQ 机器人，确认机器人在线。</li><li>普通 QQ 填写群号；官方 QQ 由管理员在目标群 @机器人发送 /cs设置群，自动登记当前群。</li><li>也可在下方填写官方群 OpenID，不能将普通群号用于官方机器人。</li></ol>
+            <ol class="setup-instructions"><li>先在 AstrBot「机器人」页面连接 OneBot QQ 机器人，确认机器人在线。</li><li>填写接收群的纯数字 QQ 群号；官方机器人扩展仅用于被动查询，不参与赛事推送。</li></ol>
             <p id="setup-groups-status" class="notice"></p>
-            <label class="field">接收群标识 <span class="setup-required">必填</span><input id="setup-group" autocomplete="off" placeholder="QQ 群号或官方群 OpenID；已有接收群时可留空"><small>只需一个群即可开始。更多接收群可在「订阅管理」中添加。</small></label>
+            <label class="field">接收 QQ 群号 <span class="setup-required">必填</span><input id="setup-group" autocomplete="off" inputmode="numeric" pattern="[1-9][0-9]*" placeholder="纯数字 QQ 群号；已有接收群时可留空"><small>只需一个群即可开始。更多接收群可在「订阅管理」中添加。</small></label>
             <div class="setup-actions"><button type="button" data-setup-back class="button">上一步</button><button type="submit" id="setup-group-next" class="button primary">确认接收群，下一步</button></div>
           </form>
           <form id="setup-options-form" data-setup-step="2" hidden>
             <p>以下全部为可选项。保持当前设置即可开始使用，之后可随时调整。</p>
             <div class="setup-fields">
               <label class="field">提前几分钟提醒<input type="number" min="1" max="120" required data-setup-key="remind_minutes"><small>比赛开始前提醒一次；单场也可以独立调整。</small></label>
-              <label class="field">推送平台 ID<input type="text" data-setup-key="push_platform_id" placeholder="只有一个 QQ 机器人时留空"><small>多个 QQ 机器人时，填写 AstrBot 中的目标平台 ID。</small></label>
+              <label class="field">普通推送平台 ID<input type="text" data-setup-key="push_platform_id" placeholder="留空自动选择 OneBot"><small>赛事主动推送使用 OneBot；不会使用官方机器人扩展的选择。</small></label>
             </div>
             <fieldset class="tiers"><legend>推送哪些级别的赛事</legend><label><input type="checkbox" value="s" data-setup-tier>S</label><label><input type="checkbox" value="a" data-setup-tier>A</label><label><input type="checkbox" value="b" data-setup-tier>B</label><label><input type="checkbox" value="c" data-setup-tier>C</label><label><input type="checkbox" value="d" data-setup-tier>D</label><label><input type="checkbox" value="unranked" data-setup-tier>未评级</label></fieldset>
             <p class="setup-note">新安装默认关注 S、A 级赛事。不关注具体战队也能收到所选级别的比赛；喜欢的队伍可在「订阅管理」中用简称或中文外号搜索关注。</p>
@@ -220,8 +220,9 @@
             <form id="group-form" class="add-row">
               <input
                 id="group-id"
-                pattern="[A-Za-z0-9_\-]+"
-                placeholder="QQ 群号或官方群 OpenID"
+                pattern="[1-9][0-9]*"
+                inputmode="numeric"
+                placeholder="纯数字 QQ 群号"
                 aria-label="接收群标识"
                 required
               /><button class="button primary" type="submit">添加群组</button>
@@ -379,9 +380,9 @@
               ><label class="field"
                 >推送平台 ID<input
                   data-key="push_platform_id"
-                  placeholder="留空自动选择 QQ 平台"
+                  placeholder="留空自动选择 OneBot"
                 /><small
-                  >仅在接入多个 QQ 机器人时指定 AstrBot 平台 ID。</small
+                  >赛事主动推送仅使用 OneBot；官方机器人扩展的选择不会覆盖此设置。</small
                 ></label
               >
             </div>
@@ -468,10 +469,11 @@
                   <option value="group">QQ 群</option>
                 </select></label
               ><label class="field"
-                >目标标识<input
+                >测试目标 QQ 号或群号<input
                   data-key="test_target_id"
-                  pattern="[A-Za-z0-9_\-]*"
-                  placeholder="QQ 号、群号或官方 OpenID"
+                  pattern="[1-9][0-9]*"
+                  inputmode="numeric"
+                  placeholder="纯数字 QQ 号或群号"
               /></label>
             </div>
             <label class="field narrow">测试日报天数<input type="number" id="test-days" min="1" max="30" value="1"><small>仅用于「日报」或「全部」测试，不改变正式日报范围。</small></label>
@@ -625,6 +627,32 @@
               >
             </div>
           </details>
+          <div class="card padded official-extension-card">
+            <div class="settings-title"><span class="settings-number">CS</span><h3>官方机器人扩展</h3></div>
+            <p class="description">默认关闭。开启后，选定的 QQ 官方实例只会在当前会话被动回复你启用的查询和卡片功能，不会主动推送赛程、提醒或赛果。无需填写 Token，也无需重启第二个实例。</p>
+            <label class="switch-row">
+              <span><strong>启用官方机器人被动回复</strong><small>只影响下方选择的官方机器人实例。</small></span>
+              <input type="checkbox" role="switch" data-key="official_extension_enabled">
+            </label>
+            <fieldset class="official-platforms">
+              <legend>使用哪些官方机器人</legend>
+              <div id="official-platform-list" class="official-platform-list"><p class="muted">正在读取 AstrBot 中已配置的官方机器人…</p></div>
+              <small id="official-platforms-note" class="muted">只读取平台实例名称和 ID，不读取登录凭据。</small>
+            </fieldset>
+            <fieldset class="official-features">
+              <legend>允许被动回复的功能</legend>
+              <div class="official-feature-grid">
+                <label class="inline-check"><input type="checkbox" data-key="official_features" value="help"><span>帮助说明</span></label>
+                <label class="inline-check"><input type="checkbox" data-key="official_features" value="schedule"><span>赛程查询</span></label>
+                <label class="inline-check"><input type="checkbox" data-key="official_features" value="bracket"><span>Major 对阵图</span></label>
+                <label class="inline-check"><input type="checkbox" data-key="official_features" value="results"><span>历史赛果</span></label>
+                <label class="inline-check"><input type="checkbox" data-key="official_features" value="player"><span>今日选手卡片</span></label>
+                <label class="inline-check"><input type="checkbox" data-key="official_features" value="followed"><span>关注战队查询</span></label>
+                <label class="inline-check"><input type="checkbox" data-key="official_features" value="status"><span>机器人状态</span></label>
+              </div>
+            </fieldset>
+            <label class="inline-check"><input type="checkbox" data-key="official_rich_replies"><span>使用图片卡片和富文本回复（适用时）</span></label>
+          </div>
 </form>
         <details class="card disclosure">
           <summary>

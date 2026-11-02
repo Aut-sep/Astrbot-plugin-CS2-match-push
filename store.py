@@ -16,6 +16,7 @@ from typing import Optional
 from astrbot.api import logger
 
 from .config import validate_config
+from .official_extension import DEFAULT_FEATURES
 
 
 class DataStore:
@@ -41,6 +42,10 @@ class DataStore:
         "followed_teams":              [],
         "push_groups":                 [],
         "push_platform_id":            "",  # 多个 QQ 适配器时指定 AstrBot 平台 ID
+        "official_extension_enabled": False,
+        "official_platform_ids":       [],
+        "official_features":           list(DEFAULT_FEATURES),
+        "official_rich_replies":       True,
         "remind_minutes":              10,
         "min_tiers":                   ["s", "a"],
         "notified_upcoming":           [],

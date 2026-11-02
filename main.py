@@ -48,6 +48,7 @@ from .team_logos import TeamLogoCatalog, normalize_name
 from .banners import BannerRenderer
 from .delivery import DeliveryError, send_target
 from .config import ConfigError, integer, message_target_id
+from .official_extension import OFFICIAL_PLATFORMS, denial_reason
 from .bracket_data import format_bracket
 from .cs_major import MajorBracketService, STAGE_ALIASES as MAJOR_STAGE_ALIASES
 from .bracket_images import BracketImages
@@ -1532,9 +1533,9 @@ class CSMatchPlugin(Star):
             components.append(image)
         return components
 
-    async def _team_text_result(self, event, text, *, teams=None, matches=None, daily_days=None):
+    async def _team_text_result(self, event, text, *, teams=None, matches=None, daily_days=None, feature="schedule"):
         components = await self._notification_components(text, teams=teams, matches=matches, daily_days=daily_days)
-        return event.chain_result(components)
+        return await self._query_reply(event, text, feature=feature, components=components)
 
     def _daily_image_request(self, days):
         """Build the same snapshot for background warmup and user queries."""
@@ -1901,117 +1902,164 @@ class CSMatchPlugin(Star):
             return "；".join(messages)
         raise ValueError(f"unknown test action: {action}")
 
+    def _official_denial(self, event, feature=None):
+        reason = denial_reason(self, event, feature)
+        return event.plain_result(reason) if reason else None
+
+    async def _query_reply(self, event, text, *, feature, components=None):
+        denied = self._official_denial(event, feature)
+        if denied is not None:
+            return denied
+        if event.get_platform_name() in OFFICIAL_PLATFORMS:
+            await self._get_qq_official_menu().reply(event, text, feature=feature, components=components)
+            return None
+        return event.chain_result(components) if components is not None else event.plain_result(text)
+
     def _get_qq_official_menu(self):
         if self._qq_official_menu is None:
             from .qq_official_menu import OfficialCSMenu
             self._qq_official_menu = OfficialCSMenu(self)
         return self._qq_official_menu
 
-    @filter.platform_adapter_type(
-        filter.PlatformAdapterType.QQOFFICIAL | filter.PlatformAdapterType.QQOFFICIAL_WEBHOOK
-    )
     @filter.regex(r"(?i)^/?cs$")
     async def cmd_cs_menu(self, event: AstrMessageEvent):
-        """Show the CS2 menu only on the QQ official adapters."""
-        await self._get_qq_official_menu().menu(event)
+        denied = self._official_denial(event, 'help')
+        if denied is not None:
+            return denied
+        if event.get_platform_name() in OFFICIAL_PLATFORMS:
+            await self._get_qq_official_menu().menu(event)
+            return None
+        return await self.cmd_help(event)
 
     @filter.command("cs今日赛程")
     async def cmd_cs_today(self, event: AstrMessageEvent) -> MessageEventResult:
+        denied = self._official_denial(event, 'schedule')
+        if denied is not None:
+            return denied
         return await self._schedule_query_result(event, 1)
 
     @filter.command("cs未来赛程")
     async def cmd_cs_three_days(self, event: AstrMessageEvent, days: str = "3") -> MessageEventResult:
+        denied = self._official_denial(event, 'schedule')
+        if denied is not None:
+            return denied
         return await self.cmd_list(event, days)
 
-    @filter.platform_adapter_type(
-        filter.PlatformAdapterType.QQOFFICIAL | filter.PlatformAdapterType.QQOFFICIAL_WEBHOOK
-    )
     @filter.command("cs今日选手", alias={"今日选手"})
     async def cmd_cs_player(self, event: AstrMessageEvent):
         """Allocate or retrieve the caller's persisted daily player."""
+        denied = self._official_denial(event, 'player')
+        if denied is not None:
+            return denied
         await self._get_qq_official_menu().player(event)
 
 
     @filter.command("cs对阵图", alias={"cs对阵表", "cs赛程表", "csmajor", "csMajor"})
     async def cmd_cs_bracket(self, event: AstrMessageEvent, stage: str = "当前"):
+        denied = self._official_denial(event, 'bracket')
+        if denied is not None:
+            return denied
         selected = MAJOR_STAGE_ALIASES.get(stage.strip().lower())
         if selected is None:
-            return event.plain_result("用法：/cs对阵图 [当前/全部/第一阶段/第二阶段/第三阶段/瑞士轮/淘汰赛]，默认当前阶段。")
+            return await self._query_reply(event, "用法：/cs对阵图 [当前/全部/第一阶段/第二阶段/第三阶段/瑞士轮/淘汰赛]。", feature="bracket")
         if not self._token:
-            return event.plain_result("请先在 CS 板块配置 PandaScore Token。")
+            return await self._query_reply(event, "请先在 CS 管理面板配置 PandaScore Token。", feature="bracket")
         try:
             snapshot, stages, image_data = await asyncio.wait_for(self.bracket_images.get(selected), timeout=90)
             if snapshot is None:
-                return event.plain_result("Major 对阵数据暂不可用，请稍后重试。")
-            if selected == 'current' and not stages:
-                return event.plain_result(snapshot['title'] + "：当前没有正在进行的阶段。可用 /cs对阵图 全部 查看已公布对阵。")
+                return await self._query_reply(event, "Major 对阵数据暂不可用，请稍后重试。", feature="bracket")
             if not stages:
-                return event.plain_result(snapshot['title'] + "：该阶段的对阵尚未公布。")
+                message = "当前没有正在进行的阶段。" if selected == "current" else "该阶段的对阵尚未公布。"
+                return await self._query_reply(event, snapshot['title'] + "：" + message, feature="bracket")
+            text = format_bracket(snapshot, stages)
             if not self.store.get('image_push_enabled', True):
-                return event.plain_result(format_bracket(snapshot, stages))
+                return await self._query_reply(event, text, feature="bracket")
             _, _, Image = self._message_component_types()
             if image_data is None:
                 raise DeliveryError("对阵图生成失败")
-            return event.chain_result([Image.fromBytes(image_data)])
+            return await self._query_reply(event, text, feature="bracket", components=[Image.fromBytes(image_data)])
         except (ValueError, KeyError, DeliveryError, asyncio.TimeoutError):
-            return event.plain_result("Major 对阵关系或图片暂不可用，请稍后重试。")
+            return await self._query_reply(event, "Major 对阵关系或图片暂不可用，请稍后重试。", feature="bracket")
 
 
     async def _schedule_query_result(self, event, days=None):
         """Read a shared CS schedule snapshot; never send to configured targets."""
         if not self._schedule_data_ready:
-            return event.plain_result("赛程尚未加载完成，请稍后再试。")
+            return await self._query_reply(event, "赛程尚未加载完成，请稍后再试。", feature="schedule")
         if days is not None:
             text, matches = self._daily_image_request(days)
             return await self._team_text_result(event, text, matches=matches, daily_days=days)
         followed = self.store.get_followed_team_names()
         if not self._scheduled:
-            return event.plain_result("📭 当前没有已安排的比赛\n发送 /cs刷新 更新日程")
+            return await self._query_reply(event, "当前没有已安排的比赛，请稍后再查。", feature="schedule")
         return await self._team_text_result(event, self._format(fmt_schedule, self._scheduled, followed),
                                             matches=[m for m in self._scheduled if is_push_ready_match(m)])
 
     @filter.command("cs比赛")
     async def cmd_list(self, event: AstrMessageEvent, days: str = "") -> MessageEventResult:
+        denied = self._official_denial(event, 'schedule')
+        if denied is not None:
+            return denied
         raw = str(days).strip()
         try:
             count = None if raw.lower() in {"", "全部", "all"} else integer(raw, "days", 1, 30)
         except ConfigError:
-            return event.plain_result("用法：/cs比赛 [天数/全部]，天数 1–30；不填查看已获取的全部赛程。")
+            return await self._query_reply(event, "用法：/cs比赛 [天数/全部]，天数 1–30；不填查看已获取的全部赛程。", feature="schedule")
         return await self._schedule_query_result(event, count)
+
+    @filter.command("cs赛果", alias={"cs最近赛果"})
+    async def cmd_results(self, event: AstrMessageEvent, arg: str = "", match_id: str = ""):
+        denied = self._official_denial(event, "results")
+        if denied is not None:
+            return denied
+        parts = " ".join((str(arg), str(match_id))).split()
+        try:
+            days, identity = 3, ""
+            if parts and parts[0].lower() in {"比赛", "id"}:
+                if len(parts) != 2:
+                    raise ConfigError("missing match ID")
+                identity = str(integer(parts[1], "match id", 1))
+            elif parts:
+                if len(parts) != 1:
+                    raise ConfigError("invalid result query")
+                days = integer(parts[0], "days", 1, 30)
+            if not self._token:
+                return await self._query_reply(event, "请先在 CS 管理面板配置 PandaScore Token。", feature="results")
+            from .cs_results import preview_results
+            result = await asyncio.wait_for(preview_results(self, days, identity), timeout=60)
+            return await self._query_reply(event, result["text"], feature="results")
+        except (ConfigError, ValueError, KeyError, asyncio.TimeoutError):
+            return await self._query_reply(event, "查询暂不可用。用法：/cs赛果 [1–30天]，或 /cs赛果 比赛 <ID>。", feature="results")
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs刷新")
     async def cmd_refresh(self, event: AstrMessageEvent) -> MessageEventResult:
+        denied = self._official_denial(event, None)
+        if denied is not None:
+            return denied
         self._create_background_task(self._fetch_and_schedule(), "cmd_refresh")
         return event.plain_result("✅ 正在刷新日程，发送 /cs比赛 查看最新赛程")
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs设置群")
     async def cmd_add_group(self, event: AstrMessageEvent, gid: str = "") -> MessageEventResult:
-        gid = gid.strip()
-        official = event.get_platform_name() in {"qq_official", "qq_official_webhook"}
-        if official and not gid:
-            gid = event.get_group_id()
+        denied = self._official_denial(event, None)
+        if denied is not None:
+            return denied
         try:
-            gid = message_target_id(gid, "group id")
+            gid = str(integer(gid.strip(), "group id", 1))
         except ConfigError:
-            return event.plain_result("请在接收群 @官方机器人发送 /cs设置群；普通 QQ 使用 /cs设置群 <群号>。")
-        if official:
-            if gid.isdigit() and len(gid) < 16:
-                return event.plain_result("官方机器人不能直接使用群号。请在接收群 @我发送 /cs设置群，不用填写群号。")
-            bound = self.store.get("push_platform_id")
-            if bound and bound != event.get_platform_id():
-                return event.plain_result("推送已绑定另一个机器人，请先在管理面板切换推送平台。")
-            self.store.set("push_platform_id", event.get_platform_id())
-        elif not gid.isdigit():
-            return event.plain_result("普通 QQ 请填写数字群号。")
+            return event.plain_result("普通机器人请使用 /cs设置群 <数字群号>。")
         if self.store.add_group(gid):
-            return event.plain_result("✅ 已将当前群设为官方机器人比赛推送接收群。" if official else f"✅ 已添加推送群：{gid}")
+            return event.plain_result(f"✅ 已添加推送群：{gid}")
         return event.plain_result(f"ℹ️ 群 {gid} 已在推送列表中")
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs移除群")
     async def cmd_remove_group(self, event: AstrMessageEvent, gid: str = "") -> MessageEventResult:
+        denied = self._official_denial(event, None)
+        if denied is not None:
+            return denied
         gid = gid.strip()
         if self.store.remove_group(gid):
             return event.plain_result(f"✅ 已移除推送群：{gid}")
@@ -2019,6 +2067,9 @@ class CSMatchPlugin(Star):
 
     @filter.command("cs群列表")
     async def cmd_group_list(self, event: AstrMessageEvent) -> MessageEventResult:
+        denied = self._official_denial(event, None)
+        if denied is not None:
+            return denied
         groups = self.store.get_groups()
         if not groups:
             return event.plain_result("📭 当前没有推送群\n使用 /cs设置群 <群号> 添加")
@@ -2027,6 +2078,9 @@ class CSMatchPlugin(Star):
     @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs提醒")
     async def cmd_remind(self, event: AstrMessageEvent, minutes: str = "") -> MessageEventResult:
+        denied = self._official_denial(event, None)
+        if denied is not None:
+            return denied
         try:
             m = int(minutes.strip())
             if not 1 <= m <= 120:
@@ -2048,6 +2102,9 @@ class CSMatchPlugin(Star):
     @filter.command("cs关注")
     async def cmd_follow(self, event: AstrMessageEvent, name: str = "") -> MessageEventResult:
         """QQ 指令关注：通过名称搜索并关注（建议使用 Web 面板精确搜索）"""
+        denied = self._official_denial(event, None)
+        if denied is not None:
+            return denied
         name = name.strip()
         if not name:
             return event.plain_result(
@@ -2079,6 +2136,9 @@ class CSMatchPlugin(Star):
     @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs取消")
     async def cmd_unfollow(self, event: AstrMessageEvent, name: str = "") -> MessageEventResult:
+        denied = self._official_denial(event, None)
+        if denied is not None:
+            return denied
         name = name.strip()
         if not name:
             teams = self.store.get_followed_teams()
@@ -2108,17 +2168,29 @@ class CSMatchPlugin(Star):
 
     @filter.command("cs关注列表")
     async def cmd_follow_list(self, event: AstrMessageEvent) -> MessageEventResult:
+        denied = self._official_denial(event, 'followed')
+        if denied is not None:
+            return denied
         teams = self.store.get_followed_teams()
         if not teams:
-            return event.plain_result("📭 还没有关注任何战队\n使用 /cs关注 <战队名> 或 Web 面板添加")
-        lines = "\n".join(
-            f"  · {t['name']}" + (f" (ID:{t['id']})" if t.get('id') else " (旧版)")
-            for t in teams
-        )
-        return await self._team_text_result(event, f"⭐ 已关注的战队（{len(teams)} 支）：\n{lines}", teams=teams)
+            return await self._query_reply(event, "还没有关注任何战队。", feature="followed")
+        lines = "\n".join(f"  · {team['name']}" for team in teams)
+        return await self._team_text_result(event, f"⭐ 已关注的战队（{len(teams)} 支）：\n{lines}",
+                                            teams=teams, feature="followed")
 
     @filter.command("cs状态")
     async def cmd_status(self, event: AstrMessageEvent) -> MessageEventResult:
+        denied = self._official_denial(event, 'status')
+        if denied is not None:
+            return denied
+        if event.get_platform_name() in OFFICIAL_PLATFORMS:
+            ready = "已就绪" if self._schedule_data_ready else "等待首次刷新"
+            text = ("CS2 查询状态\n"
+                    f"赛程数据：{ready}\n"
+                    f"已缓存比赛：{len(self._scheduled)} 场\n"
+                    f"获取范围：未来 {self._fetch_ahead} 天\n"
+                    f"刷新间隔：{self._fetch_interval} 分钟")
+            return await self._query_reply(event, text, feature="status")
         groups     = self.store.get_groups()
         remind     = self.store.get_remind_minutes()
         tiers      = self.store.get_min_tiers()
@@ -2154,6 +2226,9 @@ class CSMatchPlugin(Star):
     @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs延迟通知")
     async def cmd_reschedule_notify(self, event: AstrMessageEvent, arg: str = "") -> MessageEventResult:
+        denied = self._official_denial(event, None)
+        if denied is not None:
+            return denied
         arg = arg.strip()
         if arg in ("开", "on", "1", "true"):
             self.store.set_reschedule_notify(True)
@@ -2171,6 +2246,9 @@ class CSMatchPlugin(Star):
     @filter.event_message_type(filter.EventMessageType.PRIVATE_MESSAGE)
     @filter.command("cs面板")
     async def cmd_panel(self, event: AstrMessageEvent) -> MessageEventResult:
+        denied = self._official_denial(event, None)
+        if denied is not None:
+            return denied
         token = str(self.store.get("web_panel_token") or "").strip()
         return event.plain_result(
             f"🌐 Web 管理面板\n"
@@ -2184,6 +2262,9 @@ class CSMatchPlugin(Star):
     @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs测试")
     async def cmd_test_mode(self, event: AstrMessageEvent, arg: str = "") -> MessageEventResult:
+        denied = self._official_denial(event, None)
+        if denied is not None:
+            return denied
         arg = arg.strip()
         enabled = self._is_test_mode_enabled()
 
@@ -2245,6 +2326,9 @@ class CSMatchPlugin(Star):
     @filter.command("cs推送")
     async def cmd_push_now(self, event: AstrMessageEvent, arg: str = "") -> MessageEventResult:
         """立即推送赛程到所有群"""
+        denied = self._official_denial(event, None)
+        if denied is not None:
+            return denied
         try:
             days = int(arg.strip()) if arg.strip() else 1
             days = max(1, min(days, 7))
@@ -2261,6 +2345,9 @@ class CSMatchPlugin(Star):
     @filter.command("cs日报")
     async def cmd_daily_push(self, event: AstrMessageEvent, arg: str = "") -> MessageEventResult:
         """配置或查看每日定时推送"""
+        denied = self._official_denial(event, None)
+        if denied is not None:
+            return denied
         arg = arg.strip()
 
         # /cs日报 → 显示当前配置
@@ -2334,6 +2421,9 @@ class CSMatchPlugin(Star):
     @filter.command("cs赛事提醒")
     async def cmd_tournament_announce(self, event: AstrMessageEvent, arg: str = "") -> MessageEventResult:
         """查看或设置赛事开幕提前推送时间"""
+        denied = self._official_denial(event, None)
+        if denied is not None:
+            return denied
         arg = arg.strip()
 
         # 无参数 → 显示当前状态
@@ -2382,6 +2472,9 @@ class CSMatchPlugin(Star):
 
     @filter.command("cs帮助")
     async def cmd_help(self, event: AstrMessageEvent) -> MessageEventResult:
+        denied = self._official_denial(event, 'help')
+        if denied is not None:
+            return denied
         if event.get_platform_name() in {"qq_official", "qq_official_webhook"}:
             await self._get_qq_official_menu().help(event)
             return
@@ -2394,6 +2487,9 @@ class CSMatchPlugin(Star):
             "  /cs今日赛程          查看北京时间今天的赛程\n"
             "  /cs未来赛程 [天数]   查看今天起 N 天赛程，默认 3 天\n"
             "  /cs对阵图 [阶段]     查看 Major 晋级对阵图\n"
+            "  /cs赛果 [天数]       查询最近赛果，默认 3 天\n"
+            "  /cs赛果 比赛 <ID>    查询指定比赛赛果\n"
+            "  /cs今日选手          抽取或查看今日选手\n"
             "  /cs刷新              立即刷新日程\n"
             "\n【推送设置】\n"
             "  /cs推送 [天数]       立即推送赛程日报到所有群\n"

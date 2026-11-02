@@ -1305,6 +1305,16 @@ dialog p {
 .save-all-bar[hidden] { display: none; }
 .save-all-bar > div { display: flex; gap: 8px; flex-shrink: 0; }
 @media (max-width: 600px) { .save-all-bar { flex-direction: column; align-items: stretch; } }
+.official-extension-card { display: grid; gap: 16px; }
+.official-extension-card > .settings-title,
+.official-extension-card > .description { margin-bottom: 0; }
+.official-extension-card fieldset { min-width: 0; border: 1px solid var(--border); border-radius: 8px; padding: 14px; }
+.official-extension-card legend { padding: 0 6px; font-weight: 600; }
+.official-platform-list,
+.official-feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 8px 16px; }
+.official-platform-list .muted { margin: 0; }
+.official-extension-card fieldset > small { display: block; margin-top: 10px; }
+.official-extension-card .inline-check { align-items: flex-start; }
 
 /* One shared save action for edits across all settings tabs. */
 

@@ -181,12 +181,17 @@ function formValues(section) {
       values[key] = tiers;
       return;
     }
+    if (key === "official_features" || key === "official_platform_ids") {
+      values[key] = $$(`[data-key="${key}"]:checked`, form).map((item) => item.value);
+      return;
+    }
     if (secretKeys.has(key)) {
       if ($(`[data-clear="${key}"]`, form)?.checked) values[key] = "";
       else if (input.value.trim()) values[key] = input.value.trim();
       return;
     }
-    if (input.type === "checkbox") values[key] = input.checked;
+    if (input.multiple) values[key] = [...input.selectedOptions].map((option) => option.value);
+    else if (input.type === "checkbox") values[key] = input.checked;
     else if (input.type === "number") values[key] = Number(input.value);
     else if (input.dataset.type === "lines")
       values[key] = splitLines(input.value).map((value) => value.toLowerCase());
@@ -225,8 +230,10 @@ function fillForm(section) {
       input.type = "password";
       return;
     }
-    if (key === "min_tiers")
+    if (key === "min_tiers" || key === "official_features" || key === "official_platform_ids")
       input.checked = (value || []).includes(input.value);
+    else if (input.multiple)
+      [...input.options].forEach((option) => { option.selected = (value || []).includes(option.value); });
     else if (input.type === "checkbox") input.checked = !!value;
     else if (input.dataset.type === "lines")
       input.value = (value || []).join("\n");
@@ -247,6 +254,7 @@ function fillForm(section) {
 async function loadConfig() {
   const result = await api("/api/config");
   state.config = result.data;
+  renderOfficialPlatforms(result.official_platforms || [], result.official_platforms_note || "");
   state.teamLogos = result.team_logos || {};
   state.teamLogoDarkNames = new Set(result.team_logo_dark_names || []);
   state.tokenConfigured = !!result.token_configured;
@@ -266,6 +274,33 @@ async function loadConfig() {
   renderPushSummary();
   updateDirtyIndicators();
   setupGuide?.sync();
+}
+
+function renderOfficialPlatforms(platforms, note) {
+  const list = $("#official-platform-list");
+  const selected = state.dirty.has("advanced")
+    ? $$('[data-key="official_platform_ids"]:checked', list).map((input) => input.value)
+    : (state.config.official_platform_ids || []);
+  const available = new Map((platforms || [])
+    .filter((platform) => typeof platform?.id === "string" && platform.id)
+    .map((platform) => [platform.id, platform]));
+  const entries = [...available.values()];
+  for (const id of selected) {
+    if (!available.has(id)) entries.push({ id, name: "当前未连接的官方机器人" });
+  }
+  list.innerHTML = entries.length
+    ? entries.map((platform) => {
+      const offline = !available.has(platform.id);
+      const label = offline
+        ? `${platform.name} · ${platform.id}（当前不可用，仍保留）`
+        : `${platform.name || "QQ 官方机器人"} · ${platform.id}`;
+      return `<label class="inline-check"><input type="checkbox" data-key="official_platform_ids" value="${escaped(platform.id)}"><span>${escaped(label)}</span></label>`;
+    }).join("")
+    : '<p class="muted">未发现可选的 QQ 官方机器人实例。</p>';
+  $("#official-platforms-note").textContent = note || "只显示 AstrBot 已配置的 QQ 官方实例；不会读取或展示登录凭据。";
+  $$('[data-key="official_platform_ids"]', list).forEach((input) => {
+    input.checked = selected.includes(input.value);
+  });
 }
 
 async function saveSection() {
@@ -288,8 +323,8 @@ async function saveSection() {
   if (values.daily_push_times?.some(time => !/^([01]\d|2[0-3]):[0-5]\d$/.test(time)))
     throw new Error("推送时间请使用 HH:MM，例如 08:00。");
   const merged = { ...state.config, ...values };
-  if (merged.test_mode_enabled && (!/^[A-Za-z0-9_-]{1,128}$/.test(merged.test_target_id) || (/^\d+$/.test(merged.test_target_id) && BigInt(merged.test_target_id) < 1n)))
-    throw new Error("启用测试模式时，请填写有效的 QQ 号码或官方 OpenID。");
+  if (merged.test_mode_enabled && !/^[1-9][0-9]*$/.test(merged.test_target_id))
+    throw new Error("启用测试模式时，请填写纯数字 QQ 号或群号。");
   state.saving = true;
   const inputs = $$("input,select,textarea,button", $("#app"));
   const disabledStates = inputs.map(input => input.disabled);
@@ -751,8 +786,8 @@ function installEvents() {
     event.preventDefault();
     run($("button", event.currentTarget), async () => {
       const gid = $("#group-id").value.trim();
-      if (!/^[A-Za-z0-9_-]{1,128}$/.test(gid) || (/^\d+$/.test(gid) && BigInt(gid) < 1n))
-        throw new Error("请输入有效的 QQ 群号或官方群 OpenID。");
+      if (!/^[1-9][0-9]*$/.test(gid))
+        throw new Error("请输入纯数字 QQ 群号。");
       editSubscriptions(draft => {
         if (!draft.push_groups.includes(gid)) draft.push_groups.push(gid);
       });

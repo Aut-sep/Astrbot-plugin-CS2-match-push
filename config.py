@@ -8,6 +8,8 @@ import ipaddress
 import re
 from urllib.parse import urlsplit
 
+from .official_extension import DEFAULT_FEATURES
+
 
 class ConfigError(ValueError):
     """A setting or request value supplied by the user is invalid."""
@@ -24,7 +26,7 @@ INTEGER_RANGES = {
 BOOLEAN_KEYS = {
     "reschedule_notify", "web_panel_enabled", "notify_all_followed",
     "daily_push_enabled", "tournament_announce_enabled", "image_push_enabled",
-    "test_mode_enabled",
+    "test_mode_enabled", "official_extension_enabled", "official_rich_replies",
 }
 STRING_KEYS = {"pandascore_token", "web_panel_token", "test_target_id", "push_platform_id"}
 STRING_LIST_KEYS = {"blacklist_teams", "blacklist_leagues"}
@@ -57,15 +59,8 @@ def string(value, name: str, *, nonempty: bool = False) -> str:
 
 
 def message_target_id(value, name: str = "target id") -> str:
-    """Accept a numeric QQ identifier or an opaque QQ official OpenID."""
-    if isinstance(value, int) and not isinstance(value, bool):
-        value = str(value)
-    value = string(value, name, nonempty=True)
-    if not re.fullmatch(r"[A-Za-z0-9_-]{1,128}", value):
-        raise ConfigError(f"{name} must be a QQ number or official OpenID")
-    if value.isdigit():
-        return str(integer(value, name, 1))
-    return value
+    """Active notifications target ordinary QQ numbers, never official OpenIDs."""
+    return str(integer(value, name, 1))
 
 
 def _list(value, name: str) -> list:
@@ -130,6 +125,13 @@ def validate_config(cfg: dict) -> dict:
     for key in STRING_LIST_KEYS:
         if key in cfg:
             result[key] = _strings(cfg[key], key, lowercase=True)
+    if "official_platform_ids" in cfg:
+        result["official_platform_ids"] = _strings(cfg["official_platform_ids"], "official_platform_ids")
+    if "official_features" in cfg:
+        features = _strings(cfg["official_features"], "official_features")
+        if any(feature not in DEFAULT_FEATURES for feature in features):
+            raise ConfigError("official_features contains an unknown feature")
+        result["official_features"] = features
     if "min_tiers" in cfg:
         tiers = _strings(cfg["min_tiers"], "min_tiers", lowercase=True)
         if any(t not in {"s", "a", "b", "c", "d", "unranked"} for t in tiers):

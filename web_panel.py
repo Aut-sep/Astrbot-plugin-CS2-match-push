@@ -200,12 +200,36 @@ class WebPanel:
 
     async def get_config(self, req):
         data = self.plugin.store.export_all()
+        official_platforms, official_platforms_note = await self._official_platforms()
         return self._json({"ok": True, "data": data,
                            "token_configured": bool(self.plugin.store.get("pandascore_token")),
                            "team_logos": getattr(getattr(self.plugin, "team_logos", None), "web_images", {}),
                            "team_logo_dark_names": getattr(getattr(self.plugin, "team_logos", None), "web_dark_names", []),
                            "web_token_configured": bool(self.plugin.store.get("web_panel_token")),
-                           "embedded_available": bool(getattr(self.plugin, "embedded_available", False))})
+                           "embedded_available": bool(getattr(self.plugin, "embedded_available", False)),
+                           "official_platforms": official_platforms,
+                           "official_platforms_note": official_platforms_note})
+
+    async def _official_platforms(self):
+        """Expose IDs and display names for configured QQ official instances only."""
+        try:
+            from .delivery import _get_platforms
+
+            platforms = await _get_platforms(self.plugin.context)
+            official = []
+            for platform in platforms:
+                meta = platform.meta()
+                if getattr(meta, "name", None) not in {"qq_official", "qq_official_webhook"}:
+                    continue
+                platform_id = getattr(meta, "id", None)
+                name = getattr(meta, "name", None)
+                if isinstance(platform_id, str) and platform_id:
+                    official.append({"id": platform_id, "name": name or "QQ 官方机器人"})
+            if official:
+                return official, "只显示 AstrBot 已配置的 QQ 官方实例；不会读取或展示登录凭据。"
+            return [], "当前没有已连接的 QQ 官方机器人实例；请先在 AstrBot 配置官方机器人。"
+        except Exception:
+            return [], "暂时无法读取 AstrBot 官方机器人实例，请稍后刷新；已保存的实例选择会保留。"
 
     async def preview_tool(self, req):
         from .panel_previews import timed_preview
@@ -224,6 +248,17 @@ class WebPanel:
 
     async def _apply_config(self, req, *, imported: bool):
         body = validate_config(await self._body(req))
+        push_id = body.get("push_platform_id")
+        if push_id:
+            from .delivery import _get_platforms
+            try:
+                platforms = await _get_platforms(self.plugin.context)
+            except DeliveryError:
+                platforms = []
+            for platform in platforms:
+                meta = platform.meta()
+                if getattr(meta, "id", None) == push_id and getattr(meta, "name", None) != "aiocqhttp":
+                    raise ConfigError("赛事主动推送请选择普通 OneBot 机器人，官方实例请在官方扩展区域选择。")
         async with self._config_lock:
             previous = {key: self.plugin.store.get(key) for key in body}
             changed = {key for key, value in body.items() if previous[key] != value}

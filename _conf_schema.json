@@ -15,7 +15,7 @@
   "push_platform_id": {
     "description": "推送平台 ID",
     "type": "string",
-    "hint": "留空自动选择唯一的 QQ 适配器；连接多个 QQ 机器人时填写 AstrBot 平台实例 ID",
+    "hint": "留空自动选择唯一的 OneBot 适配器；多个普通机器人时填写对应平台 ID。官方机器人仅在管理面板的官方扩展区域选择，不用于主动推送。",
     "default": ""
   },
   "web_panel_host": {
