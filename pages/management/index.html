@@ -42,7 +42,7 @@
           <ol class="setup-progress" aria-label="配置进度">
             <li data-setup-progress="0">1 数据源 <small>必填</small></li>
             <li data-setup-progress="1">2 接收群 <small>必填</small></li>
-            <li data-setup-progress="2">3 推送方式 <small>可选</small></li>
+            <li data-setup-progress="2">3 推送与扩展 <small>可选</small></li>
             <li data-setup-progress="3">4 检查完成</li>
           </ol>
           <div class="setup-heading"><h3 id="setup-step-title" tabindex="-1"></h3><button type="button" class="button ghost" id="setup-close">稍后继续</button></div>
@@ -76,6 +76,16 @@
               <label class="field">日报包含未来几天<input type="number" min="1" max="30" required data-setup-key="daily_push_days"><small>1 为今天，2 为今天和明天。</small></label>
             </div>
             <p class="setup-note">直播链接、开幕预告、黑名单和更多设置，可在完成后进入「推送设置」或「订阅管理」。</p>
+            <div class="notice" aria-labelledby="setup-official-title">
+              <h4 id="setup-official-title">官方机器人扩展（可选）</h4>
+              <p>普通 QQ 机器人已支持全部命令和自动推送；有官方机器人时，可再增加一个查询入口。</p>
+              <ul class="setup-instructions">
+                <li><strong>用途：</strong>查询赛程、赛果、Major 对阵图，以及抽取今日选手。</li>
+                <li><strong>优点：</strong>支持卡片和点击按钮；共用已有数据与配置，无需再部署一套插件。</li>
+                <li><strong>限制：</strong>本插件官方端只回复用户查询，不主动发送赛事提醒、日报或赛果，也不提供管理命令。</li>
+                <li><strong>开启：</strong>先在 AstrBot 接入官方机器人；完成引导后，到「高级维护 → 官方机器人扩展」启用，选择账号和开放功能。没有官方机器人可跳过。</li>
+              </ul>
+            </div>
             <div class="setup-actions"><button type="button" data-setup-back class="button">上一步</button><button type="button" id="setup-options-skip" class="button">保留当前设置</button><button type="submit" id="setup-options-save" class="button primary">确认可选设置，继续</button></div>
           </form>
           <div data-setup-step="3" hidden>

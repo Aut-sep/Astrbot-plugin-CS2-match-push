@@ -2,7 +2,7 @@
 export function createSetupGuide({ api, getState, loadConfig, activateTab, toast }) {
   const $ = (selector) => document.querySelector(selector);
   let step = 0, busy = false, verified = false, checks = null, draft = {};
-  const titles = ['连接数据源', '添加接收群', '选择推送方式', '检查并完成'];
+  const titles = ['连接数据源', '添加接收群', '选择推送与扩展', '检查并完成'];
   const setError = (message = '') => {
     $('#setup-error').textContent = message;
     $('#setup-error').hidden = !message;
