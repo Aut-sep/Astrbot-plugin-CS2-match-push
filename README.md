@@ -46,6 +46,8 @@ AstrBot plugin for Counter-Strike 2 (CS2) match notifications, team subscription
 
 ## 安装与配置
 
+若安装或更新提示 `Plugin package exceeds the 16 MiB limit`，请使用已包含图片压缩的 4.3.2 源码包；发布前检查及本地素材维护见[安装包体积说明](docs/package-size.md)。
+
 在 AstrBot 插件管理中使用仓库地址安装插件，确认依赖安装完成，填写 PandaScore API Token 并重载。Token 获取方式见 [PandaScore 文档](https://developers.pandascore.co/docs/authentication)。优先打开「插件详情 → CS2 管理」，按新手引导填写数据源和接收群；普通机器人必须在线并已加入目标群。引导中的连接检查不会发送测试消息。
 
 ```text
