@@ -330,20 +330,20 @@ class OfficialCSMenu:
         return filtered[:MAX_KEYBOARD_ROWS]
 
     async def reply(self, event, text: str, *, feature: str, components=None):
-        """Reply to a query with enabled feature controls and optional images."""
+        """Return the requested result once; menus are explicit user actions."""
         images = [item for item in components or [] if isinstance(item, Image)]
+        if images:
+            content = [Plain(self._summary_with_image(text)), *images]
+            await event.send(event.chain_result(content).use_markdown(False))
+            event.stop_event()
+            return
         if event.get_platform_name() not in OFFICIAL_PLATFORMS or not self._rich_enabled():
             return await self._framework_reply(event, text, components=images)
 
-        rows = self._rows_for_feature(feature)
         body = self._plain_text(text)
         title = FEATURE_TITLES.get(feature, "CS2 查询结果")
-        if images:
-            body = self._summary_with_image(body)
         card = f"# {title}\n\n{body}" if body else f"# {title}"
-        await self._send_official_card(event, card, rows=rows)
-        if images:
-            await event.send(event.chain_result(images).use_markdown(False))
+        await self._send_official_card(event, card)
 
     async def _send_menu(self, event, *, title: str, text: str):
         actions = [item for item in FEATURE_ACTIONS if self._enabled(item[0])]
@@ -402,7 +402,6 @@ class OfficialCSMenu:
             await self.send(
                 event,
                 "# 🌟 今日选手\n今天的选手已全部被抽取，请明天再来。",
-                [[("返回菜单", "/cs"), ("指令帮助", "/cs帮助")]],
             )
             return
         player = dict(result.player)
@@ -444,9 +443,5 @@ class OfficialCSMenu:
         await self.send(
             event,
             text,
-            [
-                [("返回菜单", "/cs"), ("查看今日选手", "/cs今日选手")],
-                [("指令帮助", "/cs帮助")],
-            ],
             player=player,
         )

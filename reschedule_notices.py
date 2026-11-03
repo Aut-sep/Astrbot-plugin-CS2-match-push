@@ -1,12 +1,13 @@
 """Filter and batch schedule changes without changing reminder/result tracking."""
 import asyncio
 from copy import deepcopy
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 import hashlib
 
 from .bracket_data import bracket_team_name
 from .formatters import fmt_reschedule, fmt_time, parse_dt, sched_str
 from .group_rules import Rules, scope, current as current_rules
+from .match_stages import match_stage_label
 
 WINDOW_SECONDS = 2 * 60 * 60
 BATCH_THRESHOLD = 3
@@ -97,11 +98,13 @@ def summary_text(changes):
             league = current
         names = [bracket_team_name(slot.get('opponent') or {}) for slot in change.match['opponents']]
         lines.extend([f'{names[0]} vs {names[1]}',
+                      *([f'阶段：{stage}'] if (stage := match_stage_label(change.match)) else []),
                       f'{fmt_time(change.old_time)} → {fmt_time(change.new_time)}'])
     return '\n'.join(lines)
 
 
 async def components(plugin, changes):
+    changes = [replace(change,match=plugin._match_with_snapshot_names(change.match)) for change in changes]
     if len(changes) < BATCH_THRESHOLD:
         change = changes[0]
         return await plugin._notification_components(

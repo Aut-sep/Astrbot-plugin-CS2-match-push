@@ -7,6 +7,7 @@ import re
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 from .tournament_events import event_name
+from .match_stages import match_stage_label
 
 # ─────────────────────────────────────────
 # 时区常量
@@ -173,7 +174,8 @@ def fmt_schedule(matches: list, followed: list) -> str:
             t2 = team_name(m, 1)
             lg = (m.get("league") or {}).get("name", "?")
             num = m.get("number_of_games", 0)
-            lines.append(f"  {dt.strftime('%H:%M')}  {t1} vs {t2}  BO{num} · {lg}")
+            stage = match_stage_label(m)
+            lines.append(f"  {dt.strftime('%H:%M')}  {t1} vs {t2}  BO{num} · {lg}" + (f' · 阶段：{stage}' if stage else ''))
     return "\n".join(lines)
 
 
@@ -210,8 +212,10 @@ def fmt_upcoming(match: dict, remind_min: int, custom_streams: list = None,
         f"🕒 {sched}",
         f"⚔️  {t1_str}  vs  {t2_str}",
         f"📋 BO{num} · {lg}",
-        "📺 直播：",
     ]
+    if stage := match_stage_label(match):
+        lines.append(f'📌 阶段：{stage}')
+    lines.append('📺 直播：')
     if started:
         lines.insert(2, "比赛已开始，补发开赛通知。")
     if stream:
@@ -232,11 +236,14 @@ def fmt_reschedule(match: dict, old_time: str, new_time: str) -> str:
     t1 = team_name(match, 0)
     t2 = team_name(match, 1)
     lg = (match.get("league") or {}).get("name", "未知联赛")
+    stage = match_stage_label(match)
+    stage_line = f"📌 阶段：{stage}\n" if stage else ''
     return (
         f"📢 【CS2 赛程变更】\n"
         f"━━━━━━━━━━━━━\n"
         f"⚔️  {t1}  vs  {t2}\n"
         f"🏆 {lg}\n"
+        f"{stage_line}"
         f"🕒 原定：{old_time}\n"
         f"🕒 调整：{new_time}"
     )
@@ -249,7 +256,7 @@ def fmt_finished(match: dict, followed: list = None) -> str:
     t2     = team_name(match, 1)
     lg     = (match.get("league") or {}).get("name", "未知联赛")
     tour   = (match.get("tournament") or {}).get("name", "")
-    name   = translate_match_stage(match.get("name", ""))
+    name   = match_stage_label(match)
 
     # 关注战队标注
     t1_starred = any(f in t1.lower() for f in followed)
@@ -301,7 +308,7 @@ def fmt_finished(match: dict, followed: list = None) -> str:
         f"🏆 {lg}" + (f" · {tour}" if tour else ""),
     ]
     if name:
-        lines.append(f"📌 {name}")
+        lines.append(f"📌 阶段：{name}")
     lines += [
         f"⚔️  {t1_str}  {s1} : {s2}  {t2_str}",
         result_str,
@@ -396,6 +403,7 @@ def fmt_daily_schedule(matches: list, followed: list, days: int) -> str:
             t2   = team_name(m, 1)
             lg   = (m.get("league") or {}).get("name", "?")
             bo   = m.get("number_of_games", 0)
-            lines.append(f"  {dt_cst.strftime('%H:%M')}  {t1} vs {t2}  BO{bo} · {lg}")
+            stage = match_stage_label(m)
+            lines.append(f"  {dt_cst.strftime('%H:%M')}  {t1} vs {t2}  BO{bo} · {lg}" + (f' · 阶段：{stage}' if stage else ''))
 
     return "\n".join(lines)

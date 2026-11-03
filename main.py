@@ -148,6 +148,8 @@ class CSMatchPlugin(Star):
         return Rules(self.store)
 
     def _format(self, formatter, *args, **kwargs):
+        if args and formatter in (fmt_schedule, fmt_daily_schedule):
+            args = ([self._match_with_snapshot_names(match) for match in args[0]], *args[1:])
         return formatter(*args, **kwargs)
 
 
@@ -1068,6 +1070,18 @@ class CSMatchPlugin(Star):
         mid = enriched.get("id")
         if mid is None:
             return enriched
+
+        ready = getattr(getattr(self, 'bracket_images', None), 'ready', None)
+        snapshot = getattr(ready, 'snapshot', None)
+        if snapshot is None:
+            snapshot = getattr(getattr(self, 'major_brackets', None), 'cached', None)
+        for stage in (snapshot or {}).get('stages', []):
+            source = next((row for row in stage.get('matches', []) if str(row.get('id')) == str(mid)), None)
+            if source is not None:
+                enriched['_stage_title'] = stage['title']
+                if source.get('_swiss_record'):
+                    enriched['_swiss_record'] = source['_swiss_record']
+                break
 
         snap = self.store.get_match_snapshot(mid) or {}
         for idx, key in enumerate(("t1", "t2")):

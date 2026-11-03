@@ -163,13 +163,15 @@ class BannerRenderer:
                 left_rows = self._wrap_notification_text(measure, left_name, body_font, 145)
                 right_rows = self._wrap_notification_text(measure, right_name, body_font, 145)
                 detail_rows = [schedule_row.group(4).split("·", 1)[0].strip()]
+                stage_text = schedule_row.group(4).partition('阶段：')[2].strip()
                 wrapped.append({"kind": "schedule", "time": schedule_row.group(1),
                                 "left": left_name, "right": right_name,
                                 "left_rows": left_rows, "right_rows": right_rows,
                                 "left_mark": marks.get(self._team_key(left_name)),
                                 "right_mark": marks.get(self._team_key(right_name)),
                                 "detail_rows": detail_rows,
-                                "height": max(42, 20 * max(len(left_rows), len(right_rows)) + 10)})
+                                "stage": stage_text,
+                                "height": max(42, 20 * max(len(left_rows), len(right_rows)) + 10)+(22 if stage_text else 0)})
                 continue
             if is_daily and line.startswith("赛事："):
                 wrapped.append(("", 9, body_font, 0, muted, False, False))
@@ -287,6 +289,8 @@ class BannerRenderer:
         for index, row in enumerate(item["right_rows"]):
             self._draw_card_text(draw, row, right_edge + 31, cursor + 6 + index * 19, body_font, ink)
         self._draw_card_text(draw, item["detail_rows"][0], width - padding - 32, cursor + 8, label_font, muted)
+        if item.get('stage'):
+            self._draw_card_text(draw,'阶段：'+item['stage'],width//2,cursor+row_height-21,label_font,muted,centered=True)
         return cursor + row_height
 
 
@@ -351,7 +355,7 @@ class BannerRenderer:
                 continue
             row = re.match(row_pattern, line, re.IGNORECASE)
             if row:
-                groups.setdefault(row.group(5), {}).setdefault(day, []).append(line)
+                groups.setdefault(row.group(5).split(' · 阶段：',1)[0], {}).setdefault(day, []).append(line)
             elif line:
                 prefix.append(line)
         if not groups:
@@ -380,6 +384,7 @@ class BannerRenderer:
         from PIL import Image as PILImage, ImageDraw
         from .bracket_data import bracket_team_name
         from .formatters import fmt_time
+        from .match_stages import match_stage_label
 
         width, padding = 640, 30
         ink, muted = '#243447', '#66758a'
@@ -394,7 +399,7 @@ class BannerRenderer:
             groups[-1][1].append(change)
         layout = [(self._wrap_notification_text(measure, league, heading_font, width - 2 * padding), rows)
                   for league, rows in groups]
-        height = 148 + sum(26 * len(titles) + 22 + 46 * len(rows) + 12 for titles, rows in layout) + 42
+        height = 148 + sum(26 * len(titles) + 22 + sum(66 if match_stage_label(change.match) else 46 for change in rows) + 12 for titles, rows in layout) + 42
         image = PILImage.new('RGB', (width, height), '#f4f6f9')
         draw = ImageDraw.Draw(image)
         draw.rectangle((0, 0, width, 96), fill='#132033')
@@ -427,8 +432,12 @@ class BannerRenderer:
                 times = f'{fmt_time(change.old_time)} → {fmt_time(change.new_time)}'
                 font = self._fit_banner_font(draw, times, width - padding - 352, 14, 11)
                 self._draw_card_text(draw, times, 352, cursor + 13, font, ink)
-                draw.line((padding, cursor + 41, width - padding, cursor + 41), fill='#d3dce7')
-                cursor += 46
+                stage = match_stage_label(change.match)
+                if stage:
+                    self._draw_card_text(draw,'阶段：'+stage,padding,cursor+39,label_font,muted)
+                row_height=66 if stage else 46
+                draw.line((padding, cursor + row_height-5, width - padding, cursor + row_height-5), fill='#d3dce7')
+                cursor += row_height
             cursor += 12
         draw.rectangle((0, height - 42, width, height), fill='#e5ebf2')
         self._draw_card_text(draw, 'CS2 比赛推送', padding, height - 26, self._pick_banner_font(12), muted)

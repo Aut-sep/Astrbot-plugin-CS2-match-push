@@ -4,6 +4,7 @@ import re
 
 from .formatters import translate_match_stage
 from .team_logos import normalize_name
+from .swiss_data import build_swiss
 
 
 # Use recognizable CS names rather than the data source's arbitrary acronyms.
@@ -88,13 +89,11 @@ def build_stage(stage, matches, *, kind_title):
     if kind == 'swiss':
         # Swiss pairings are redrawn. They are not a fixed elimination tree.
         edges = []
-        notes.append('瑞士轮逐轮抽签；未公布的对阵标为待定，不预设晋级连线')
-        columns = {}
-        for row in rows:
-            found = re.search(r'\bround\s*(\d+)\b', row.get('name') or '', re.I)
-            label = f'第{found[1]}轮' if found else '轮次待定'
-            columns.setdefault(label, []).append(row)
-        columns = sorted(columns.items(), key=lambda pair: int(re.search(r'\d+', pair[0])[0]) if re.search(r'\d+', pair[0]) else 99)
+        notes.append('按赛前战绩分组；箭头表示胜负流向，不预设后续对手')
+        rows, swiss_groups, unknown = build_swiss(rows, title)
+        columns = [(group['record'], group['matches']) for group in swiss_groups if group['matches']]
+        if unknown:
+            columns.append(('战绩组待确认', unknown))
     elif edges:
         # Longest path creates columns for both winner and loser routes.
         ranks, todo = {}, set(unique)
@@ -120,11 +119,15 @@ def build_stage(stage, matches, *, kind_title):
     else:
         notes.append('晋级关系尚未公布，暂不绘制连线')
         columns = [('已公布对阵', rows)] if rows else []
-    return {'id': str(stage['id']), 'kind': kind, 'title': title,
+    result = {'id': str(stage['id']), 'kind': kind, 'title': title,
             'status': stage.get('status'),
             'begin_at': stage.get('begin_at'), 'end_at': stage.get('end_at'),
             'columns': [{'label': label, 'matches': current} for label, current in columns],
             'edges': edges, 'notes': list(dict.fromkeys(notes)), 'matches': rows}
+    if kind == 'swiss':
+        result['swiss_groups'] = swiss_groups
+        result['unclassified_matches'] = unknown
+    return result
 
 
 def format_bracket(snapshot, stages):
@@ -145,4 +148,8 @@ def format_bracket(snapshot, stages):
                 middle = ' : '.join(score) if show else 'vs'
                 lines.append(f"  {translate_match_stage(match.get('name') or '')}：{names[0]} {middle} {names[1]}")
         lines.extend(stage['notes'])
+        for group in stage.get('swiss_groups', []):
+            if group['terminal'] and group['teams']:
+                outcome = '晋级' if group['record'].startswith('3-') else '淘汰'
+                lines.append(f"{group['record']} · {outcome}："+'、'.join(bracket_team_name(team) for team in group['teams']))
     return '\n'.join(lines)
