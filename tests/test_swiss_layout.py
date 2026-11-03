@@ -62,6 +62,27 @@ class SwissLayoutTests(unittest.TestCase):
         self.assertEqual(labels.match_stage_label({'name':'Quarterfinal 1: A vs B','tournament':{'name':'Playoffs'}}),
                          '淘汰赛 · 四分之一决赛')
 
+    def test_other_events_preserve_group_bracket_and_round_context(self):
+        cases=[('Group B: Lower Bracket Final: NAVI vs G2','Group Stage','小组赛 · B组 · 败者组决赛'),
+               ('Upper Bracket Round 2: NAVI vs G2','Group A','小组赛 · A组 · 胜者组第2轮'),
+               ('Semifinal 1: NAVI vs G2','Playoffs','淘汰赛 · 半决赛'),
+               ('Grand Final: NAVI vs G2','Playoffs','淘汰赛 · 总决赛'),
+               ('Round 3: NAVI vs G2','Closed Qualifier','封闭预选赛 · 第3轮'),
+               ('Decider Match: NAVI vs G2','Group C','小组赛 · C组 · 出线战'),
+               ('NAVI vs G2','Regular Season','常规赛'),
+               ('NAVI vs G2','Example Cup','')]
+        for name,tournament,expected in cases:
+            with self.subTest(name=name):
+                self.assertEqual(labels.match_stage_label({'name':name,'tournament':{'name':tournament}}),expected)
+
+    def test_other_event_pre_and_post_notices_omit_stage_field_prefix(self):
+        match=swiss_matches()[0]
+        match['name']='Group B: Lower Bracket Final: NAVI vs Vitality'
+        match['tournament']['name']='Group Stage'
+        for text in (fmt.fmt_upcoming(match,10),fmt.fmt_finished(match)):
+            self.assertIn('小组赛 · B组 · 败者组决赛',text)
+            self.assertNotIn('阶段：',text)
+
     def test_unplayed_or_canceled_matches_do_not_create_terminal_results(self):
         rows=swiss_matches()
         for row in rows:row['status']='not_started'
