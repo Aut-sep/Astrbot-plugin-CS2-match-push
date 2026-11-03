@@ -214,7 +214,7 @@ def fmt_upcoming(match: dict, remind_min: int, custom_streams: list = None,
         f"📋 BO{num} · {lg}",
     ]
     if stage := match_stage_label(match):
-        lines.append(f'📌 阶段：{stage}')
+        lines.append(f'📌 {stage}')
     lines.append('📺 直播：')
     if started:
         lines.insert(2, "比赛已开始，补发开赛通知。")
@@ -308,7 +308,7 @@ def fmt_finished(match: dict, followed: list = None) -> str:
         f"🏆 {lg}" + (f" · {tour}" if tour else ""),
     ]
     if name:
-        lines.append(f"📌 阶段：{name}")
+        lines.append(f"📌 {name}")
     lines += [
         f"⚔️  {t1_str}  {s1} : {s2}  {t2_str}",
         result_str,
