@@ -2,6 +2,7 @@
 from datetime import datetime, timezone
 
 from .tournament_events import _date
+from .major_stage_notices import stage_start
 
 
 def current_stages(stages, now):
@@ -25,3 +26,10 @@ def current_stages(stages, now):
             # Prefer live play, then the most recently started stage if dates overlap.
             candidates.append((live, begin or datetime.min.replace(tzinfo=timezone.utc), index, stage))
     return [max(candidates, key=lambda item: item[:3])[3]] if candidates else []
+
+
+def upcoming_stages(stages, now):
+    """Select the next published stage, keeping it distinct from live play."""
+    candidates = [(start, index, stage) for index, stage in enumerate(stages)
+                  if (start := stage_start(stage)) is not None and start > now]
+    return [min(candidates, key=lambda item: item[:2])[2]] if candidates else []

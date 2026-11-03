@@ -187,6 +187,7 @@ class OfficialCSMenu:
             ],
             "bracket": [
                 ("bracket", "当前", "/cs对阵图"),
+                ("bracket", "下一阶段", "/cs对阵图 下一阶段"),
                 ("bracket", "全部", "/cs对阵图 全部"),
                 ("bracket", "阶段1", "/cs对阵图 阶段1"),
                 ("bracket", "阶段2", "/cs对阵图 阶段2"),

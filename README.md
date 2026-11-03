@@ -4,7 +4,7 @@
 
 AstrBot plugin for Counter-Strike 2 (CS2) match notifications, team subscriptions and Major brackets in QQ groups.
 
-> 当前源码版本为 `4.3.2`，仅包含 CS2 功能。赛事查询与推送需要 PandaScore API Token；主动推送仅支持 OneBot（如 NapCat），QQ 官方扩展仅支持查询。更新见[更新记录](CHANGELOG.md)，使用与验证说明见[功能证据与验收](docs/verification.md)。源码版本不代表已经发布到 GitHub Releases 或插件市场。
+> 当前源码版本为 `4.3.3`，整合每群独立规则与 Major 阶段提醒，仅包含 CS2 功能。赛事查询与推送需要 PandaScore API Token；主动推送仅支持 OneBot（如 NapCat），QQ 官方扩展仅支持查询。更新见[更新记录](CHANGELOG.md)，使用与验证说明见[功能证据与验收](docs/verification.md)。源码版本不代表已经发布到 GitHub Releases 或插件市场。
 
 [安装与配置](#安装与配置) · [平台区别](#普通机器人与官方机器人怎么选) · [常用指令](#常用指令) · [图片示例](#图片效果展示) · [常见问题](#常见问题)
 
@@ -13,7 +13,7 @@ AstrBot plugin for Counter-Strike 2 (CS2) match notifications, team subscription
 - **按主队与赛事筛选通知**：支持战队关注、赛事级别和战队／联赛黑名单，中文外号、简称与拼写容错方便添加主队。默认推送 S/A 级，关注战队可覆盖级别限制，黑名单仍优先。见[战队搜索说明](docs/team-search.md)。
 - **每群独立规则与失败恢复**：各群分别设置关注战队、筛选、赛前提醒分钟数、通知开关、日报时间和图片样式；未设置的项目沿用默认规则。赛前、赛后、开幕、日报按群记录回执，失败重试跳过成功群。见[群规则指南](docs/group-rules.md)和[通知机制](docs/verification.md#通知与筛选边界)。
 - **临近改期通知与汇总**：双方队伍确定后，仅临近两小时或已提醒过的比赛发送改期通知；同次刷新 1–2 场逐条发，3 场及以上合并。远期与 TBD 赛程静默更新，减少集中调整带来的刷屏。见[改期规则与测试](docs/verification.md#通知与筛选边界)。
-- **Major 瑞士轮与淘汰赛可视化**：`/cs对阵图` 查看当前阶段、指定阶段或整届赛事；瑞士轮逐轮展示，淘汰赛只连接数据源已公布的晋级关系。图片模式带队标与比分，支持文字模式。见[Major 说明](docs/cs-major.md)和下方实际输出图。
+- **Major 瑞士轮与淘汰赛可视化**：`/cs对阵图` 查看当前阶段、指定阶段或整届赛事；瑞士轮逐轮展示，淘汰赛只连接数据源已公布的晋级关系。各阶段开赛前两小时内向启用的普通接收群发送一次阶段提醒并附图，按群去重与重试；暂停群不发送。见[Major 说明](docs/cs-major.md)和下方实际输出图。
 - **AstrBot 内嵌管理与查询**：新手引导、接收群、关注、通知规则、赛程／赛果／对阵图工具、配置导入导出集中在面板；查询和预览不触发群推送。另有两端通用的 **127 人今日选手**互动，QQ 官方端可用 Markdown 和快捷按钮，详见[官方扩展与选手规则](docs/qq-official.md)。
 
 **适合**：已有 AstrBot 和普通 QQ 机器人的观赛群，需要自动播报、多个群独立配置、可视化配置与 Major 对阵查看。

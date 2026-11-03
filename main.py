@@ -70,7 +70,7 @@ WEB_PANEL_HOST        = "127.0.0.1"
     "astrbot_plugin_cs_match",
     "Aut-sep",
     "每N分钟静默刷新，时间变更时提醒，精确倒计时推送赛前提醒和赛后结果，内置 Web 管理面板",
-    "4.3.2",
+    "4.3.3",
 )
 class CSMatchPlugin(Star):
 
@@ -1511,7 +1511,8 @@ class CSMatchPlugin(Star):
         sent = await self._push_components_to_targets_with_refs(targets, components)
         return len(sent) == len(targets)
 
-    async def _push_components_to_targets_with_refs(self, targets: list[tuple[str, str]], components: list):
+    async def _push_components_to_targets_with_refs(self, targets: list[tuple[str, str]], components: list,
+                                                   *, is_active=None):
         if not targets:
             return []
         chain = self._build_message_chain(components)
@@ -1522,6 +1523,8 @@ class CSMatchPlugin(Star):
             target_key = f"{target_type}:{target_id}"
             label = self._format_target_label(target_type, target_id)
             try:
+                if is_active is not None and not is_active((target_type, target_id)):
+                    continue
                 if not send_allowed() or (has_send_gate() and str(target_id) not in self.store.get_groups()):
                     continue
                 # Rendering may await; scheduled daily events must still be active
@@ -1540,6 +1543,8 @@ class CSMatchPlugin(Star):
                 if key and key.startswith("daily:") and not self._daily_event_is_active(
                     key, (target_type, target_id),
                 ):
+                    continue
+                if is_active is not None and not is_active((target_type, target_id)):
                     continue
                 result = await send_target(
                     self.context, target_type, target_id, chain,
@@ -1738,17 +1743,26 @@ class CSMatchPlugin(Star):
             return denied
         selected = MAJOR_STAGE_ALIASES.get(stage.strip().lower())
         if selected is None:
-            return await self._query_reply(event, "用法：/cs对阵图 [当前/全部/第一阶段/第二阶段/第三阶段/瑞士轮/淘汰赛]。", feature="bracket")
+            return await self._query_reply(event, "用法：/cs对阵图 [当前/下一阶段/全部/第一阶段/第二阶段/第三阶段/瑞士轮/淘汰赛]。", feature="bracket")
         if not self._token:
             return await self._query_reply(event, "请先在 CS 管理面板配置 PandaScore Token。", feature="bracket")
         try:
-            snapshot, stages, image_data = await asyncio.wait_for(self.bracket_images.get(selected, images_enabled=self.query_rules(event).get("image_push_enabled", True)), timeout=90)
+            async def get_chart():
+                chart = await self.bracket_images.get(selected, images_enabled=self.query_rules(event).get("image_push_enabled", True))
+                if selected == 'current' and chart[0] is not None and not chart[1]:
+                    return await self.bracket_images.get('next', images_enabled=self.query_rules(event).get("image_push_enabled", True)), True
+                return chart, selected == 'next'
+            (snapshot, stages, image_data), upcoming = await asyncio.wait_for(get_chart(), timeout=90)
             if snapshot is None:
                 return await self._query_reply(event, "Major 对阵数据暂不可用，请稍后重试。", feature="bracket")
             if not stages:
-                message = "当前没有正在进行的阶段。" if selected == "current" else "该阶段的对阵尚未公布。"
+                message = ("当前没有进行中的阶段，也没有已公布的下一阶段对阵；可发送 /cs对阵图 全部 查看已收录阶段。"
+                           if selected == "current" else "下一阶段的对阵或开赛时间尚未公布。"
+                           if selected == 'next' else "该阶段的对阵尚未公布。")
                 return await self._query_reply(event, snapshot['title'] + "：" + message, feature="bracket")
             text = format_bracket(snapshot, stages)
+            if upcoming:
+                text = "当前无进行中阶段，以下为下一阶段已公布对阵（尚未开赛）。\n" + text if selected == 'current' else "下一阶段已公布对阵（尚未开赛）。\n" + text
             if not self.query_rules(event).get('image_push_enabled', True):
                 return await self._query_reply(event, text, feature="bracket")
             _, _, Image = self._message_component_types()

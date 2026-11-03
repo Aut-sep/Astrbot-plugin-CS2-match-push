@@ -10,6 +10,7 @@ from .bracket_data import build_stage
 from .tournament_events import _date, event_name
 
 STAGE_ALIASES = {'': 'current', '当前': 'current', 'current': 'current', '全部': 'all', 'all': 'all',
+                 '下一阶段': 'next', '下一': 'next', '即将开始': 'next', 'next': 'next',
                  '第一阶段': 'stage1', '阶段1': 'stage1', 'stage1': 'stage1', '1': 'stage1',
                  '第二阶段': 'stage2', '阶段2': 'stage2', 'stage2': 'stage2', '2': 'stage2',
                  '第三阶段': 'stage3', '阶段3': 'stage3', 'stage3': 'stage3', '3': 'stage3',

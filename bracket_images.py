@@ -9,19 +9,23 @@ import time
 from astrbot.api import logger
 
 from .bracket_renderer import BracketRenderer
-from .bracket_stage import current_stages
+from .bracket_stage import current_stages, upcoming_stages
 from .daily_image_cache import DailyImageCache
 from .formatters import now_utc
+from .group_rules import groups_for
+from .major_stage_notices import MajorStageNotices
 
 
-SLOTS = {'current': 0, 'all': 1, 'swiss': 3, 'knockout': 4,
-         'stage1': 5, 'stage2': 6, 'stage3': 7}
+SLOTS = {'current': 0, 'all': 1, 'notice': 2, 'swiss': 3, 'knockout': 4,
+         'stage1': 5, 'stage2': 6, 'stage3': 7, 'next': 8}
 
 
 def selected_stages(snapshot, selected):
     stages = snapshot['stages']
     if selected == 'current':
         return current_stages(stages, now_utc())
+    if selected == 'next':
+        return upcoming_stages(stages, now_utc())
     return [stage for stage in stages if selected == 'all'
             or stage.get('key', stage['kind']) == selected
             or (selected == 'swiss' and stage['kind'] == 'swiss')]
@@ -40,11 +44,12 @@ class PreparedBracket:
 class BracketImages:
     def __init__(self, plugin, service):
         self.plugin, self.service = plugin, service
-        self.images = DailyImageCache(Path(plugin._banner_dir) / 'bracket_images', max_windows=8)
+        self.images = DailyImageCache(Path(plugin._banner_dir) / 'bracket_images', max_windows=9)
         self.ready = None
         self._account = None
         self._refresh_lock = asyncio.Lock()
         self._wake = asyncio.Event()
+        self.notices = MajorStageNotices(plugin, self)
 
     def request_refresh(self):
         self._wake.set()
@@ -81,6 +86,9 @@ class BracketImages:
         return await self.images.get(SLOTS[selected], key, render,
                                      lambda: token == self.plugin._token
                                      and (self.plugin.store.get('image_push_enabled', True) if enabled is None else enabled))
+
+    async def notice_image(self, snapshot, stage, token):
+        return await self._image(snapshot, [stage], 'notice', token, enabled=True)
 
     async def refresh(self, only_if_missing=False):
         async with self._refresh_lock:
@@ -131,12 +139,17 @@ class BracketImages:
         while True:
             self._wake.clear()
             try:
-                if self.plugin._token and self.plugin.store.get('image_push_enabled', True):
+                if self.plugin._token and (self.plugin.store.get('image_push_enabled', True)
+                                           or groups_for(self.plugin.store)):
                     previous = self.ready
                     if await asyncio.wait_for(self.refresh(), timeout=90):
                         if self.ready and (previous is None or previous.data is not self.ready.data):
-                            status = '当前阶段图片已预生成' if self.ready.data else '当前无进行阶段，提示已缓存'
+                            status = ('阶段数据已刷新（常规图片模式关闭）' if not self.ready.images
+                                      else '当前阶段图片已预生成' if self.ready.data
+                                      else '当前无进行阶段，提示已缓存')
                             logger.info(f'[CS] 对阵图缓存就绪：{status}')
+                        if self.ready:
+                            await self.notices.send(self.ready.snapshot, self.ready.token)
                 else:
                     await self.images.clear()
                     if self.ready and (self.ready.token != self.plugin._token or self.ready.images):
