@@ -68,7 +68,7 @@ WEB_PANEL_HOST        = "127.0.0.1"
     "astrbot_plugin_cs_match",
     "Aut-sep",
     "每N分钟静默刷新，时间变更时提醒，精确倒计时推送赛前提醒和赛后结果，内置 Web 管理面板",
-    "4.3.1",
+    "4.3.3",
 )
 class CSMatchPlugin(Star):
 
@@ -1786,7 +1786,8 @@ class CSMatchPlugin(Star):
         sent = await self._push_components_to_targets_with_refs(targets, components)
         return len(sent) == len(targets)
 
-    async def _push_components_to_targets_with_refs(self, targets: list[tuple[str, str]], components: list):
+    async def _push_components_to_targets_with_refs(self, targets: list[tuple[str, str]], components: list,
+                                                   *, is_active=None):
         if not targets:
             return []
         chain = self._build_message_chain(components)
@@ -1797,6 +1798,8 @@ class CSMatchPlugin(Star):
             target_key = f"{target_type}:{target_id}"
             label = self._format_target_label(target_type, target_id)
             try:
+                if is_active is not None and not is_active((target_type, target_id)):
+                    continue
                 # Rendering may await; scheduled daily events must still be active
                 # before counting a receipt or sending this target.
                 if key and key.startswith("daily:") and not self._daily_event_is_active(
@@ -1813,6 +1816,8 @@ class CSMatchPlugin(Star):
                 if key and key.startswith("daily:") and not self._daily_event_is_active(
                     key, (target_type, target_id),
                 ):
+                    continue
+                if is_active is not None and not is_active((target_type, target_id)):
                     continue
                 result = await send_target(
                     self.context, target_type, target_id, chain,

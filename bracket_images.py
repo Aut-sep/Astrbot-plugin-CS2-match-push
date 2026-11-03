@@ -12,9 +12,10 @@ from .bracket_renderer import BracketRenderer
 from .bracket_stage import current_stages
 from .daily_image_cache import DailyImageCache
 from .formatters import now_utc
+from .major_stage_notices import MajorStageNotices
 
 
-SLOTS = {'current': 0, 'all': 1, 'swiss': 3, 'knockout': 4,
+SLOTS = {'current': 0, 'all': 1, 'notice': 2, 'swiss': 3, 'knockout': 4,
          'stage1': 5, 'stage2': 6, 'stage3': 7}
 
 
@@ -45,6 +46,7 @@ class BracketImages:
         self._account = None
         self._refresh_lock = asyncio.Lock()
         self._wake = asyncio.Event()
+        self.notices = MajorStageNotices(plugin, self)
 
     def request_refresh(self):
         self._wake.set()
@@ -69,7 +71,7 @@ class BracketImages:
                    'stages': stages, 'local_marks': local}
         return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
 
-    async def _image(self, snapshot, stages, selected, token):
+    async def _image(self, snapshot, stages, selected, token, *, force_images=False):
         key = self._image_key(snapshot, stages)
 
         async def render(path):
@@ -80,7 +82,10 @@ class BracketImages:
 
         return await self.images.get(SLOTS[selected], key, render,
                                      lambda: token == self.plugin._token
-                                     and self.plugin.store.get('image_push_enabled', True))
+                                     and (force_images or self.plugin.store.get('image_push_enabled', True)))
+
+    async def notice_image(self, snapshot, stage, token):
+        return await self._image(snapshot, [stage], 'notice', token, force_images=True)
 
     async def refresh(self, only_if_missing=False):
         async with self._refresh_lock:
@@ -130,12 +135,17 @@ class BracketImages:
         while True:
             self._wake.clear()
             try:
-                if self.plugin._token and self.plugin.store.get('image_push_enabled', True):
+                if self.plugin._token and (self.plugin.store.get('image_push_enabled', True)
+                                           or self.plugin.store.get_groups()):
                     previous = self.ready
                     if await asyncio.wait_for(self.refresh(), timeout=90):
                         if self.ready and (previous is None or previous.data is not self.ready.data):
-                            status = '当前阶段图片已预生成' if self.ready.data else '当前无进行阶段，提示已缓存'
+                            status = ('阶段数据已刷新（常规图片模式关闭）' if not self.ready.images
+                                      else '当前阶段图片已预生成' if self.ready.data
+                                      else '当前无进行阶段，提示已缓存')
                             logger.info(f'[CS] 对阵图缓存就绪：{status}')
+                        if self.ready:
+                            await self.notices.send(self.ready.snapshot, self.ready.token)
                 else:
                     await self.images.clear()
                     if self.ready and (self.ready.token != self.plugin._token or self.ready.images):

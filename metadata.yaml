@@ -1,7 +1,7 @@
 name: astrbot_plugin_cs_match
 display_name: CS2 比赛推送
 desc: CS2 赛程查询、战队关注、赛前提醒、赛后结果、赛程日报和赛事开幕通知；支持 Major 晋级对阵图、历史赛果查询及 Web 管理面板。
-version: 4.3.1
+version: 4.3.3
 author: Aut-sep
 repo: "https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push"
 category: entertainment

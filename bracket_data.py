@@ -121,6 +121,7 @@ def build_stage(stage, matches, *, kind_title):
         notes.append('晋级关系尚未公布，暂不绘制连线')
         columns = [('已公布对阵', rows)] if rows else []
     return {'id': str(stage['id']), 'kind': kind, 'title': title,
+            'status': stage.get('status'),
             'begin_at': stage.get('begin_at'), 'end_at': stage.get('end_at'),
             'columns': [{'label': label, 'matches': current} for label, current in columns],
             'edges': edges, 'notes': list(dict.fromkeys(notes)), 'matches': rows}
