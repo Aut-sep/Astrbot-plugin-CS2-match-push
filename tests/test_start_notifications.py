@@ -91,7 +91,8 @@ class StartNoticeTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.sent, ["100001", "100002"])
         self.assertTrue(plugin.store.is_upcoming_notified(123))
         self.assertTrue(plugin.store.is_finished_notified(123))
-        plugin._push_finished.assert_awaited_once()
+        # Each group now renders its own result under its effective rules.
+        self.assertEqual(plugin._push_finished.await_count, 2)
         text = plugin._notification_components.call_args.args[0]
         self.assertIn("已开赛", text)
         self.assertIn("18:17", text)

@@ -53,6 +53,8 @@ from .bracket_data import format_bracket
 from .cs_major import MajorBracketService, STAGE_ALIASES as MAJOR_STAGE_ALIASES
 from .bracket_images import BracketImages
 from .daily_image_cache import DailyImageCache, daily_image_key
+from .group_rules import Rules, current as current_rules, scope as rule_scope, selected_group, send_allowed, has_send_gate, groups_for, any_match
+from .group_notifications import GroupNotifications
 from .reschedule_notices import queue_change, schedule_changed, send_pending as send_pending_reschedules
 
 # 每个并发推送独立关联通知，避免重试时重复发送给已成功的群。
@@ -68,7 +70,7 @@ WEB_PANEL_HOST        = "127.0.0.1"
     "astrbot_plugin_cs_match",
     "Aut-sep",
     "每N分钟静默刷新，时间变更时提醒，精确倒计时推送赛前提醒和赛后结果，内置 Web 管理面板",
-    "4.3.1",
+    "4.3.2",
 )
 class CSMatchPlugin(Star):
 
@@ -114,6 +116,7 @@ class CSMatchPlugin(Star):
         self._banner_renderer = BannerRenderer()
         self.team_logos = TeamLogoCatalog()
         self._daily_images = DailyImageCache(Path(self._banner_dir) / "daily_schedule")
+        self._group_daily_images = DailyImageCache(Path(self._banner_dir) / "group_daily_schedule", max_windows=60)
         self._daily_image_warm_task = None
         self._daily_image_warm_again = False
         self._background_tasks: set[asyncio.Task] = set()
@@ -130,6 +133,19 @@ class CSMatchPlugin(Star):
             logger.warning("[CS] ⚠️ 未配置 PandaScore Token！请在 WebUI 插件配置或 Web 面板中填写 pandascore_token")
         else:
             logger.info(f"[CS] 配置加载完成: 刷新间隔={self._fetch_interval}分钟, Token=已配置")
+
+    @property
+    def group_notifications(self):
+        if not getattr(self, '_group_notifier', None):
+            self._group_notifier = GroupNotifications(self)
+        return self._group_notifier
+
+    def query_rules(self, event):
+        group = getattr(event, 'get_group_id', lambda: '')()
+        group = str(group or '')
+        if event.get_platform_name() == 'aiocqhttp' and group in self.store.get_groups():
+            return Rules(self.store, group)
+        return Rules(self.store)
 
     def _format(self, formatter, *args, **kwargs):
         return formatter(*args, **kwargs)
@@ -314,11 +330,15 @@ class CSMatchPlugin(Star):
     def schedule_refresh(self, label: str = "background") -> asyncio.Task:
         return self._create_background_task(self._fetch_and_schedule(), label)
 
-    def schedule_instant_push(self, days: int, label: str = "background") -> asyncio.Task:
-        return self._create_background_task(self._do_instant_push(days), label)
+    def schedule_instant_push(self, days: int, label: str = "background", group_id=None) -> asyncio.Task:
+        return self._create_background_task(self._do_instant_push(days, group_id), label)
 
-    def has_daily_matches_to_push(self, days: int) -> bool:
-        return self._has_daily_matches_to_push(days)
+    def has_daily_matches_to_push(self, days: int, group_id=None) -> bool:
+        if not self._schedule_data_ready or not self._token:
+            return False
+        groups = [group_id] if group_id else groups_for(self.store)
+        return any(self.group_notifications.active(gid) and self.group_notifications.daily_payload(gid, days)
+                   for gid in groups)
 
     def is_test_mode_enabled(self) -> bool:
         return self._is_test_mode_enabled()
@@ -363,6 +383,11 @@ class CSMatchPlugin(Star):
             entry["_t2"] = snap.get("t2") or team_name(m, 1)
             entry["_attempt"] = attempt
             entry["_deadline_sec"] = deadline_sec
+            entry['_group_reminders'] = [
+                {'group_id': gid,
+                 'minutes': custom_rem if custom_rem is not None else Rules(self.store, gid).get('remind_minutes', 10),
+                 'sent': f'group:{gid}' in self.store.get_delivery_targets(f"upcoming:{m['id']}")}
+                for gid in groups_for(self.store, 'upcoming', m)]
             return entry
 
         def _countdown(sched_iso: str | None) -> int | None:
@@ -465,12 +490,11 @@ class CSMatchPlugin(Star):
     def update_match_remind(self, mid: int, remind_minutes: int | None) -> str:
         if remind_minutes is None:
             self.store.del_custom_remind(mid)
-            msg = f"已恢复比赛 {mid} 为全局提醒时间"
+            msg = f"已恢复比赛 {mid} 为各群规则的提醒时间"
         else:
             self.store.set_custom_remind(mid, remind_minutes)
             msg = f"已设置比赛 {mid} 自定义提醒：{remind_minutes} 分钟"
 
-        self.store.clear_upcoming_notified(mid)
         self._cancel_match_remind_task(mid)
 
         match = self._find_scheduled_match(mid)
@@ -518,129 +542,8 @@ class CSMatchPlugin(Star):
     # ── 每日定时推送循环 ──────────────────
 
     async def _daily_push_loop(self):
-        """只观察本次运行期间的日报时间点，并恢复当天的 pending 事件。"""
-        startup_minute = now_cst().replace(second=0, microsecond=0)
-        scan_watermark = startup_minute - timedelta(minutes=1)
-        disabled_observed = False
+        await self.group_notifications.daily_loop()
 
-        def _observe_enabled(enabled, observed_at):
-            nonlocal scan_watermark, disabled_observed
-            if not enabled:
-                disabled_observed = True
-                if observed_at > scan_watermark:
-                    scan_watermark = observed_at
-            elif disabled_observed:
-                # The exact re-enable time is unknown; only observe its current minute.
-                recovery_boundary = observed_at.replace(second=0, microsecond=0) - timedelta(microseconds=1)
-                if recovery_boundary > scan_watermark:
-                    scan_watermark = recovery_boundary
-                disabled_observed = False
-
-        def _configured_events(day, times):
-            configured = {}
-            for hhmm in times:
-                if not isinstance(hhmm, str):
-                    continue
-                try:
-                    hour, minute = (int(part) for part in hhmm.split(":"))
-                    if not (0 <= hour <= 23 and 0 <= minute <= 59):
-                        continue
-                except ValueError:
-                    continue
-                configured[f"daily:{day}_{hhmm}"] = hhmm
-            return configured
-
-        while True:
-            try:
-                await asyncio.sleep(60)
-                now_cst_dt = now_cst()
-                today = now_cst_dt.strftime("%Y-%m-%d")
-                push_times = self.store.get("daily_push_times", ["08:00"])
-                configured = _configured_events(today, push_times)
-
-                enabled = self.store.get("daily_push_enabled", False)
-                _observe_enabled(enabled, now_cst_dt)
-                if enabled and now_cst_dt >= scan_watermark:
-                    due_events = []
-                    for key, hhmm in configured.items():
-                        hour, minute = (int(part) for part in hhmm.split(":"))
-                        scheduled = now_cst_dt.replace(
-                            hour=hour, minute=minute, second=0, microsecond=0,
-                        )
-                        if scan_watermark < scheduled <= now_cst_dt:
-                            due_events.append(key)
-
-                    # Register and persist observed triggers before any cleanup can fail.
-                    for key in due_events:
-                        status = self.store.get_daily_push_status(key)
-                        if status is None or status == "pending":
-                            self.store.mark_daily_push_status(key, "pending")
-                    self.store.flush_daily_push_state()
-
-                # A high-water mark prevents replay after clock rollback and downtime.
-                if now_cst_dt > scan_watermark:
-                    scan_watermark = now_cst_dt
-
-                # Only current-day configured keys survive; pruning follows registration.
-                self.store.prune_daily_push_events(set(configured))
-
-                for key, hhmm in sorted(configured.items()):
-                    # Settings may change while an earlier event is awaiting delivery.
-                    now_cst_dt = now_cst()
-                    today = now_cst_dt.strftime("%Y-%m-%d")
-                    enabled = self.store.get("daily_push_enabled", False)
-                    _observe_enabled(enabled, now_cst_dt)
-                    current_times = self.store.get("daily_push_times", ["08:00"])
-                    current_configured = _configured_events(today, current_times)
-                    self.store.prune_daily_push_events(set(current_configured))
-                    if not enabled:
-                        break
-                    if key not in current_configured:
-                        continue
-
-                    self.store.flush_daily_push_state()
-                    status = self.store.get_daily_push_status(key)
-                    if status != "pending":
-                        continue
-
-                    payload = self.store.get_daily_push_payload(key)
-                    if payload is None and not self._schedule_data_ready:
-                        continue
-                    if not self.store.get_groups():
-                        logger.info(f"[CS] 跳过日报 {hhmm}：未配置推送群，不补发")
-                        self.store.mark_daily_push_status(key, "skipped")
-                        continue
-                    if payload is None:
-                        days = int(self.store.get("daily_push_days") or 1)
-                        if not self._has_daily_matches_to_push(days):
-                            logger.info(f"[CS] 跳过日报 {hhmm}：当前没有可推送赛程，不补发")
-                            self.store.mark_daily_push_status(key, "skipped")
-                            continue
-                        payload = self._build_daily_push_payload(days)
-                        if payload is None:
-                            self.store.mark_daily_push_status(key, "skipped")
-                            continue
-                        # Freeze the original text and displayed schedule before any send.
-                        self.store.mark_daily_push_status(key, "pending", payload)
-
-                    logger.info(f"[CS] 处理每日定时推送 {hhmm}")
-                    self.panel.push_log("OK", f"每日定时推送触发 {hhmm}")
-                    sent = await self._deliver_notification(
-                        key, lambda: self._push(
-                            payload["text"], matches=payload["matches"],
-                            daily_days=payload.get("days") or int(self.store.get("daily_push_days") or 1),
-                        ),
-                    )
-                    if sent and self._daily_event_is_active(key):
-                        self.store.mark_daily_push_status(key, "complete")
-                        self.panel.push_log("OK", f"每日定时推送完成 {hhmm}")
-            except asyncio.CancelledError:
-                raise
-            except Exception as exc:
-                logger.error(f"[CS] 每日推送异常，将在下一轮重试: {exc}")
-                self.panel.push_log("ERROR", f"每日推送异常：{type(exc).__name__}: {exc}")
-
-    # ── 赛事开幕推送循环 ──────────────────
 
     async def _tournament_announce_loop(self):
         """每次日程刷新后检查即将开赛的赛事，提前 announce_hours 推送开幕通知"""
@@ -659,7 +562,7 @@ class CSMatchPlugin(Star):
 
     async def _check_tournament_announces(self):
         """检查即将开始的赛事，符合条件则安排开幕通知倒计时任务"""
-        if not self.store.get("tournament_announce_enabled", True):
+        if not groups_for(self.store, 'opening'):
             return
         if not self._token:
             return
@@ -668,13 +571,6 @@ class CSMatchPlugin(Star):
         if not tournaments:
             return
 
-        followed_ids    = self.store.get_followed_team_ids()
-        followed_names  = [t["name"].lower() for t in self.store.get_followed_teams() if t.get("id") is None]
-        push_tiers      = self.store.get_min_tiers()
-        notify_all_fol  = self.store.get("notify_all_followed", True)
-        announce_hours  = int(self.store.get("tournament_announce_hours") or 2)
-        blacklist_lgues = self.store.get("blacklist_leagues") or []
-        blacklist_teams = self.store.get("blacklist_teams") or []
         now             = now_utc()
         cutoff          = now + timedelta(days=7)
 
@@ -696,28 +592,11 @@ class CSMatchPlugin(Star):
             if not (now < begin_dt <= cutoff):
                 continue
 
-            league_name = ((tour.get("league") or {}).get("name") or "").lower()
-            if any(b in league_name for b in blacklist_lgues):
+            recipients = groups_for(self.store, 'opening', event=tour)
+            if not recipients:
                 continue
-
-            # 战队列表（含 id 和 name）
-            tour_teams = [t for t in (tour.get("teams") or []) if isinstance(t, dict)]
-            tour_ids   = {t.get("id") for t in tour_teams if t.get("id")}
-            tour_names = [t.get("name", "").lower() for t in tour_teams]
-
-            if any(b in tn for b in blacklist_teams for tn in tour_names if tn):
-                continue
-
-            tier = match_tier({"tournament": tour})
-            # ID 精确匹配，兼容旧版名称匹配
-            has_followed = bool(tour_ids & followed_ids) or (
-                bool(followed_names) and any(fn == tn for fn in followed_names for tn in tour_names)
-            )
-
-            # 判断是否推送：级别符合 OR 关注战队参赛
-            should_push = (tier in push_tiers) or (has_followed and notify_all_fol)
-            if not should_push:
-                continue
+            announce_hours = max(Rules(self.store, gid).get('tournament_announce_hours', 2) for gid in recipients)
+            has_followed = any(Rules(self.store, gid).follows(tour.get('teams') or []) for gid in recipients)
 
             if self.store.is_series_notified(tid):
                 continue
@@ -735,64 +614,18 @@ class CSMatchPlugin(Star):
             self._tournament_tasks[tid] = t
             logger.info(f"[CS] 已安排赛事 {tid}({tour.get('name')}) 的开幕通知任务")
 
-    async def _schedule_tournament_announce(self, tour: dict, announce_hours: int,
-                                            is_followed: bool):
-        """等待到开赛前 announce_hours 小时，然后推送开幕通知"""
-        tid      = tour.get("id")
+    async def _schedule_tournament_announce(self, tour: dict, announce_hours: int, is_followed: bool):
+        tid = tour['id']
         try:
-            begin_dt = parse_dt(tour.get("begin_at"))
-            announce_dt = begin_dt - timedelta(hours=announce_hours)
-            wait_secs   = (announce_dt - now_utc()).total_seconds()
-
-            if wait_secs > 0:
-                logger.info(f"[CS] 赛事 {tid} 将在 {wait_secs/3600:.1f} 小时后推送开幕通知")
-                try:
-                    await asyncio.sleep(wait_secs)
-                except asyncio.CancelledError:
-                    logger.info(f"[CS] 赛事 {tid} 开幕通知任务已取消")
-                    raise
-
-            while now_utc() < begin_dt:
-                if self.store.is_series_notified(tid) or not self.store.get("tournament_announce_enabled", True):
-                    return
-                # The task may have been created days ago. Refresh all stages
-                # now so later published entrants are included in the one notice.
-                fresh = await self.client.get_event(tour)
-                if not fresh:
-                    await asyncio.sleep(min(60, max(0, (begin_dt - now_utc()).total_seconds())))
-                    continue
-                tour = fresh
-                begin_dt = parse_dt(tour.get("begin_at"))
-                if now_utc() >= begin_dt:
-                    return
-                wait_secs = (begin_dt - timedelta(hours=announce_hours) - now_utc()).total_seconds()
-                if wait_secs > 0:
-                    await asyncio.sleep(wait_secs)
-                    continue
-                followed = self.store.get_followed_team_names()
-                msg = self._format(fmt_tournament_announce, tour, followed, announce_hours, is_followed)
-                if await self._deliver_notification(f"series:{tid}", lambda: self._push(msg, teams=tour.get("teams") or [], competition=tour)):
-                    self.store.mark_series_notified(tid)
-                    self.panel.push_log("OK", f"已推送赛事开幕通知：{tour.get('name')} (id={tid})")
-                    return
-                await asyncio.sleep(min(60, max(0, (begin_dt - now_utc()).total_seconds())))
+            await self.group_notifications.opening(tour)
         finally:
             if self._tournament_tasks.get(tid) is asyncio.current_task():
                 self._tournament_tasks.pop(tid, None)
 
-    async def _do_instant_push(self, days: int = 1):
-        """立即将赛程推送到所有群"""
-        followed = self.store.get_followed_team_names()
-        if not self._has_daily_matches_to_push(days):
-            logger.info(f"[CS] 跳过赛程日报推送：未来 {days} 天内没有可推送的已安排比赛")
-            self.panel.push_log("INFO", f"跳过赛程日报推送：未来 {days} 天内无可推送比赛")
-            return False
-        matches = [self._match_with_snapshot_names(m) for m in self._scheduled]
-        text = self._format(fmt_daily_schedule, matches, followed, days)
-        if not await self._push(text, matches=self._daily_notice_matches(matches, days), daily_days=days):
-            return False
-        self.panel.push_log("OK", f"立即推送赛程完成，覆盖 {days} 天")
-        return True
+
+    async def _do_instant_push(self, days: int = 1, group_id=None):
+        await self.group_notifications.manual(days, group_id)
+
 
     def _build_daily_push_payload(self, days: int) -> dict | None:
         """Freeze the text and displayed match data for one scheduled event."""
@@ -849,36 +682,8 @@ class CSMatchPlugin(Star):
             self.panel.push_log("WARN", "日程请求失败，保留已有任务")
             return
 
-        followed_ids    = self.store.get_followed_team_ids()
-        followed_names  = [t["name"].lower() for t in self.store.get_followed_teams() if t.get("id") is None]  # 仅兼容旧版名称关注
-        push_tiers      = self.store.get_min_tiers()
-        blacklist_teams = self.store.get("blacklist_teams") or []
-        blacklist_lgues = self.store.get("blacklist_leagues") or []
-        notify_all_fol  = self.store.get("notify_all_followed", True)
-
-        def _is_followed_match(m: dict) -> bool:
-            """精确判断比赛是否包含关注战队（ID 优先，兼容旧版名称匹配）"""
-            for opp in (m.get("opponents") or []):
-                opp_id   = (opp.get("opponent") or {}).get("id")
-                opp_name = ((opp.get("opponent") or {}).get("name") or "").lower()
-                if opp_id and opp_id in followed_ids:
-                    return True
-                # 旧版兼容：纯名称匹配（仅当无 ID 记录时）
-                if followed_names and any(fn == opp_name for fn in followed_names):
-                    return True
-            return False
-
-        def _should_track(m):
-            t1l    = team_name(m, 0).lower()
-            t2l    = team_name(m, 1).lower()
-            league = ((m.get("league") or {}).get("name") or "").lower()
-            if any(b in t1l or b in t2l for b in blacklist_teams):
-                return False
-            if any(b in league for b in blacklist_lgues):
-                return False
-            tier         = match_tier(m)
-            has_followed = _is_followed_match(m)
-            return tier in push_tiers or (has_followed and notify_all_fol)
+        def _should_track(match):
+            return any_match(self.store, match)
 
         to_schedule = []
         for m in matches:
@@ -1063,82 +868,9 @@ class CSMatchPlugin(Star):
                 self._result_tasks[mid] = t
 
     async def _run_remind(self, match: dict, remind_min: int):
-        """阶段1：等待赛前提醒时间点，推送提醒，然后等到开赛时间返回"""
-        mid      = match["id"]
-        sched_dt = parse_dt(sched_str(match))
+        # Each group's user-defined minutes are read by the shared scheduler.
+        return await self.group_notifications.run_remind(match)
 
-        # ── 赛前提醒 ──────────────────────────────────────────────────────────
-        remind_dt   = sched_dt - timedelta(minutes=remind_min)
-        wait_remind = (remind_dt - now_utc()).total_seconds()
-
-        if wait_remind > 0 and not self.store.is_upcoming_notified(mid):
-            logger.info(f"[CS] 比赛 {mid} 将在 {wait_remind/60:.1f} 分钟后推送提醒")
-            await asyncio.sleep(wait_remind)
-
-        # 晚于提醒时间但尚未开赛时也要立即提醒；失败仅重试尚未收到的群。
-        while now_utc() < sched_dt and not self.store.is_upcoming_notified(mid):
-            # Upcoming lists can retain replaced/canceled records. Never send a
-            # captured schedule without checking the individual match endpoint.
-            fresh = await self.client.get_match_result(mid)
-            if not fresh or str(fresh.get("id")) != str(mid) or not fresh.get("status"):
-                self.panel.push_log("WARN", f"比赛 {mid} 赛前状态未核实，本次不发送提醒")
-                await asyncio.sleep(min(60, max(0, (sched_dt - now_utc()).total_seconds())))
-                continue
-            fresh = deepcopy(fresh)
-            status = fresh["status"]
-            if status in {"canceled", "postponed"}:
-                self.panel.push_log("INFO", f"比赛 {mid} 已取消或延期，已拦截赛前提醒")
-                return False
-            if status in {"running", "finished"}:
-                match.clear()
-                match.update(fresh)
-                return True
-            if status != "not_started":
-                self.panel.push_log("WARN", f"比赛 {mid} 状态不适合赛前提醒，本次不发送")
-                return False
-            try:
-                fresh_start = parse_dt(sched_str(fresh))
-            except (TypeError, ValueError):
-                self.panel.push_log("WARN", f"比赛 {mid} 最新开赛时间无效，已拦截赛前提醒")
-                return False
-            match.clear()
-            match.update(fresh)
-            sched_dt = fresh_start
-            if now_utc() >= sched_dt:
-                return True
-            self.store.set_match_snapshot(mid, sched_str(match), team_name(match, 0), team_name(match, 1))
-            self.store.set_match_schedule(mid, sched_str(match))
-            wait_remind = (sched_dt - timedelta(minutes=remind_min) - now_utc()).total_seconds()
-            if wait_remind > 0:
-                await asyncio.sleep(wait_remind)
-                continue
-            if not is_push_ready_match(match):
-                self.panel.push_log("INFO", f"比赛 {mid} 最新对手尚未确定，暂不发送赛前提醒")
-                await asyncio.sleep(min(60, max(0, (sched_dt - now_utc()).total_seconds())))
-                continue
-            custom_streams = self.store.get("custom_streams") or []
-            followed = self.store.get_followed_team_names()
-            if await self._deliver_notification(
-                f"upcoming:{mid}",
-                lambda: self._push_upcoming(match, remind_min, custom_streams, followed),
-            ):
-                self.store.mark_upcoming_notified(mid)
-                self.panel.push_log("OK", f"已推送赛前提醒：比赛 {mid}")
-                break
-            await asyncio.sleep(min(60, max(0, (sched_dt - now_utc()).total_seconds())))
-
-        if self.store.is_finished_notified(mid):
-            return False
-
-        # ── 等待到开赛时间 ────────────────────────────────────────────────────
-        wait_start = (sched_dt - now_utc()).total_seconds()
-        if wait_start > 0:
-            try:
-                await asyncio.sleep(wait_start)
-            except asyncio.CancelledError:
-                logger.info(f"[CS] 比赛 {mid} 开赛等待任务取消")
-                raise
-        return True
 
     def _restore_result_polls(self):
         """Recover saved polls and recently announced matches after a reload."""
@@ -1233,10 +965,7 @@ class CSMatchPlugin(Star):
                 if result and result.get("status") == "finished":
                     if self.store.is_finished_notified(mid):
                         return
-                    followed = self.store.get_followed_team_names()
-                    if await self._deliver_notification(
-                        f"finished:{mid}", lambda: self._push_finished(result, followed),
-                    ):
+                    if await self.group_notifications.finished(result):
                         self.store.mark_finished_notified(mid)
                         self.panel.push_log("OK", f"已推送赛后结果：比赛 {mid}（查询 {attempt} 次）")
                         return
@@ -1259,37 +988,23 @@ class CSMatchPlugin(Star):
                 self._result_meta.pop(mid, None)
 
     async def _maybe_push_started_notice(self, match: dict) -> bool:
-        """Fill a missed reminder for a known, confirmed-running match only.
-
-        Sharing upcoming:<id> receipts also excludes groups that already got a
-        pre-match reminder, including partial deliveries interrupted by reloads.
-        The existing result poll retries failures without a second scheduler.
-        """
-        mid = int(match["id"])
-        if (
-            match.get("status") != "running"
-            or self.store.is_upcoming_notified(mid)
-            or self.store.is_finished_notified(mid)
-            or str(mid) in self.store.get("result_recovery_ignored", {})
-            or not is_push_ready_match(match)
-        ):
+        mid = int(match['id'])
+        if (match.get('status') != 'running' or (self.store.is_upcoming_notified(mid) and f'upcoming:{mid}' not in self.store.get('notification_targets', {}))
+                or self.store.is_finished_notified(mid)
+                or str(mid) in self.store.get('result_recovery_ignored', {})
+                or not is_push_ready_match(match)):
             return False
-        # This existing filter is status-agnostic and uses the saved CS rules.
-        from .cs_results import accepts_result
-        if not accepts_result(self.store, match):
-            return False
-        if await self._deliver_notification(
-            f"upcoming:{mid}", lambda: self._push_started(match),
-        ):
+        receipts_before = self.store.get_delivery_targets(f'upcoming:{mid}')
+        if await self.group_notifications.started(match):
             self.store.mark_upcoming_notified(mid)
-            self.panel.push_log("OK", f"已补发开赛通知：比赛 {mid}")
-            return True
+            return self.store.get_delivery_targets(f'upcoming:{mid}') != receipts_before
         return False
+
 
     async def _push_started(self, match: dict):
         match = self._match_with_snapshot_names(match)
         text = self._format(fmt_started, match, self.store.get("custom_streams") or [],
-                            self.store.get_followed_team_names())
+                            current_rules(self.store).get_followed_team_names())
         return await self._push_notification(text, match=match, started_notice=True)
 
     async def _push_upcoming(self, match: dict, remind_min: int,
@@ -1577,13 +1292,15 @@ class CSMatchPlugin(Star):
         return components
 
     async def _team_text_result(self, event, text, *, teams=None, matches=None, daily_days=None, feature="schedule"):
-        components = await self._notification_components(text, teams=teams, matches=matches, daily_days=daily_days)
-        return await self._query_reply(event, text, feature=feature, components=components)
+        with rule_scope(self.query_rules(event)):
+            components = await self._notification_components(text, teams=teams, matches=matches, daily_days=daily_days)
+            return await self._query_reply(event, text, feature=feature, components=components)
+
 
     def _daily_image_request(self, days):
-        """Build the same snapshot for background warmup and user queries."""
-        matches = [self._match_with_snapshot_names(m) for m in self._scheduled]
-        text = self._format(fmt_daily_schedule, matches, self.store.get_followed_team_names(), days)
+        rules = current_rules(self.store)
+        matches = [self._match_with_snapshot_names(match) for match in self._scheduled if rules.accepts(match)]
+        text = self._format(fmt_daily_schedule, matches, rules.get_followed_team_names(), days)
         return text, self._daily_notice_matches(matches, days)
 
     def _daily_image_key(self, text, matches):
@@ -1659,7 +1376,7 @@ class CSMatchPlugin(Star):
                                        teams=None, center_text: str = "VS", competition=None,
                                        daily_days=None, output_path=None, started_notice: bool = False) -> list:
         """Queries and notifications use the same configured image/text mode."""
-        if daily_days is not None and self.store.get("image_push_enabled", True):
+        if daily_days is not None and current_rules(self.store).get("image_push_enabled", True):
             matches = [self._match_with_snapshot_names(m) for m in matches or []]
             key = self._daily_image_key(text, matches)
 
@@ -1669,18 +1386,21 @@ class CSMatchPlugin(Star):
             def is_current():
                 current_text, current_matches = self._daily_image_request(daily_days)
                 return (
-                    self.store.get("image_push_enabled", True)
+                    current_rules(self.store).get("image_push_enabled", True)
                     and key == self._daily_image_key(current_text, current_matches)
                 )
 
-            data = await self._daily_images.get(daily_days, key, render, is_current)
+            gid = selected_group()
+            cache = self._daily_images if gid is None else self._group_daily_images
+            slot = daily_days if gid is None else f'g{gid}_d{daily_days}'
+            data = await cache.get(slot, key, render, is_current)
             _, _, Image = self._message_component_types()
             return [Image.fromBytes(data)]
         if match is not None:
             match = self._match_with_snapshot_names(match)
         notice_matches = list(matches or [])
         marks = await self._resolve_team_marks(self._notice_teams(match=match, matches=notice_matches, teams=teams))
-        if output_path is None and not self.store.get("image_push_enabled", True):
+        if output_path is None and not current_rules(self.store).get("image_push_enabled", True):
             return await self._team_text_components(text, marks)
         event_marks = await self._resolve_event_marks(match=match, matches=matches, competition=competition)
         names = [team_name(match, 0), team_name(match, 1)] if match is not None else []
@@ -1730,24 +1450,26 @@ class CSMatchPlugin(Star):
     def _format_target_label(self, target_type: str, target_id: str) -> str:
         return f"{'私聊' if target_type == 'private' else '群聊'} {target_id}"
 
-    def _daily_event_is_active(self, key: str, target: tuple[str, str] | None = None) -> bool:
-        """Check current config/date before continuing a scheduled daily delivery."""
-        if not key.startswith("daily:"):
+    def _daily_event_is_active(self, key: str, target=None) -> bool:
+        if not key.startswith('daily:'):
             return True
-        event = key[len("daily:"):]
-        day, separator, hhmm = event.partition("_")
-        if not separator or day != now_cst().strftime("%Y-%m-%d"):
+        suffix = key[len('daily:'):]
+        group, _, rest = suffix.partition(':')
+        if '_' in group:
+            day, _, hhmm = suffix.partition('_')
+            rules = Rules(self.store)
+            gid = None
+        else:
+            gid = group
+            day, _, hhmm = rest.partition('_')
+            rules = Rules(self.store, gid)
+        if day != now_cst().date().isoformat() or not rules.enabled('daily') or hhmm not in rules.get('daily_push_times', []):
             return False
-        if not self.store.get("daily_push_enabled", False):
+        if gid is not None and gid not in self.store.get_groups():
             return False
-        times = self.store.get("daily_push_times", ["08:00"])
-        if not isinstance(times, list) or hhmm not in times:
-            return False
-        if target is not None:
-            target_type, target_id = target
-            if target_type != "group" or str(target_id) not in {str(gid) for gid in self.store.get_groups()}:
-                return False
-        return True
+        return target is None or (target[0] == 'group' and str(target[1]) in self.store.get_groups()
+                                  and (gid is None or gid == str(target[1])))
+
 
     def _describe_test_target(self) -> str:
         target = self._get_test_target()
@@ -1778,7 +1500,10 @@ class CSMatchPlugin(Star):
             _delivery_key.reset(token)
 
     async def _push_components(self, components: list) -> bool:
-        groups = self.store.get_groups()
+        gid = selected_group()
+        groups = [gid] if gid is not None else self.store.get_groups()
+        if not send_allowed():
+            return False
         if not groups:
             logger.warning("[CS] 未配置推送群")
             return False
@@ -1797,6 +1522,8 @@ class CSMatchPlugin(Star):
             target_key = f"{target_type}:{target_id}"
             label = self._format_target_label(target_type, target_id)
             try:
+                if not send_allowed() or (has_send_gate() and str(target_id) not in self.store.get_groups()):
+                    continue
                 # Rendering may await; scheduled daily events must still be active
                 # before counting a receipt or sending this target.
                 if key and key.startswith("daily:") and not self._daily_event_is_active(
@@ -1844,7 +1571,7 @@ class CSMatchPlugin(Star):
         self.panel.push_log("INFO", f"测试模式已{'开启' if enabled else '关闭'}")
 
     def _build_test_match(self) -> dict:
-        match = next((deepcopy(m) for m in self._scheduled if is_push_ready_match(m)), None)
+        match = next((deepcopy(m) for m in self._scheduled if is_push_ready_match(m) and current_rules(self.store).accepts(m)), None)
         if match:
             test_time = (now_utc() + timedelta(minutes=15)).isoformat()
             match["scheduled_at"] = test_time
@@ -1904,13 +1631,13 @@ class CSMatchPlugin(Star):
         }
 
     async def _run_test_push(self, action: str, days: int = 1, event: AstrMessageEvent | None = None):
-        followed = self.store.get_followed_team_names()
+        followed = current_rules(self.store).get_followed_team_names()
         if action == "赛前":
             match = self._build_test_match()
             custom_streams = self.store.get("custom_streams") or []
             await self._push_upcoming(
                 match,
-                self.store.get_remind_minutes(),
+                current_rules(self.store).get("remind_minutes", 10),
                 custom_streams,
                 followed,
                 text_prefix="[测试]",
@@ -1936,7 +1663,7 @@ class CSMatchPlugin(Star):
             await self._push_test(self._test_prefix(self._format(fmt_tournament_announce,
                 tour,
                 followed,
-                int(self.store.get("tournament_announce_hours") or 2),
+                int(current_rules(self.store).get("tournament_announce_hours") or 2),
                 False,
             )), teams=tour.get("teams") or [], competition=tour)
             return "已发送测试赛事开幕通知"
@@ -2015,14 +1742,14 @@ class CSMatchPlugin(Star):
         if not self._token:
             return await self._query_reply(event, "请先在 CS 管理面板配置 PandaScore Token。", feature="bracket")
         try:
-            snapshot, stages, image_data = await asyncio.wait_for(self.bracket_images.get(selected), timeout=90)
+            snapshot, stages, image_data = await asyncio.wait_for(self.bracket_images.get(selected, images_enabled=self.query_rules(event).get("image_push_enabled", True)), timeout=90)
             if snapshot is None:
                 return await self._query_reply(event, "Major 对阵数据暂不可用，请稍后重试。", feature="bracket")
             if not stages:
                 message = "当前没有正在进行的阶段。" if selected == "current" else "该阶段的对阵尚未公布。"
                 return await self._query_reply(event, snapshot['title'] + "：" + message, feature="bracket")
             text = format_bracket(snapshot, stages)
-            if not self.store.get('image_push_enabled', True):
+            if not self.query_rules(event).get('image_push_enabled', True):
                 return await self._query_reply(event, text, feature="bracket")
             _, _, Image = self._message_component_types()
             if image_data is None:
@@ -2033,17 +1760,19 @@ class CSMatchPlugin(Star):
 
 
     async def _schedule_query_result(self, event, days=None):
-        """Read a shared CS schedule snapshot; never send to configured targets."""
         if not self._schedule_data_ready:
-            return await self._query_reply(event, "赛程尚未加载完成，请稍后再试。", feature="schedule")
-        if days is not None:
-            text, matches = self._daily_image_request(days)
-            return await self._team_text_result(event, text, matches=matches, daily_days=days)
-        followed = self.store.get_followed_team_names()
-        if not self._scheduled:
-            return await self._query_reply(event, "当前没有已安排的比赛，请稍后再查。", feature="schedule")
-        return await self._team_text_result(event, self._format(fmt_schedule, self._scheduled, followed),
-                                            matches=[m for m in self._scheduled if is_push_ready_match(m)])
+            return await self._query_reply(event, '赛程尚未加载完成，请稍后再试。', feature='schedule')
+        rules = self.query_rules(event)
+        with rule_scope(rules):
+            if days is not None:
+                text, matches = self._daily_image_request(days)
+                return await self._team_text_result(event, text, matches=matches, daily_days=days)
+            matches = [match for match in self._scheduled if rules.accepts(match)]
+            if not matches:
+                return await self._query_reply(event, '当前没有符合本群规则的已获取赛程。', feature='schedule')
+            text = self._format(fmt_schedule, matches, rules.get_followed_team_names())
+            return await self._team_text_result(event, text, matches=[m for m in matches if is_push_ready_match(m)])
+
 
     @filter.command("cs比赛")
     async def cmd_list(self, event: AstrMessageEvent, days: str = "") -> MessageEventResult:
@@ -2076,7 +1805,7 @@ class CSMatchPlugin(Star):
             if not self._token:
                 return await self._query_reply(event, "请先在 CS 管理面板配置 PandaScore Token。", feature="results")
             from .cs_results import preview_results
-            result = await asyncio.wait_for(preview_results(self, days, identity), timeout=60)
+            result = await asyncio.wait_for(preview_results(self, days, identity, rules=self.query_rules(event)), timeout=60)
             return await self._query_reply(event, result["text"], feature="results")
         except (ConfigError, ValueError, KeyError, asyncio.TimeoutError):
             return await self._query_reply(event, "查询暂不可用。用法：/cs赛果 [1–30天]，或 /cs赛果 比赛 <ID>。", feature="results")
@@ -2137,16 +1866,15 @@ class CSMatchPlugin(Star):
                 raise ValueError
         except (ValueError, AttributeError):
             cur = self.store.get_remind_minutes()
-            return event.plain_result(f"当前赛前提醒：{cur} 分钟\n修改：/cs提醒 <分钟>（1~120）")
+            return event.plain_result(f"默认规则赛前提醒：{cur} 分钟\n修改：/cs提醒 <分钟>（1~120）")
         self.store.set_remind_minutes(m)
         for mid, task in list(self._match_tasks.items()):
             if not task.done():
                 task.cancel()
-                self.store.clear_upcoming_notified(mid)
         self._match_tasks.clear()
         self._scheduled_mids.clear()
         self._create_background_task(self._fetch_and_schedule(), "cmd_remind")
-        return event.plain_result(f"✅ 已设置：比赛开始前 {m} 分钟推送提醒，已自动重建所有比赛提醒")
+        return event.plain_result(f"✅ 默认规则已设置：比赛开始前 {m} 分钟推送提醒，已自动重建所有比赛提醒")
 
     @filter.permission_type(filter.PermissionType.ADMIN)
     @filter.command("cs关注")
@@ -2176,7 +1904,7 @@ class CSMatchPlugin(Star):
 
         if self.store.follow_team(tid, tname, slug):
             self._create_background_task(self._fetch_and_schedule(), "cmd_follow")
-            msg = f"✅ 已关注：{tname}（ID: {tid}）\n正在刷新日程，该战队的赛事将自动加入推送"
+            msg = f"✅ 默认规则已关注：{tname}（ID: {tid}）\n正在刷新日程，该战队的赛事将自动加入推送"
             if not exact and len(results) > 1:
                 others = "、".join(t.get("name","") for t in results[1:4])
                 msg += f"\n\n💡 搜索还匹配到：{others}\n如需精确选择请使用 Web 面板"
@@ -2212,7 +1940,7 @@ class CSMatchPlugin(Star):
         if removed:
             self._create_background_task(self._fetch_and_schedule(), "cmd_unfollow")
             return await self._team_text_result(event,
-                f"✅ 已取消关注：{team['name']}\n正在刷新日程，该战队独有赛事将从推送中移除", teams=[team]
+                f"✅ 默认规则已取消关注：{team['name']}\n正在刷新日程，该战队独有赛事将从推送中移除", teams=[team]
             )
         return event.plain_result(f"ℹ️ 取消关注失败")
 
@@ -2221,12 +1949,35 @@ class CSMatchPlugin(Star):
         denied = self._official_denial(event, 'followed')
         if denied is not None:
             return denied
-        teams = self.store.get_followed_teams()
+        teams = self.query_rules(event).get_followed_teams()
         if not teams:
             return await self._query_reply(event, "还没有关注任何战队。", feature="followed")
         lines = "\n".join(f"  · {team['name']}" for team in teams)
         return await self._team_text_result(event, f"⭐ 已关注的战队（{len(teams)} 支）：\n{lines}",
                                             teams=teams, feature="followed")
+
+    @filter.command('cs群规则')
+    async def cmd_group_rules(self, event: AstrMessageEvent):
+        denied = self._official_denial(event, None)
+        if denied is not None:
+            return denied
+        rules = self.query_rules(event)
+        if rules.group_id is None:
+            return event.plain_result('请在已配置的普通 QQ 接收群中查询本群规则；管理员可在 CS2 管理面板设置。')
+        names = '、'.join(rules.get_followed_team_names()) or '无'
+        mode = {'tiers': '赛事级别', 'followed': '只看关注战队', 'tiers_or_followed': '赛事级别或关注战队'}[rules.get('filter_mode')]
+        overrides = self.store.get('group_rules', {}).get(rules.group_id, {})
+        text = (f'本群推送规则 · {rules.group_id}\n'
+                f'配置：{"含独立设置" if overrides else "继承默认规则"}\n'
+                f'推送：{"开启" if rules.enabled() else "暂停"}\n'
+                f'筛选：{mode} · {"、".join(t.upper() for t in rules.get_min_tiers()) or "未选择级别"}\n'
+                f'关注：{names}\n'
+                f'赛前：{"开启" if rules.enabled("upcoming") else "关闭"} · 提前 {rules.get("remind_minutes", 10)} 分钟\n'
+                f'赛果：{"开启" if rules.enabled("finished") else "关闭"}\n'
+                f'改期：{"开启" if rules.enabled("reschedule") else "关闭"}\n'
+                f'日报：{"、".join(rules.get("daily_push_times", [])) if rules.enabled("daily") else "关闭"}\n'
+                '管理员可在 CS2 管理 → 订阅管理中编辑；单场提醒设置优先。')
+        return event.plain_result(text)
 
     @filter.command("cs状态")
     async def cmd_status(self, event: AstrMessageEvent) -> MessageEventResult:
@@ -2258,7 +2009,7 @@ class CSMatchPlugin(Star):
         test_str   = "✅ 已开启" if test_mode else "❌ 已关闭"
 
         return event.plain_result(
-            "⚙️ 【CS2 推送插件状态】\n"
+            "⚙️ 【CS2 默认配置与运行状态】\n"
             "━━━━━━━━━━━━━\n"
             f"📢 推送群：\n{group_str}\n"
             f"🕐 赛前提醒：{remind} 分钟前\n"
@@ -2270,7 +2021,8 @@ class CSMatchPlugin(Star):
             f"🧪 测试模式：{test_str}\n"
             f"🎯 测试目标：{test_target}\n"
             f"🔄 自动刷新：每 {self.store.get('fetch_interval_min') or self._fetch_interval} 分钟一次\n"
-            f"🌐 Web 面板：{self._web_panel_url()}"
+            f"🌐 Web 面板：{self._web_panel_url()}\n"
+            "本群独立规则请用 /cs群规则 查看。"
         )
 
     @filter.permission_type(filter.PermissionType.ADMIN)
@@ -2327,7 +2079,7 @@ class CSMatchPlugin(Star):
                 f"状态：{status}\n"
                 f"目标：{target}\n"
                 "说明：测试模式下可手动发送模拟推送，不影响正常赛程逻辑\n"
-                "配置：请在 Web 面板高级设置中填写测试 QQ 或群号\n"
+                "配置：请在 Web 面板推送设置中填写测试 QQ 或群号\n"
                 "指令：\n"
                 "  /cs测试 开            开启测试模式\n"
                 "  /cs测试 关            关闭测试模式\n"
@@ -2380,13 +2132,12 @@ class CSMatchPlugin(Star):
         if denied is not None:
             return denied
         try:
-            days = int(arg.strip()) if arg.strip() else 1
-            days = max(1, min(days, 7))
-        except ValueError:
-            days = 1
+            days = integer(arg.strip() or '1', 'days', 1, 30)
+        except ConfigError:
+            return event.plain_result('用法：/cs推送 [1–30天]，按各接收群规则发送。')
         if not self._scheduled:
             return event.plain_result("📭 当前没有已安排的比赛，请先发送 /cs刷新")
-        if not self._has_daily_matches_to_push(days):
+        if not self.has_daily_matches_to_push(days):
             return event.plain_result(f"📭 未来 {days} 天内没有可推送的已安排比赛，已跳过日报推送")
         self._create_background_task(self._do_instant_push(days), "cmd_push_now")
         return event.plain_result(f"✅ 已安排推送 {days} 天内的赛程日报，发送进度可在 Web 面板查看")
@@ -2408,7 +2159,7 @@ class CSMatchPlugin(Star):
             status_str = "✅ 开启" if enabled else "❌ 关闭"
             times_str  = "、".join(times)
             return event.plain_result(
-                f"📅 【每日定时推送配置】\n"
+                f"📅 【默认规则每日定时推送配置】\n"
                 f"━━━━━━━━━━━━━\n"
                 f"状态：{status_str}\n"
                 f"推送时间：{times_str}（CST）\n"
@@ -2424,13 +2175,13 @@ class CSMatchPlugin(Star):
 
         # /cs日报 开/关
         if arg in ("开", "on"):
-            self.store.set("daily_push_enabled", True)
+            self.store.import_config({"daily_push_enabled": True})
             times = "、".join(self.store.get("daily_push_times", ["08:00"]))
-            return event.plain_result(f"✅ 每日定时推送已开启\n推送时间：{times}（CST）")
+            return event.plain_result(f"✅ 默认规则每日定时推送已开启\n推送时间：{times}（CST）")
 
         if arg in ("关", "off"):
-            self.store.set("daily_push_enabled", False)
-            return event.plain_result("✅ 每日定时推送已关闭")
+            self.store.import_config({"daily_push_enabled": False})
+            return event.plain_result("✅ 默认规则每日定时推送已关闭")
 
         # /cs日报 预览
         if arg == "预览":
@@ -2450,7 +2201,7 @@ class CSMatchPlugin(Star):
                     pass
             if not valid:
                 return event.plain_result("格式错误，示例：/cs日报 时间 08:00 20:00")
-            self.store.set("daily_push_times", valid)
+            self.store.import_config({"daily_push_times": valid})
             return event.plain_result(f"✅ 已设置推送时间：{'、'.join(valid)}（CST）")
 
         # /cs日报 天数 N
@@ -2461,7 +2212,7 @@ class CSMatchPlugin(Star):
                 assert 1 <= n <= 7
             except Exception:
                 return event.plain_result("格式错误，示例：/cs日报 天数 2（1~7）")
-            self.store.set("daily_push_days", n)
+            self.store.import_config({"daily_push_days": n})
             self._schedule_daily_image_warm()
             return event.plain_result(f"✅ 已设置推送范围：{n} 天内的赛程")
 
@@ -2496,12 +2247,12 @@ class CSMatchPlugin(Star):
             )
 
         if arg in ("开", "on"):
-            self.store.set("tournament_announce_enabled", True)
+            self.store.import_config({"tournament_announce_enabled": True})
             hours = self.store.get("tournament_announce_hours", 2)
             return event.plain_result(f"✅ 赛事开幕通知已开启，将在开赛前 {hours} 小时推送")
 
         if arg in ("关", "off"):
-            self.store.set("tournament_announce_enabled", False)
+            self.store.import_config({"tournament_announce_enabled": False})
             return event.plain_result("✅ 赛事开幕通知已关闭")
 
         try:
@@ -2511,7 +2262,7 @@ class CSMatchPlugin(Star):
         except ValueError:
             return event.plain_result("格式错误，示例：/cs赛事提醒 2（1~24，单位小时）")
 
-        self.store.set("tournament_announce_hours", h)
+        self.store.import_config({"tournament_announce_hours": h})
         # 清理已安排的旧任务，让新设置生效
         for tid, task in list(self._tournament_tasks.items()):
             if not task.done():
@@ -2567,7 +2318,8 @@ class CSMatchPlugin(Star):
             "  /cs测试 开/关        开启或关闭测试模式\n"
             "  /cs测试 赛前/赛果/变更/开幕/日报/全部          发送测试消息\n"
             "  /cs状态              查看当前配置\n"
+            "  /cs群规则            查看本群规则（独立设置请用面板）\n"
             "  /cs帮助              显示此帮助\n"
             "━━━━━━━━━━━━━\n"
-            "⚙️ 建议优先在 AstrBot 的插件面板中配置（插件详情 → CS2 管理）。"
+            "⚙️ 管理命令修改默认规则；每群独立设置请在插件详情 → CS2 管理 → 订阅管理中编辑。"
         )

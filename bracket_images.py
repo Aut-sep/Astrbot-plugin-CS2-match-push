@@ -69,7 +69,7 @@ class BracketImages:
                    'stages': stages, 'local_marks': local}
         return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
 
-    async def _image(self, snapshot, stages, selected, token):
+    async def _image(self, snapshot, stages, selected, token, enabled=None):
         key = self._image_key(snapshot, stages)
 
         async def render(path):
@@ -80,7 +80,7 @@ class BracketImages:
 
         return await self.images.get(SLOTS[selected], key, render,
                                      lambda: token == self.plugin._token
-                                     and self.plugin.store.get('image_push_enabled', True))
+                                     and (self.plugin.store.get('image_push_enabled', True) if enabled is None else enabled))
 
     async def refresh(self, only_if_missing=False):
         async with self._refresh_lock:
@@ -109,21 +109,22 @@ class BracketImages:
             self.ready = PreparedBracket(snapshot, stages, data, token, enabled, time.monotonic())
             return True
 
-    async def get(self, selected):
+    async def get(self, selected, *, images_enabled=None):
         try:
-            return await self._get(selected)
+            return await self._get(selected, images_enabled=images_enabled)
         except (OSError, RuntimeError) as exc:
             raise ValueError('bracket image unavailable') from exc
 
-    async def _get(self, selected):
+    async def _get(self, selected, *, images_enabled=None):
         if not self._usable(check_stage=selected == 'current'):
             if not await self.refresh(only_if_missing=True):
                 raise ValueError('bracket preparation unavailable')
         ready = self.ready
-        if selected == 'current':
+        if selected == 'current' and images_enabled is None:
             return ready.snapshot, ready.stages, ready.data
         stages = selected_stages(ready.snapshot, selected)
-        data = await self._image(ready.snapshot, stages, selected, ready.token) if stages and ready.images else None
+        enabled = ready.images if images_enabled is None else images_enabled
+        data = await self._image(ready.snapshot, stages, selected, ready.token, enabled=images_enabled) if stages and enabled else None
         return ready.snapshot, stages, data
 
     async def run(self):

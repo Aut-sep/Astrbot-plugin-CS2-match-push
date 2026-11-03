@@ -1359,3 +1359,18 @@ dialog p {
   .page-header .identity h1 { font-size: 20px; }
   .page-header > label { display: flex; align-items: center; gap: 10px; }
 }
+
+/* Group rules use the same theme and save transaction as the main panel. */
+.group-rules-editor { margin-top: 20px; scroll-margin-top: 16px; }
+.group-rules-editor .padded { padding: 20px; }
+.rule-field { display: grid; grid-template-columns: minmax(190px, 0.8fr) minmax(220px, 1.2fr); gap: 16px; padding: 16px 0; border-top: 1px solid var(--border, #dde2ea); }
+.rule-field-heading { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.rule-field-heading label { font-weight: 600; }
+.rule-field input[type="text"], .rule-field input[type="number"], .rule-field select, .rule-copy select { max-width: 100%; width: 100%; padding: 9px 10px; background: var(--surface, #fff); color: var(--text, #212121); border: 1px solid var(--border, #dde2ea); border-radius: 8px; }
+.rule-field input:disabled, .rule-field select:disabled { opacity: .65; }
+.rule-copy { display: flex; align-items: end; gap: 10px; flex-wrap: wrap; margin: 16px 0; }
+.rule-copy .field { flex: 1; min-width: 180px; }
+.rule-team { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding: 6px 0; }
+.rule-team-list { margin-bottom: 10px; }
+.rule-tiers { padding: 0; margin: 0; }
+@media (max-width: 640px) { .rule-field { grid-template-columns: 1fr; gap: 10px; } .rule-field-heading { flex-direction: row; justify-content: space-between; align-items: center; } .rule-field-heading select { width: auto; max-width: 160px; } .rule-copy { align-items: stretch; } .rule-copy .button { flex: 1; } }

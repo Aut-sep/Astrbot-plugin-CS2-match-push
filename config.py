@@ -27,6 +27,7 @@ BOOLEAN_KEYS = {
     "reschedule_notify", "web_panel_enabled", "notify_all_followed",
     "daily_push_enabled", "tournament_announce_enabled", "image_push_enabled",
     "test_mode_enabled", "official_extension_enabled", "official_rich_replies",
+    "push_enabled", "upcoming_enabled", "finished_enabled",
 }
 STRING_KEYS = {"pandascore_token", "web_panel_token", "test_target_id", "push_platform_id"}
 STRING_LIST_KEYS = {"blacklist_teams", "blacklist_leagues"}
@@ -99,6 +100,25 @@ def validate_config(cfg: dict) -> dict:
     if not isinstance(cfg, dict):
         raise ConfigError("configuration must be a JSON object")
     result = {}
+    if "filter_mode" in cfg:
+        mode = string(cfg["filter_mode"], "filter_mode")
+        if mode not in {"tiers", "followed", "tiers_or_followed"}:
+            raise ConfigError("filter_mode must be tiers, followed or tiers_or_followed")
+        result["filter_mode"] = mode
+    if "group_rules" in cfg:
+        from .group_rules import RULE_KEYS
+        if not isinstance(cfg["group_rules"], dict):
+            raise ConfigError("group_rules must be an object")
+        rules = {}
+        for identity, overrides in cfg["group_rules"].items():
+            gid = message_target_id(identity, "group id")
+            if not isinstance(overrides, dict) or set(overrides) - RULE_KEYS:
+                raise ConfigError("group rule contains invalid fields")
+            # Missing keys inherit; null/false/[] must never be confused.
+            if any(value is None for value in overrides.values()):
+                raise ConfigError("remove a group rule key to inherit; null is not a value")
+            rules[gid] = validate_config(overrides)
+        result["group_rules"] = rules
     for key, bounds in INTEGER_RANGES.items():
         if key in cfg:
             result[key] = integer(cfg[key], key, *bounds)

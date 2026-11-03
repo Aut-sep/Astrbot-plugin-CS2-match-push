@@ -5,6 +5,7 @@ import base64
 
 from .config import ConfigError, integer, string
 from .formatters import fmt_daily_schedule
+from .group_rules import Rules
 
 
 async def build_preview(plugin, query):
@@ -17,6 +18,10 @@ async def build_preview(plugin, query):
     if not plugin._token:
         raise ConfigError("请先在当前板块配置数据源 Token")
 
+    gid = string(query.get('group_id', ''), 'group_id')
+    if gid and gid not in plugin.store.get_groups():
+        raise ConfigError('请选择已配置的接收群')
+    rules = Rules(plugin.store, gid or None)
     if kind == "bracket":
         from .bracket_data import format_bracket
 
@@ -24,7 +29,7 @@ async def build_preview(plugin, query):
         allowed = {"current", "all", "swiss", "knockout", "stage1", "stage2", "stage3"}
         if stage not in allowed:
             raise ConfigError("未知 CS Major 阶段")
-        snapshot, stages, image = await plugin.bracket_images.get(stage)
+        snapshot, stages, image = await plugin.bracket_images.get(stage, images_enabled=rules.get("image_push_enabled", True))
         if snapshot is None:
             raise ConfigError("对阵数据暂不可用，请稍后重试")
         if not stages:
@@ -41,12 +46,12 @@ async def build_preview(plugin, query):
         if match_id:
             match_id = str(integer(match_id, "match_id", 1))
         from .cs_results import preview_results
-        return await preview_results(plugin, query.get("days", 3), match_id)
+        return await preview_results(plugin, query.get("days", 3), match_id, rules=rules)
 
     days = integer(query.get("days", 3), "days", 1, 30)
-    matches = [plugin._match_with_snapshot_names(match) for match in plugin._scheduled]
+    matches = [plugin._match_with_snapshot_names(match) for match in plugin._scheduled if rules.accepts(match)]
     return {
-        "text": fmt_daily_schedule(matches, plugin.store.get_followed_team_names(), days),
+        "text": fmt_daily_schedule(matches, rules.get_followed_team_names(), days),
         "note": "使用已获取且符合筛选条件的赛程；按北京时间自然日计算。此处预览文字内容，实际发送沿用已保存的图片或文字样式。",
     }
 

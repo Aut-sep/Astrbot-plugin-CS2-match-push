@@ -8,19 +8,9 @@ from .formatters import CST, fmt_time, match_tier, now_utc, parse_dt, sched_str,
 
 
 def accepts_result(store, match):
-    names = [team_name(match, index).lower() for index in range(2)]
-    if any(word.lower() in name for word in store.get("blacklist_teams", []) for name in names):
-        return False
-    league = ((match.get("league") or {}).get("name") or "").lower()
-    if any(word.lower() in league for word in store.get("blacklist_leagues", [])):
-        return False
-    ids = {str((slot.get("opponent") or {}).get("id")) for slot in match.get("opponents") or []}
-    followed = any(
-        str(team["id"]) in ids if team.get("id") is not None
-        else str(team.get("name", "")).lower() in names
-        for team in store.get_followed_teams()
-    )
-    return match_tier(match) in store.get_min_tiers() or (followed and store.get("notify_all_followed", True))
+    from .group_rules import Rules
+    rules = store if isinstance(store, Rules) else Rules(store)
+    return rules.accepts(match)
 
 
 def format_results(matches, label):
@@ -45,7 +35,7 @@ def format_results(matches, label):
     return "\n".join(lines).rstrip()
 
 
-async def preview_results(plugin, days=3, match_id=""):
+async def preview_results(plugin, days=3, match_id="", *, rules=None):
     days = integer(days, "days", 1, 30)
     if match_id:
         identity = integer(match_id, "match_id", 1)
@@ -63,8 +53,8 @@ async def preview_results(plugin, days=3, match_id=""):
             raise ConfigError("CS 赛果获取失败，请稍后重试")
         rows = [match for match in rows if match.get("status") == "finished"]
         label = f"近 {days} 天"
-    rows = [match for match in rows if accepts_result(plugin.store, match)]
+    rows = [match for match in rows if accepts_result(rules or plugin.store, match)]
     return {
         "text": format_results(rows, label),
-        "note": "沿用 CS 板块已保存的赛事级别、关注优先和黑名单；查询只在网页展示，不触发群推送。",
+        "note": "沿用选定的默认或群规则；查询只展示结果，不触发群推送。",
     }

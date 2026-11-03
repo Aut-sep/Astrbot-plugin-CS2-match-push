@@ -1,4 +1,5 @@
 import { createSetupGuide } from './setup.js';
+import { createGroupRuleEditor } from './group-rules.js';
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const gameLabel = "CS2";
@@ -44,6 +45,7 @@ let pollTimer;
 let refreshTimer;
 let searchSequence = 0;
 let setupGuide;
+let groupRuleEditor;
 
 async function api(path, method = "GET", body, query = {}) {
   let result;
@@ -149,6 +151,7 @@ function editSubscriptions(edit) {
   state.subscriptionsDraft ||= structuredClone({
     push_groups: state.config.push_groups || [],
     followed_teams: state.config.followed_teams || [],
+    group_rules: state.config.group_rules || {},
   });
   edit(state.subscriptionsDraft);
   renderSubscriptions();
@@ -205,6 +208,7 @@ function formValues(section) {
       url: $(".stream-url", row).value.trim(),
     }));
   }
+  if (section === "subscriptions") values.group_rules = structuredClone(subscriptionValues().group_rules || {});
   return values;
 }
 
@@ -305,6 +309,7 @@ function renderOfficialPlatforms(platforms, note) {
 
 async function saveSection() {
   if (state.saving || !state.dirty.size) return;
+  groupRuleEditor.validate();
   const sections = [...state.dirty];
   const values = {};
   for (const section of sections) {
@@ -353,7 +358,7 @@ function renderPushSummary() {
   const cfg = state.config;
   $("#push-target-summary").textContent = `${cfg.push_groups?.length || 0} 个接收群`;
   $("#push-format-summary").textContent = cfg.image_push_enabled ? "图片 + 战队标识" : "文字 + 直播链接";
-  $("#push-rule-summary").textContent = `赛前 ${cfg.remind_minutes || 10} 分钟 · ${cfg.daily_push_enabled ? "日报已开启" : "日报已关闭"}`;
+  $("#push-rule-summary").textContent = `默认赛前 ${cfg.remind_minutes || 10} 分钟 · ${cfg.daily_push_enabled ? "默认日报已开启" : "默认日报已关闭"}`;
   const missing = [];
   if (!state.tokenConfigured) missing.push("尚未配置数据源 Token，请在高级维护中填写");
   if (!cfg.push_groups?.length) missing.push("尚未配置接收群，请在订阅管理中添加");
@@ -384,7 +389,7 @@ async function previewTool(kind, overrides = {}) {
   panel.setAttribute("aria-busy", "true");
   try {
     const result = await api("/api/tools/preview", "GET", undefined, {
-      kind, days, stage: $("#tool-stage").value, match_id: matchId,
+      kind, days, stage: $("#tool-stage").value, match_id: matchId, group_id: $('#tool-rule-group').value,
     });
     if (sequence !== previewSequence) return;
     $("#tool-preview-text").textContent = result.text || "暂无可展示内容。";
@@ -613,7 +618,11 @@ function renderMatches() {
       const minutes = Number(
         match._remind_min ?? state.config.remind_minutes ?? 10,
       );
-      return `<article class="match-row"><div class="match-time"><strong>${escaped(date)}</strong><small>${escaped(time)}${time ? " 北京时间" : ""}</small></div><div class="match-body"><div class="match-title">${matchTeam(match, 0)}<span class="versus">vs</span>${matchTeam(match, 1)}${isFollowed(match) ? '<span class="follow-indicator">已关注</span>' : ""}</div><div class="match-subtitle"><span>${escaped(match.league?.name || "未知赛事")}</span><span>·</span><span>${escaped(tier === "UNRANKED" ? "未定级" : `${tier} 级`)}</span><span>·</span><span>BO${escaped(match.number_of_games || 1)}</span>${kind === "upcoming" ? `<span>·</span><span>提前 ${minutes} 分钟${custom ? " · 自定义" : ""}</span>` : ""}</div>${match._task_status === "polling_result" ? `<div class="match-note">正在查询赛果${match._attempt != null ? ` · 已查询 ${escaped(match._attempt)} 次` : ""}</div>` : ""}${[teamName(match, 0), teamName(match, 1)].includes("TBD") ? '<div class="match-note">参赛队伍待确认，确认后自动调整提醒。</div>' : ""}</div><div class="match-side"><span class="badge ${kind === "finished" ? "green" : kind === "live" ? "blue" : ""}">${status}</span><details class="match-actions"><summary aria-label="比赛操作">⋯</summary><div>${kind === "upcoming" ? `<button type="button" data-match-edit="${mid}">调整提醒时间</button>` : ""}<button type="button" data-match-rebuild="${mid}">重建比赛任务</button></div></details></div></article>`;
+      const reminders = match._group_reminders;
+      const detail = reminders?.map(item => `群 ${item.group_id}：提前 ${item.minutes} 分钟${item.sent ? '（已提醒）' : ''}`).join('；') || '';
+      const distinct = [...new Set((reminders || []).map(item => item.minutes))];
+      const reminderLabel = custom ? `提前 ${minutes} 分钟 · 单场覆盖` : reminders == null ? `默认提前 ${minutes} 分钟` : !reminders.length ? '未开启赛前提醒' : distinct.length === 1 ? `${reminders.length} 群提前 ${distinct[0]} 分钟` : `按群提醒 · ${Math.min(...distinct)}～${Math.max(...distinct)} 分钟`;
+      return `<article class="match-row"><div class="match-time"><strong>${escaped(date)}</strong><small>${escaped(time)}${time ? " 北京时间" : ""}</small></div><div class="match-body"><div class="match-title">${matchTeam(match, 0)}<span class="versus">vs</span>${matchTeam(match, 1)}${isFollowed(match) ? '<span class="follow-indicator">已关注</span>' : ""}</div><div class="match-subtitle"><span>${escaped(match.league?.name || "未知赛事")}</span><span>·</span><span>${escaped(tier === "UNRANKED" ? "未定级" : `${tier} 级`)}</span><span>·</span><span>BO${escaped(match.number_of_games || 1)}</span>${kind === "upcoming" ? `<span>·</span><span title="${escaped(detail)}">${escaped(reminderLabel)}</span>` : ""}</div>${match._task_status === "polling_result" ? `<div class="match-note">正在查询赛果${match._attempt != null ? ` · 已查询 ${escaped(match._attempt)} 次` : ""}</div>` : ""}${[teamName(match, 0), teamName(match, 1)].includes("TBD") ? '<div class="match-note">参赛队伍待确认，确认后自动调整提醒。</div>' : ""}</div><div class="match-side"><span class="badge ${kind === "finished" ? "green" : kind === "live" ? "blue" : ""}">${status}</span><details class="match-actions"><summary aria-label="比赛操作">⋯</summary><div>${kind === "upcoming" ? `<button type="button" data-match-edit="${mid}">调整提醒时间</button>` : ""}<button type="button" data-match-rebuild="${mid}">重建比赛任务</button></div></details></div></article>`;
     })
     .join("");
 }
@@ -648,7 +657,7 @@ function renderSubscriptions() {
     ? groups
         .map(
           (gid) =>
-            `<div class="item-row"><div class="item-name"><span class="item-avatar" aria-hidden="true">群</span><strong>${escaped(gid)}</strong></div><button type="button" class="button ghost" data-group-remove="${escaped(gid)}" aria-label="移除群组 ${escaped(gid)}">移除</button></div>`,
+            `<div class="item-row"><div class="item-name"><span class="item-avatar" aria-hidden="true">群</span><div><strong>${escaped(gid)}</strong><small>${escaped(groupRuleEditor?.summary(gid) || '继承默认规则')}</small></div></div><button type="button" class="button" data-group-edit="${escaped(gid)}">编辑规则</button><button type="button" class="button ghost" data-group-remove="${escaped(gid)}" aria-label="移除群组 ${escaped(gid)}">移除</button></div>`,
         )
         .join("")
     : '<div class="empty compact">还没有推送群组，添加后接收比赛消息。</div>';
@@ -660,6 +669,7 @@ function renderSubscriptions() {
         })
         .join("")
     : '<div class="empty compact">还没有关注战队，搜索战队开始关注。</div>';
+  groupRuleEditor?.render();
   renderMatches();
 }
 
@@ -831,9 +841,11 @@ function installEvents() {
   document.addEventListener("click", (event) => {
     const button = event.target.closest("button");
     if (!button) return;
+    if (button.hasAttribute("data-group-edit")) groupRuleEditor.select(button.dataset.groupEdit);
     if (button.hasAttribute("data-group-remove"))
       editSubscriptions(draft => {
         draft.push_groups = draft.push_groups.filter(gid => String(gid) !== button.dataset.groupRemove);
+        delete draft.group_rules[button.dataset.groupRemove];
       });
     if (button.hasAttribute("data-team-remove"))
       editSubscriptions(draft => { draft.followed_teams.splice(Number(button.dataset.teamRemove), 1); });
@@ -888,16 +900,18 @@ function installEvents() {
         throw new Error("请先保存全部修改，再立即推送。");
       if (!state.config.push_groups?.length)
         throw new Error("请先在订阅管理中添加推送群组。");
-      const days = Number(state.config.daily_push_days || 1);
+      const gid = $('#push-rule-group').value;
+      const days = Number($('#push-now-days').value);
+      if (!Number.isInteger(days) || days < 1 || days > 30) throw new Error('推送天数应为 1～30 的整数。');
       if (
         !(await dialog(
           "立即推送赛程",
-          `将未来 ${days} 天的赛程发送到全部 ${state.config.push_groups.length} 个推送群组。`,
+          `将未来 ${days} 天的赛程发送到${gid ? '群 ' + gid : '全部启用的接收群'}，各群按本群规则筛选。`,
           { confirm: "确认推送" },
         ))
       )
         return;
-      const result = await api("/api/push_now", "POST", { days });
+      const result = await api("/api/push_now", "POST", { days, group_id: gid });
       toast(
         result.skipped
           ? "当前没有符合条件的比赛，无需推送。"
@@ -922,7 +936,7 @@ function installEvents() {
         ))
       )
         return;
-      const result = await api("/api/test", "POST", { action, days });
+      const result = await api("/api/test", "POST", { action, days, group_id: $("#test-rule-group").value });
       toast(result.msg || "测试消息已发送。");
       await loadLogs();
     }),
@@ -991,7 +1005,7 @@ async function editMatch(mid) {
     `${teamName(match, 0)} vs ${teamName(match, 1)}\n仅调整这一场比赛。`,
     {
       confirm: "保存提醒",
-      fields: `<label class="field">提前提醒（分钟）<input type="number" name="minutes" value="${minutes}" min="1" max="120" required></label><label class="inline-check" style="margin-top:14px"><input type="checkbox" name="useGlobal">使用全局提醒设置（${escaped(state.config.remind_minutes)} 分钟）</label>`,
+      fields: `<label class="field">提前提醒（分钟）<input type="number" name="minutes" value="${minutes}" min="1" max="120" required></label><label class="inline-check" style="margin-top:14px"><input type="checkbox" name="useGlobal">恢复各群的提醒设置（默认 ${escaped(state.config.remind_minutes)} 分钟）</label>`,
     },
   );
   if (!result) return;
@@ -1126,4 +1140,9 @@ async function initialize() {
   );
 }
 
+groupRuleEditor = createGroupRuleEditor({
+  getConfig: () => state.config, getDraft: subscriptionValues,
+  getDefaults: () => state.ready ? { ...state.config, ...formValues('subscriptions'), ...formValues('push') } : state.config,
+  edit: editSubscriptions, api, run, dialog, escape: escaped,
+});
 initialize();

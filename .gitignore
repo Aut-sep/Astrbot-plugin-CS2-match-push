@@ -6,7 +6,6 @@ __pycache__/
 github_token
 .codex
 .codex/
-tests/
 .github/
 .env
 .env.*

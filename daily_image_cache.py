@@ -50,16 +50,16 @@ class DailyImageCache:
     def __init__(self, directory: Path, max_windows: int = 30):
         self.directory = Path(directory)
         self.max_windows = max_windows
-        self._entries: OrderedDict[int, CachedImage] = OrderedDict()
+        self._entries: OrderedDict[int | str, CachedImage] = OrderedDict()
         self._lock = asyncio.Lock()
 
     @property
-    def windows(self) -> tuple[int, ...]:
+    def windows(self) -> tuple[int | str, ...]:
         return tuple(self._entries)
 
     async def get(
         self,
-        days: int,
+        days: int | str,
         key: str,
         render: Callable[[str], Awaitable[None]],
         is_current: Callable[[], bool],

@@ -150,6 +150,7 @@ class WebPanel:
         a.add_get("/",                          self.index)
         a.add_get("/app.js",                    self.asset)
         a.add_get("/setup.js",                  self.asset)
+        a.add_get("/group-rules.js",            self.asset)
         a.add_get("/style.css",                 self.asset)
         a.add_get("/api/config",                self.get_config)
         a.add_patch("/api/config",              self.patch_config)
@@ -278,7 +279,7 @@ class WebPanel:
                 await self.plugin.reload_runtime_config()
             filters = {
                 "min_tiers", "blacklist_teams", "blacklist_leagues",
-                "notify_all_followed", "followed_teams",
+                "notify_all_followed", "followed_teams", "filter_mode", "group_rules", "push_groups", "push_enabled", "upcoming_enabled", "finished_enabled",
             }
             if changed & (filters | {"remind_minutes", "custom_remind_minutes"}):
                 self.plugin.rebuild_all_match_tasks()
@@ -357,9 +358,12 @@ class WebPanel:
         """立即推送赛程到所有群"""
         body = await self._body(req, allow_empty=True)
         days = integer(body.get("days", 1), "days", 1, 30)
-        if not self.plugin.has_daily_matches_to_push(days):
+        gid = string(body.get('group_id', ''), 'group_id')
+        if gid and gid not in self.plugin.store.get_groups():
+            raise ConfigError('请选择已配置的接收群')
+        if not self.plugin.has_daily_matches_to_push(days, group_id=gid or None):
             return self._json({"ok": True, "skipped": True, "msg": "no matches to push"})
-        self.plugin.schedule_instant_push(days, "web_push_now")
+        self.plugin.schedule_instant_push(days, "web_push_now", group_id=gid or None)
         return self._json({"ok": True})
 
     async def send_test(self, req):
@@ -373,8 +377,13 @@ class WebPanel:
         valid = {"赛前", "赛果", "变更", "开幕", "日报", "全部"}
         if action not in valid:
             return self._json({"ok": False, "msg": "未知测试动作"}, 400)
+        gid = string(body.get('group_id', ''), 'group_id')
+        if gid and gid not in self.plugin.store.get_groups():
+            raise ConfigError('请选择已配置的接收群')
+        from .group_rules import Rules, scope
         try:
-            msg = await self.plugin.run_test_push(action, days)
+            with scope(Rules(self.plugin.store, gid or None)):
+                msg = await self.plugin.run_test_push(action, days)
         except DeliveryError as exc:
             return self._json({"ok": False, "msg": str(exc)}, 502)
         return self._json({"ok": True, "msg": msg})

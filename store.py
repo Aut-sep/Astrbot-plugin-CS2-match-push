@@ -10,12 +10,12 @@ import os
 import shutil
 import tempfile
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from astrbot.api import logger
 
-from .config import validate_config
+from .config import ConfigError, validate_config
 from .official_extension import DEFAULT_FEATURES
 
 
@@ -41,6 +41,12 @@ class DataStore:
         "pandascore_token":           "",
         "followed_teams":              [],
         "push_groups":                 [],
+        "group_rules":                 {},
+        "group_rule_since":            {},
+        "notification_targets":        {},
+        "push_enabled":                True,
+        "upcoming_enabled":            True,
+        "finished_enabled":            True,
         "push_platform_id":            "",  # 多个 QQ 适配器时指定 AstrBot 平台 ID
         "official_extension_enabled": False,
         "official_platform_ids":       [],
@@ -162,20 +168,19 @@ class DataStore:
             team = {"id": team_id, "name": name, "slug": slug}
             if image_url:
                 team["image_url"] = image_url
-            self._data["followed_teams"].append(team)
-            self.save()
+            self.import_config({'followed_teams': [*self._data['followed_teams'], team]})
             return True
         return False
 
     def unfollow_team(self, team_id: int) -> bool:
         """按 ID 取消关注"""
         before = len(self._data["followed_teams"])
-        self._data["followed_teams"] = [
+        remaining = [
             t for t in self._data["followed_teams"]
             if not (isinstance(t, dict) and t.get("id") == team_id)
         ]
-        if len(self._data["followed_teams"]) < before:
-            self.save()
+        if len(remaining) < before:
+            self.import_config({'followed_teams': remaining})
             return True
         return False
 
@@ -185,8 +190,7 @@ class DataStore:
         remaining = [t for t in teams if not (isinstance(t, str) and t == name)]
         if len(remaining) == len(teams):
             return False
-        self._data["followed_teams"] = remaining
-        self.save()
+        self.import_config({'followed_teams': remaining})
         return True
 
     def get_followed_teams(self) -> list:
@@ -217,6 +221,7 @@ class DataStore:
     def add_group(self, gid: str) -> bool:
         if gid not in self._data["push_groups"]:
             self._data["push_groups"].append(gid)
+            self._data['group_rule_since'][gid] = datetime.now(timezone.utc).isoformat()
             self.save()
             return True
         return False
@@ -224,6 +229,8 @@ class DataStore:
     def remove_group(self, gid: str) -> bool:
         if gid in self._data["push_groups"]:
             self._data["push_groups"].remove(gid)
+            self._data['group_rules'].pop(str(gid), None)
+            self._data['group_rule_since'].pop(str(gid), None)
             self.save()
             return True
         return False
@@ -234,8 +241,7 @@ class DataStore:
     # ── 提醒时间 ──────────────────────────
 
     def set_remind_minutes(self, m: int):
-        self._data["remind_minutes"] = m
-        self.save()
+        self.import_config({'remind_minutes': m})
 
     def get_remind_minutes(self) -> int:
         return self._data.get("remind_minutes", 10)
@@ -258,7 +264,8 @@ class DataStore:
             self.save()
 
     def clear_upcoming_notified(self, mid: int):
-        changed = self._data["delivery_receipts"].pop(f"upcoming:{mid}", None) is not None
+        changed = self._data['notification_targets'].pop(f'upcoming:{mid}', None) is not None
+        changed = (self._data["delivery_receipts"].pop(f"upcoming:{mid}", None) is not None) or changed
         if mid in self._data["notified_upcoming"]:
             self._data["notified_upcoming"].remove(mid)
             changed = True
@@ -295,11 +302,26 @@ class DataStore:
     def clear_match_notifications(self):
         self._data["notified_upcoming"] = []
         self._data["notified_finished"] = []
+        self._data['notification_targets'] = {
+            key: value for key, value in self._data['notification_targets'].items()
+            if not key.startswith(('upcoming:', 'finished:', 'reschedule:'))}
         self._data["delivery_receipts"] = {
             key: targets for key, targets in self._data["delivery_receipts"].items()
             if not key.startswith(("upcoming:", "finished:", "reschedule:"))
         }
         self.save()
+
+    def freeze_targets(self, key, groups):
+        """Persist the original audience; retries never append newly joined groups."""
+        targets = self._data['notification_targets']
+        if key not in targets:
+            targets[key] = list(dict.fromkeys(str(gid) for gid in groups))
+            try:
+                self.save()
+            except Exception:
+                targets.pop(key, None)
+                raise
+        return list(targets[key])
 
     def get_delivery_targets(self, key: str) -> set[str]:
         """读取事件已成功发送的目标，防止部分目标失败时重复通知。"""
@@ -388,6 +410,7 @@ class DataStore:
     def _prune_delivery_receipts(self, kind: str, expired_ids: list):
         for event_id in expired_ids:
             self._data["delivery_receipts"].pop(f"{kind}:{event_id}", None)
+            self._data['notification_targets'].pop(f'{kind}:{event_id}', None)
             if kind == "upcoming":
                 receipts = self._data["delivery_receipts"]
                 for key in list(receipts):
@@ -446,8 +469,7 @@ class DataStore:
         return self._data.get("reschedule_notify", True)
 
     def set_reschedule_notify(self, enabled: bool):
-        self._data["reschedule_notify"] = enabled
-        self.save()
+        self.import_config({'reschedule_notify': enabled})
 
     # ── 赛事开幕通知去重 ──────────────────
 
@@ -492,6 +514,8 @@ class DataStore:
         d.pop("delivery_receipts", None)
         d.pop("daily_push_events", None)
         d.pop("daily_push_payloads", None)
+        d.pop("notification_targets", None)
+        d.pop("group_rule_since", None)
         return d
 
     def import_config(self, cfg: dict):
@@ -499,6 +523,22 @@ class DataStore:
         normalized = validate_config(cfg)
         previous = self._data
         self._data = {**previous, **deepcopy(normalized)}
+        from .group_rules import Rules
+        groups = {str(gid) for gid in self.get_groups()}
+        # Validate complete imports, not just the order of individual fields.
+        if 'push_groups' in normalized and 'group_rules' not in normalized:
+            self._data['group_rules'] = {gid: value for gid, value in self._data['group_rules'].items() if gid in groups}
+        if set(self._data['group_rules']) - groups:
+            self._data = previous
+            raise ConfigError('群规则只能绑定已经配置的接收群')
+        since = deepcopy(previous['group_rule_since'])
+        now = datetime.now(timezone.utc).isoformat()
+        old_view = type('Stored', (), {'get': lambda _, key, default=None: previous.get(key, default)})()
+        for gid in groups:
+            if gid not in {str(value) for value in previous['push_groups']} or Rules(old_view, gid).values != Rules(self, gid).values:
+                since[gid] = now
+        self._data['group_rule_since'] = {gid: value for gid, value in since.items() if gid in groups}
+        self._data['group_rules'] = {gid: value for gid, value in self._data['group_rules'].items() if gid in groups}
         try:
             self.save()
         except Exception:
