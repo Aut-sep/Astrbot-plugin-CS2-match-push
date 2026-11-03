@@ -1,155 +1,114 @@
-"""Game-hub-inspired Swiss record board, rendered locally with Pillow."""
-from PIL import Image, ImageDraw, ImageStat
+"""Swiss record groups, with outcomes attached to the deciding match groups."""
 from .bracket_data import bracket_team_name
 from .team_logos import normalize_name
 from .swiss_data import CAPACITY
-
-BG, PANEL, ROW = '#0b1420', '#172536', '#0e1b2b'
-INK, MUTED, GREEN, RED = '#edf3fa', '#98aabd', '#53d6a4', '#ed7b87'
+from .major_theme import MajorTheme, PANEL, ROW, INK, MUTED, FAINT, GOLD, GREEN, RED, LINE
 
 
-class SwissRenderer:
-    WIDTH, PAD, CELL, GAP, ROW_H, HEAD = 1840, 40, 304, 60, 42, 48
-    STACKS = (('0-0',), ('1-0', '0-1'), ('3-0', '2-0', '1-1', '0-2', '0-3'),
-              ('3-1', '2-1', '1-2', '1-3'), ('3-2', '2-2', '2-3'))
-
-    def __init__(self, shared):
-        self.shared = shared
-
-    def text(self, draw, value, x, y, size=16, color=INK, center=False, width=None):
-        value = str(value)
-        font = (self.shared._fit_banner_font(draw, value, width, size, max(10, size-4))
-                if width else self.shared._pick_banner_font(size))
-        if width and draw.textbbox((0, 0), value, font=font)[2] > width:
-            while value and draw.textbbox((0, 0), value+'…', font=font)[2] > width:
-                value = value[:-1]
-            value += '…'
-        self.shared._draw_card_text(draw, value, x, y, font, color, centered=center)
-
-    def mark(self, image, draw, team, x, y, marks, size=24):
-        name = str(team.get('name') or '')
-        data = marks.get(normalize_name(name)) or marks.get(normalize_name(team.get('acronym')))
-        logo = self.shared._notification_logo(data.get('image') if data else None, size)
-        if logo is not None:
-            channels=ImageStat.Stat(logo.convert('RGB'),mask=logo.getchannel('A')).mean
-            brightness=sum(value*weight for value,weight in zip(channels,(0.2126,0.7152,0.0722)))
-            if brightness<70 and max(channels)<100:
-                draw.rounded_rectangle((x-2,y-2,x+size+2,y+size+2),radius=4,fill='#c9d3df')
-            image.paste(logo, (int(x+(size-logo.width)/2), int(y+(size-logo.height)/2)), logo)
-        else:
-            draw.ellipse((x+2, y+2, x+size-2, y+size-2), fill='#2a3b4f')
-            self.text(draw, '?' if not name else name[:1].upper(), x+size/2, y+5, 12, MUTED, True)
+class SwissRenderer(MajorTheme):
+    WIDTH, PAD, CELL, GAP, ROW_H, HEAD = 2040, 40, 360, 40, 48, 62
+    # Terminal bands belong visually to the groups which decide those outcomes.
+    STACKS = ((('0-0',),), (('1-0',), ('0-1',)),
+              (('3-0', '2-0'), ('1-1',), ('0-2', '0-3')),
+              (('3-1', '2-1'), ('1-2', '1-3')), (('3-2', '2-2', '2-3'),))
 
     def group_height(self, group):
-        return 96 if group['terminal'] else self.HEAD+max(CAPACITY[group['record']], len(group['matches']))*self.ROW_H+8
+        return 98 if group['terminal'] else self.HEAD+max(CAPACITY[group['record']], len(group['matches']))*self.ROW_H+38
 
     def positions(self, groups, top):
-        heights = [sum(self.group_height(groups[key]) for key in stack)+22*(len(stack)-1)
-                   for stack in self.STACKS]
+        heights = [sum(self.group_height(groups[r]) for pack in column for r in pack)+24*(len(column)-1)
+                   for column in self.STACKS]
         height = max(heights)
-        result = {}
+        positions, packs = {}, []
         for column, stack in enumerate(self.STACKS):
-            y = top+(height-heights[column])//2
-            for record in stack:
-                h = self.group_height(groups[record])
-                result[record] = (self.PAD+column*(self.CELL+self.GAP), y, h)
-                y += h+22
-        return result, height
-
-    def flow(self, draw, source, target, color, *, terminal=False):
-        sx, sy, sh = source
-        tx, ty, th = target
-        if terminal:
-            x = sx+self.CELL/2
-            start, end = ((x, sy), (x, ty+th)) if ty < sy else ((x, sy+sh), (x, ty))
-            draw.line((start, end), fill=color, width=2)
-            direction = -1 if ty < sy else 1
-            draw.polygon([(end[0], end[1]), (end[0]-4, end[1]-direction*6),
-                          (end[0]+4, end[1]-direction*6)], fill=color)
-            return
-        # These are record-group routes, not claimed future match pairings.
-        start = (sx+self.CELL, sy+sh*(0.35 if color==GREEN else 0.65))
-        end = (tx, ty+th/2)
-        middle = start[0]+self.GAP*(0.35 if color==GREEN else 0.65)
-        draw.line([start,(middle,start[1]),(middle,end[1]),end],fill=color,width=2)
-        draw.polygon([(end[0],end[1]),(end[0]-7,end[1]-4),(end[0]-7,end[1]+4)],fill=color)
+            x, y = self.PAD+column*(self.CELL+self.GAP), top+(height-heights[column])//2
+            for pack in stack:
+                pack_height = sum(self.group_height(groups[r]) for r in pack)
+                packs.append((x, y, pack_height))
+                for record in pack:
+                    h = self.group_height(groups[record])
+                    positions[record] = (x, y, h)
+                    y += h
+                y += 24
+        return positions, packs, height
 
     def match_row(self, image, draw, match, x, y, marks):
-        draw.rounded_rectangle((x+7,y,x+self.CELL-7,y+35),radius=5,fill=ROW)
+        draw.rounded_rectangle((x+8, y, x+self.CELL-8, y+42), radius=5, fill=ROW)
         teams = [(slot.get('opponent') or {}) for slot in (match or {}).get('opponents') or []][:2]
         teams += [{}]*(2-len(teams))
-        scores = {str(r.get('team_id')):r.get('score') for r in (match or {}).get('results') or []}
+        scores = {str(r.get('team_id')): r.get('score') for r in (match or {}).get('results') or []}
         winner = (match or {}).get('winner_id') or ((match or {}).get('winner') or {}).get('id')
         status = (match or {}).get('status')
         if status == 'running':
-            draw.rectangle((x+7,y+4,x+10,y+31),fill='#f5bd62')
+            draw.rounded_rectangle((x+8, y+9, x+11, y+33), radius=1, fill=GOLD)
         for index, team in enumerate(teams):
-            icon_x = x+15 if index==0 else x+self.CELL-39
-            self.mark(image,draw,team,icon_x,y+5,marks)
-            label = bracket_team_name(team)
-            won = status=='finished' and winner is not None and str(team.get('id'))==str(winner)
-            color = GREEN if won else MUTED if status=='finished' else INK
-            self.text(draw,label,x+45 if index==0 else x+self.CELL-48,y+10,15,color,
-                      width=79,center=False) if index==0 else self.text(draw,label,x+222,y+10,15,color,True,width=83)
-        left,right=(scores.get(str(team.get('id'))) for team in teams)
-        show=status in ('running','finished') and all(isinstance(v,int) and not isinstance(v,bool) for v in (left,right))
-        middle=f'{left}:{right}' if show else 'VS'
-        self.text(draw,middle,x+self.CELL/2,y+9,17,'#f5bd62' if status=='running' else INK,True)
+            self.mark(image, draw, team, x+17 if index == 0 else x+self.CELL-45, y+7, marks)
+            won = status == 'finished' and winner is not None and str(team.get('id')) == str(winner)
+            color = GREEN if won else MUTED if status == 'finished' or not team else INK
+            self.text(draw, bracket_team_name(team), x+99 if index == 0 else x+261,
+                      y+13, 15, color, True, width=96)
+        left, right = (scores.get(str(team.get('id'))) for team in teams)
+        show = status in ('running', 'finished') and all(isinstance(v, int) and not isinstance(v, bool) and v >= 0 for v in (left, right))
+        draw.rounded_rectangle((x+154, y+7, x+206, y+35), radius=4, fill='#2b3540')
+        self.text(draw, f'{left} : {right}' if show else 'VS', x+180, y+12,
+                  16 if show else 13, GOLD if status == 'running' else INK if show else MUTED, True)
 
-    def group(self,image,draw,group,position,marks):
-        x,y,height=position
-        record=group['record']
-        terminal=group['terminal']
-        accent=GREEN if record.startswith('3-') else RED if record.endswith('-3') else '#8298b1'
-        draw.rounded_rectangle((x,y,x+self.CELL,y+height),radius=8,fill=PANEL,outline='#2b3e53')
-        if terminal:
-            self.text(draw,f"{record}  {'晋级' if record.startswith('3-') else '淘汰'}",x+self.CELL/2,y+9,19,accent,True)
-            count=max(group['capacity'],len(group['teams']))
+    def group(self, image, draw, group, position, marks):
+        x, y, height = position
+        record = group['record']
+        if group['terminal']:
+            advanced = record.startswith('3-')
+            color = GREEN if advanced else RED
+            draw.rounded_rectangle((x+8, y+8, x+self.CELL-8, y+height-8), radius=5,
+                                   fill='#1a3532' if advanced else '#34292f')
+            self.text(draw, record+'  /  '+('晋级' if advanced else '淘汰'), x+self.CELL/2, y+16, 15, color, True)
+            count = max(group['capacity'], len(group['teams']))
             for index in range(count):
-                team=group['teams'][index] if index<len(group['teams']) else {}
-                center=x+(index+0.5)*self.CELL/count
-                self.mark(image,draw,team,center-12,y+37,marks)
-                self.text(draw,bracket_team_name(team),center,y+68,12,MUTED,True,width=self.CELL/count-8)
+                team = group['teams'][index] if index < len(group['teams']) else {}
+                center = x+8+(index+0.5)*(self.CELL-16)/count
+                self.mark(image, draw, team, center-14, y+40, marks)
+                self.text(draw, bracket_team_name(team), center, y+73, 12, MUTED, True, width=(self.CELL-16)/count-10)
             return
-        wins,losses=map(int,record.split('-'))
-        category='晋级战' if wins==2 else '淘汰战' if losses==2 else '同战绩对阵'
-        if wins==losses==2:category='晋级 / 淘汰'
-        self.text(draw,record,x+16,y+12,24)
-        self.text(draw,category,x+self.CELL-16-82,y+18,13,GREEN if wins==2 else RED if losses==2 else MUTED)
-        count=max(CAPACITY[record],len(group['matches']))
+        wins, losses = map(int, record.split('-'))
+        category = '晋级 / 淘汰' if wins == losses == 2 else '晋级战' if wins == 2 else '淘汰战' if losses == 2 else '赛前战绩'
+        self.text(draw, record, x+18, y+15, 29)
+        self.text(draw, category, x+136, y+24, 14, GREEN if wins == 2 else RED if losses == 2 else MUTED)
+        games = {m.get('number_of_games') for m in group['matches'] if m.get('number_of_games')}
+        self.text(draw, 'BO'+str(next(iter(games))) if len(games) == 1 else 'BO—', x+self.CELL-49, y+25, 13, FAINT, True)
+        count = max(CAPACITY[record], len(group['matches']))
         for index in range(count):
-            match=group['matches'][index] if index<len(group['matches']) else None
-            self.match_row(image,draw,match,x,y+self.HEAD+index*self.ROW_H,marks)
+            match = group['matches'][index] if index < len(group['matches']) else None
+            self.match_row(image, draw, match, x, y+self.HEAD+index*self.ROW_H, marks)
+        # Explicit record destinations replace external arrows. They never imply pairings.
+        route_y = y+height-24
+        self.text(draw, f'胜  {wins+1}-{losses}'+(' 晋级' if wins == 2 else ''), x+18, route_y, 12, GREEN)
+        self.text(draw, f'负  {wins}-{losses+1}'+(' 淘汰' if losses == 2 else ''), x+218, route_y, 12, RED)
 
-    def render(self,snapshot,stage,team_marks):
-        groups={group['record']:group for group in stage['swiss_groups']}
-        positions,graph_height=self.positions(groups,190)
-        unknown=stage.get('unclassified_matches') or []
-        unknown_height=70+((len(unknown)+4)//5)*self.ROW_H if unknown else 0
-        height=190+graph_height+unknown_height+70
-        if self.WIDTH*height>16000000:raise ValueError('Swiss chart exceeds safe size')
-        image=Image.new('RGB',(self.WIDTH,height),BG);draw=ImageDraw.Draw(image)
-        marks={normalize_name(mark['name']):mark for mark in team_marks}
-        draw.rectangle((0,0,self.WIDTH,104),fill='#152334')
-        draw.rectangle((0,0,7,104),fill='#efb45b')
-        self.text(draw,'COUNTER-STRIKE 2  /  MAJOR HUB',40,18,15,'#efb45b')
-        self.text(draw,snapshot['title'],40,49,28,width=1390)
-        self.text(draw,stage['title'],40,121,24)
-        self.text(draw,'绿色：获胜 / 晋级    红色：失利 / 淘汰',self.WIDTH-390,126,15,MUTED)
+    def render(self, snapshot, stage, team_marks):
+        groups = {group['record']: group for group in stage['swiss_groups']}
+        positions, packs, graph_height = self.positions(groups, 220)
+        unknown = stage.get('unclassified_matches') or []
+        unknown_height = 76+((len(unknown)+4)//5)*self.ROW_H if unknown else 0
+        height = 220+graph_height+unknown_height+86
+        if self.WIDTH*height > 16000000:
+            raise ValueError('Swiss chart exceeds safe size')
+        image, draw = self.canvas(self.WIDTH, height, snapshot, 'SWISS STAGE')
+        marks = {normalize_name(mark['name']): mark for mark in team_marks}
+        self.text(draw, stage['title'], 40, 137, 24)
+        self.text(draw, '三胜晋级 · 三负淘汰    /    每轮重新配对，胜负标签仅表示战绩去向', 1120, 143, 15, MUTED)
         for column in range(5):
-            self.text(draw,f'第 {column+1} 轮',self.PAD+column*(self.CELL+self.GAP)+self.CELL/2,163,14,MUTED,True)
-        for record in ('0-0','1-0','0-1','2-0','1-1','0-2','2-1','1-2','2-2'):
-            wins,losses=map(int,record.split('-'))
-            for target,color in ((f'{wins+1}-{losses}',GREEN),(f'{wins}-{losses+1}',RED)):
-                self.flow(draw,positions[record],positions[target],color,terminal=groups[target]['terminal'])
-        for record,position in positions.items():self.group(image,draw,groups[record],position,marks)
+            x = self.PAD+column*(self.CELL+self.GAP)
+            self.text(draw, f'0{column+1}', x, 186, 17, GOLD)
+            self.text(draw, f'第 {column+1} 轮', x+37, 188, 14, MUTED)
+            draw.line((x+110, 196, x+self.CELL, 196), fill=LINE)
+        for x, y, h in packs:
+            draw.rounded_rectangle((x, y+3, x+self.CELL, y+h+3), radius=9, fill='#0b1016')
+            draw.rounded_rectangle((x, y, x+self.CELL, y+h), radius=8, fill=PANEL)
+        for record, position in positions.items():
+            self.group(image, draw, groups[record], position, marks)
         if unknown:
-            y=190+graph_height+24
-            self.text(draw,'战绩组待确认 · 数据不足时不推测分组',40,y,17,MUTED)
-            for index,match in enumerate(unknown):
-                self.match_row(image,draw,match,self.PAD+(index%5)*(self.CELL+self.GAP),y+34+(index//5)*self.ROW_H,marks)
-        draw.rectangle((0,height-46,self.WIDTH,height),fill='#152334')
-        footer='虚拟数据预览 · 所有比分、赛程与晋级结果均为演示' if snapshot.get('demo') else '仅展示已公布对阵与确认赛果 · 未公布对手保留待定'
-        self.text(draw,footer,40,height-30,14,'#efb45b' if snapshot.get('demo') else MUTED)
-        self.text(draw,'赛前战绩 ≠ 单场比分   /   北京时间 '+snapshot['fetched_at'],self.WIDTH-465,height-30,13,MUTED)
+            y = 220+graph_height+26
+            self.text(draw, '战绩组待确认 · 数据不足时不推测分组', 40, y, 17, MUTED)
+            for index, match in enumerate(unknown):
+                self.match_row(image, draw, match, self.PAD+(index%5)*(self.CELL+self.GAP), y+34+(index//5)*self.ROW_H, marks)
         return image

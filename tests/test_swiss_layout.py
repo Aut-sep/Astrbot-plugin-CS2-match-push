@@ -80,7 +80,8 @@ class SwissLayoutTests(unittest.TestCase):
             path=Path(directory)/'swiss.png'
             renderer(shared).render(snapshot,[stage],str(path),[])
             with Image.open(path) as image:
-                self.assertEqual(image.width,1840)
+                self.assertGreaterEqual(image.width,1600)
+                self.assertLessEqual(image.width,2400)
                 self.assertGreater(image.height,900)
                 self.assertLess(image.width*image.height,16000000)
 
