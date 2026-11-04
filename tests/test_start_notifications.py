@@ -31,7 +31,7 @@ event = host_module("astrbot.api.event")
 event.AstrMessageEvent = event.MessageEventResult = object
 event.filter = types.SimpleNamespace(
     **{name: star.register for name in (
-        "permission_type", "event_message_type", "platform_adapter_type", "command", "regex",
+        "permission_type", "event_message_type", "platform_adapter_type", "command", "regex", "llm_tool",
     )},
     PermissionType=types.SimpleNamespace(ADMIN=1),
     EventMessageType=types.SimpleNamespace(PRIVATE_MESSAGE=1),

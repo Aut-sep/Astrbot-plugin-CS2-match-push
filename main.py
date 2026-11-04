@@ -35,6 +35,7 @@ from astrbot.api import logger
 
 from .store import DataStore
 from .client import PandaScoreClient
+from .ai_queries import query as ai_query
 from .formatters import (
     fmt_schedule,
     now_utc, now_cst, fmt_time, parse_dt,
@@ -1729,6 +1730,48 @@ class CSMatchPlugin(Star):
             await self._get_qq_official_menu().menu(event)
             return None
         return await self.cmd_help(event)
+
+    @filter.llm_tool(name="get_cs2_schedule")
+    async def ai_cs2_schedule(self, event: AstrMessageEvent, team: str = "", start_date: str = "", days: int = 1) -> str:
+        """只读查询 CS2 赛程，支持绿龙、NAVI 等战队名/别名；不发送推送。沿用本会话筛选规则。
+        根据返回的 status、时区、来源、读取/修改时间和缓存标志回答；失败不能声称查询成功，空结果不能声称全网无比赛。
+
+        Args:
+            team(string): 战队全名、已收录中文别名或 PandaScore 战队 ID；空字符串查询全部符合规则的队伍。
+            start_date(string): 北京时间起始日期 YYYY-MM-DD；空字符串为今天。今晚请指定今天日期并依据返回时间筛选。
+            days(number): 查询日历天数，整数 1–30，默认 1。含起始日，按计划开赛时间统计。
+        """
+        return await ai_query(self, event, 'schedule', team=team, start_date=start_date, days=days)
+
+    @filter.llm_tool(name="get_cs2_match_result")
+    async def ai_cs2_result(self, event: AstrMessageEvent, team: str = "", start_date: str = "", days: int = 1, match_id: str = "") -> str:
+        """只读查询 CS2 已结束比赛赛果，不推测缺失比分。沿用本会话筛选规则；失败不代表战队没比赛或输掉比赛。
+        final_score 为 null 时比分尚未确认，不能编造胜负。时间范围依据计划开赛日期，跨日比赛可能稍后才结束。
+
+        Args:
+            team(string): 战队全名、已收录别名（如 NAVI、绿龙）或战队 ID；空字符串不限制队伍。
+            start_date(string): 北京时间起始日期 YYYY-MM-DD；空字符串回看含今天的最近 days 天。问昨天时指定昨天日期。
+            days(number): 查询日历天数，整数 1–30，默认 1。
+            match_id(string): 可选的 PandaScore 比赛 ID；填写时忽略日期和 days，返回该场状态，尚未结束时没有最终赛果。
+        """
+        return await ai_query(self, event, 'result', team=team, start_date=start_date, days=days, match_id=match_id)
+
+    @filter.llm_tool(name="get_cs2_followed_teams")
+    async def ai_cs2_followed(self, event: AstrMessageEvent) -> str:
+        """只读查询当前会话适用的 CS2 关注战队（已配置群用本群规则，否则用默认规则）。
+        来源是插件本地配置，不是个人关注列表或实时队伍阵容；修改时间未知时返回 null。不接受其他群 ID，不修改关注。
+        """
+        return await ai_query(self, event, 'followed')
+
+    @filter.llm_tool(name="get_cs2_major_bracket")
+    async def ai_cs2_major(self, event: AstrMessageEvent, stage: str = "current") -> str:
+        """只读查询 CS2 Major 已公布对阵，返回结构化文字数据。不绘图、不推送，不推断未公布的晋级关系或瑞士轮后续对手。
+        赛事选择沿用插件：正在进行、即将开始、最近结束；务必依据返回标题和 selected_stage 说明赛事及阶段。
+
+        Args:
+            stage(string): current 当前（无当前则选 next 并明确标注）、next 下一阶段、all 全部、stage1/stage2/stage3、swiss 瑞士轮、knockout 淘汰赛。默认 current。
+        """
+        return await ai_query(self, event, 'major', stage=stage)
 
     @filter.command("cs今日赛程")
     async def cmd_cs_today(self, event: AstrMessageEvent) -> MessageEventResult:
