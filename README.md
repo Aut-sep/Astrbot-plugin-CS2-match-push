@@ -10,7 +10,7 @@ AstrBot plugin for Counter-Strike 2 (CS2) match notifications, team subscription
 
 ## 核心功能
 
-- **AI 自然语言查询（Function Calling）**：提供 `get_cs2_schedule`、`get_cs2_match_result`、`get_cs2_followed_teams`、`get_cs2_major_bracket` 四个只读工具，支持通过 AstrBot 模型查询“今晚绿龙的比赛”“昨天 NAVI 的赛果”等。返回来源、时区、读取/修改时间和缓存状态，失败不会当作空赛程。需要支持工具调用的模型；远程赛事查询需要 PandaScore Token。见[AI 工具说明与限制](docs/ai-tools.md)。
+- **AI 自然语言查询（Function Calling）**：提供 `get_cs2_schedule`、`get_cs2_match_result`、`get_cs2_followed_teams`、`get_cs2_major_bracket` 四个只读工具，支持查询“最近有 NAVI 比赛吗”“今晚绿龙打谁”“昨天 NAVI 赢了吗”。默认开启可关闭的 CS2 查询优先引导，仅向当前已获准使用相关工具的请求附加临时建议；近期赛程默认未来 7 天，新闻与其他项目不强制走插件。返回来源、时区、读取/修改时间和缓存状态，失败不会当作空赛程。需要支持工具调用的模型及有效 PandaScore Token（关注列表除外），仍受模型和人格选择影响。见[AI 工具说明与限制](docs/ai-tools.md)。
 - **按主队与赛事筛选通知**：支持战队关注、赛事级别和战队／联赛黑名单，中文外号、简称与拼写容错方便添加主队。默认推送 S/A 级，关注战队可覆盖级别限制，黑名单仍优先。见[战队搜索说明](docs/team-search.md)。
 - **每群独立规则**：各群分别设置关注战队、筛选、赛前提醒分钟数、通知开关、日报时间和图片样式；未设置的项目沿用默认规则。通知按群去重，发送失败时自动重试。见[群规则指南](docs/group-rules.md)。
 - **推送预设**：从“大赛观众”“主队粉丝”“赛事资讯群”快速开始，按需修改并另存为可重命名的自定义预设，方便不同群复用。

@@ -1,4 +1,10 @@
 {
+  "ai_query_guidance_enabled": {
+    "description": "CS2 AI 查询优先引导",
+    "type": "bool",
+    "hint": "默认开启。对明确的 CS2 赛程、赛果、关注或 Major 对阵问题，在当前模型已获准使用对应工具时附加一次性建议，优先使用插件查询。不会修改人格或强制选工具；保存后重载插件生效。",
+    "default": true
+  },
   "pandascore_token": {
     "description": "PandaScore API Token",
     "type": "string",
