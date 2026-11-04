@@ -135,10 +135,9 @@ export function createGroupRuleEditor({ getConfig, getDraft, getDefaults, edit, 
       <label class="field">选择接收群<select id="rule-group"><option value="">选择一个群开始设置</option>${groups.map(gid => `<option value="${esc(gid)}" ${selected === gid ? 'selected' : ''}>群 ${esc(gid)}</option>`).join('')}</select></label></div>
       ${!selected ? '' : `<div class="rule-content">
         <div class="rule-mode"><label class="field">配置方式<select id="rule-mode"><option value="inherit" ${!count ? 'selected' : ''}>沿用默认规则</option><option value="custom" ${count ? 'selected' : ''}>本群独立配置</option></select></label><p>${count ? (count < RULE_FIELDS.length ? '部分项目仍跟随默认值，可在高级设置中调整继承关系。' : '本群规则独立保存，修改默认配置不会影响本群。') : '默认规则改变时，本群同步更新。应用预设可直接创建本群独立配置。'}</p></div>
-        <div class="rule-master ${rules.push_enabled ? 'is-enabled' : 'is-paused'}">
-          <div class="rule-master-copy"><div class="rule-master-title"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9M7 5.5a8 8 0 1 0 10 0" /></svg><h3>本群赛事推送</h3><span class="rule-master-status">${rules.push_enabled ? '已开启' : '已暂停'}</span></div>
-          <p>${rules.push_enabled ? '按本群规则接收赛事提醒、比分和日报。' : '该群暂停接收赛事推送，仍可主动查询。'}</p><small id="rule-master-hint">${count ? '调整后点击「保存配置」生效。' : '沿用默认规则；切换为「本群独立配置」后可调整。'}</small></div>
-          <button type="button" class="rule-master-toggle" role="switch" aria-label="本群赛事推送" aria-checked="${!!rules.push_enabled}" aria-describedby="rule-master-hint" data-rule-toggle="push_enabled" ${count ? '' : 'disabled'}><span class="rule-master-track" aria-hidden="true"><span></span></span><span>${rules.push_enabled ? '推送已开启' : '推送已暂停'}</span></button>
+        <div class="rule-master">
+          <h3>本群赛事推送</h3>
+          <button type="button" class="button ${rules.push_enabled ? 'primary ' : ''}rule-master-toggle" role="switch" aria-label="本群赛事推送" aria-checked="${!!rules.push_enabled}" data-rule-toggle="push_enabled" ${count ? '' : 'disabled'}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9M7 5.5a8 8 0 1 0 10 0" /></svg>${rules.push_enabled ? '已开启' : '已暂停'}</button>
         </div>
         <div class="rule-tabs" role="tablist" aria-label="群规则分类">${RULE_SECTIONS.map(([key, title]) => `<button type="button" role="tab" id="rule-tab-${key}" aria-controls="rule-fields" aria-selected="${key === activeSection}" tabindex="${key === activeSection ? 0 : -1}" data-rule-section="${key}">${title}</button>`).join('')}</div>
         <div id="rule-fields" class="rule-fields" role="tabpanel" aria-labelledby="rule-tab-${activeSection}">${section[2].map(key => renderField(RULE_FIELDS.find(field => field[0] === key), rules)).join('')}</div>
