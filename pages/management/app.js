@@ -704,7 +704,7 @@ function activateTab(name, { focus = false } = {}) {
     button.tabIndex = active ? 0 : -1;
     if (active && focus) button.focus();
   });
-  $$('[role="tabpanel"]').forEach((section) => {
+  $$('.app > [role="tabpanel"]').forEach((section) => {
     section.hidden = section.id !== name;
   });
   if (name === "advanced" && state.ready) run($("#refresh-logs"), loadLogs);
@@ -770,6 +770,13 @@ function installEvents() {
   $$("form[data-section]").forEach((form) => {
     form.addEventListener("input", () => checkDirty(form.dataset.section));
     form.addEventListener("change", () => checkDirty(form.dataset.section));
+    form.addEventListener("invalid", (event) => {
+      let parent = event.target.parentElement;
+      while (parent && parent !== form) {
+        if (parent.tagName === "DETAILS") parent.open = true;
+        parent = parent.parentElement;
+      }
+    }, true);
     form.addEventListener("submit", (event) => event.preventDefault());
   });
   $$("[data-reveal]").forEach((button) =>
