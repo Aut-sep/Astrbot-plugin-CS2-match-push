@@ -1,11 +1,11 @@
 name: astrbot_plugin_cs_match
 display_name: CS2 比赛推送
-short_desc: CS2 赛程赛果查询与赛事推送，支持分群规则、战队关注、Major 对阵和今日选手。
+short_desc: CS2 赛程赛果查询与推送，支持 AI 自然语言查询、分群规则、Major 对阵和今日选手。
 desc: >-
-  查询 CS2 赛程、赛果、Major 对阵和今日选手，支持战队关注、各群独立规则与 Web 管理面板。
+  查询 CS2 赛程、赛果、Major 对阵和今日选手，支持 AI 自然语言查询、战队关注、各群独立规则与 Web 管理面板。
   OneBot 普通机器人可推送赛前提醒和赛后比分；QQ 官方机器人仅支持查询回复，不支持主动推送。
   使用 PandaScore 数据，需配置 API Token。
-version: 4.4.0
+version: 4.4.1
 author: Aut-sep
 repo: "https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push"
 category: entertainment
