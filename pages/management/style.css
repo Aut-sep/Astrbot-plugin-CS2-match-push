@@ -1285,9 +1285,6 @@ dialog p { margin: 10px 0 16px; font-size: 13.5px; white-space: pre-line; }
 .preset-team-options .inline-check { padding: 6px 9px; background: var(--surface-alt); border: 1px solid var(--border); }
 .rule-header .field { width: 280px; max-width: 100%; margin: 0; }
 .rule-content { border-top: 1px solid var(--border); }
-.rule-mode { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 24px; padding: 18px 24px; background: var(--surface-alt); border-bottom: 1px solid var(--border); }
-.rule-mode .field { margin: 0; width: 240px; max-width: 100%; }
-.rule-mode p { flex: 1; min-width: 180px; margin: 0; font-size: 13px; color: var(--muted); }
 .rule-inheritance { margin-top: 14px; }
 .rule-inheritance > summary { cursor: pointer; color: var(--muted); }
 .rule-inheritance p { margin: 12px 0; font-size: 13px; }
@@ -1460,8 +1457,6 @@ dialog p { margin: 10px 0 16px; font-size: 13.5px; white-space: pre-line; }
   .preset-library-header { flex-wrap: wrap; }
   .preset-library-header > .button { width: 100%; }
   .rule-header .field { width: 100%; }
-  .rule-mode { padding: 16px; }
-  .rule-mode .field { width: 100%; }
   .rule-inheritance-grid { grid-template-columns: 1fr; }
   .rule-master { margin: 16px 16px 6px; padding: 18px 16px; flex-wrap: wrap; gap: 16px; }
   .rule-master-toggle { width: 100%; min-width: 0; }

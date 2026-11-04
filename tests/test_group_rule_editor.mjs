@@ -50,11 +50,6 @@ function fixture() {
   return {
     config, draft, editor, host, toasts,
     abandon() { draft = config; editor.render(); },
-    async mode(value) {
-      pending = undefined;
-      events.change({ target: { id: 'rule-mode', value } });
-      await pending;
-    },
     inherit(key, checked) { events.change({ target: { dataset: { ruleInherit: key }, checked } }); },
     value(key, value, valid = true) {
       const element = { dataset: { ruleValue: key }, value, error: '', reported: false,
@@ -187,18 +182,17 @@ test('discarding a fan preset draft clears its pending team validation', async (
   assert.doesNotThrow(() => f.editor.validate());
 });
 
-test('group independent mode snapshots defaults and can return to inheritance', async () => {
+test('a group without overrides can be edited directly without a configuration mode', async () => {
   const f = fixture();
-  await f.mode('custom');
-  assert.equal(Object.keys(f.draft.group_rules['100001']).length, RULE_FIELDS.length);
-  f.config.remind_minutes = 45;
-  assert.equal(effectiveRules({ ...f.config, group_rules: f.draft.group_rules }, '100001').remind_minutes, 23);
-  assert.equal(f.draft.group_rules['100002'].remind_minutes, 30);
+  assert.doesNotMatch(f.host.innerHTML, /rule-mode|配置方式/);
+  assert.doesNotMatch(f.host.innerHTML, /data-rule-toggle="push_enabled"[^>]*disabled/);
+  assert.doesNotMatch(f.host.innerHTML, /data-rule-value="filter_mode"[^>]*disabled/);
   f.value('remind_minutes', '18');
   assert.equal(f.draft.group_rules['100001'].remind_minutes, 18);
-  await f.mode('inherit');
-  assert.equal(f.draft.group_rules['100001'], undefined);
-  assert.equal(effectiveRules({ ...f.config, group_rules: f.draft.group_rules }, '100001').remind_minutes, 45);
+  assert.equal(f.config.group_rules['100001'], undefined);
+  assert.equal(f.draft.group_rules['100002'].remind_minutes, 30);
+  await f.click('', { ruleToggle: 'push_enabled' });
+  assert.equal(f.draft.group_rules['100001'].push_enabled, false);
 });
 
 test('existing partial rules keep inherited values editable and put overrides in advanced settings', () => {

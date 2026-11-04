@@ -86,11 +86,10 @@ export function createGroupRuleEditor({ getConfig, getDraft, getDefaults, edit, 
   function renderField(field, rules) {
     const [key, label, type] = field;
     const custom = hasOwn(key);
-    const independent = Object.keys(getDraft().group_rules?.[selected] || {}).length > 0;
     return `<div class="rule-field${type === 'teams' ? ' rule-field-wide' : ''}${custom ? ' is-custom' : ''}" role="group" aria-labelledby="rule-label-${key}">
       <div class="rule-field-heading"><span id="rule-label-${key}">${label}</span>
-        ${independent && !custom ? '<small class="muted">沿用默认值</small>' : ''}</div>
-      <div class="rule-field-value">${valueEditor(field, rules[key], independent)}</div>
+        </div>
+      <div class="rule-field-value">${valueEditor(field, rules[key], true)}</div>
     </div>`;
   }
   function templateRules(rules) {
@@ -126,18 +125,13 @@ export function createGroupRuleEditor({ getConfig, getDraft, getDefaults, edit, 
     const groups = getDraft().push_groups || [];
     if (!groups.includes(selected)) selected = '';
     const rules = effectiveRules(merged(), selected);
-    const count = Object.keys(getDraft().group_rules?.[selected] || {}).length;
     const section = RULE_SECTIONS.find(([key]) => key === activeSection);
-    const description = selected
-      ? (count ? '直接调整本群规则，修改后保存配置。' : '当前跟随默认规则，切换为本群独立配置后可直接编辑。')
-      : (groups.length ? '选择接收群，只调整需要不同的项目。' : '先在上方添加接收群，再设置独立规则。');
-    host.innerHTML = `${renderPresets(rules)}<div class="card-header rule-header"><div><h3>群推送规则</h3><p>${description}</p></div>
+    host.innerHTML = `${renderPresets(rules)}<div class="card-header rule-header"><div><h3>群推送规则</h3></div>
       <label class="field">选择接收群<select id="rule-group"><option value="">选择一个群开始设置</option>${groups.map(gid => `<option value="${esc(gid)}" ${selected === gid ? 'selected' : ''}>群 ${esc(gid)}</option>`).join('')}</select></label></div>
       ${!selected ? '' : `<div class="rule-content">
-        <div class="rule-mode"><label class="field">配置方式<select id="rule-mode"><option value="inherit" ${!count ? 'selected' : ''}>沿用默认规则</option><option value="custom" ${count ? 'selected' : ''}>本群独立配置</option></select></label><p>${count ? (count < RULE_FIELDS.length ? '部分项目仍跟随默认值，可在高级设置中调整继承关系。' : '本群规则独立保存，修改默认配置不会影响本群。') : '默认规则改变时，本群同步更新。应用预设可直接创建本群独立配置。'}</p></div>
         <div class="rule-master">
           <h3>本群赛事推送</h3>
-          <button type="button" class="button ${rules.push_enabled ? 'primary ' : ''}rule-master-toggle" role="switch" aria-label="本群赛事推送" aria-checked="${!!rules.push_enabled}" data-rule-toggle="push_enabled" ${count ? '' : 'disabled'}><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9M7 5.5a8 8 0 1 0 10 0" /></svg>${rules.push_enabled ? '已开启' : '已暂停'}</button>
+          <button type="button" class="button ${rules.push_enabled ? 'primary ' : ''}rule-master-toggle" role="switch" aria-label="本群赛事推送" aria-checked="${!!rules.push_enabled}" data-rule-toggle="push_enabled"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9M7 5.5a8 8 0 1 0 10 0" /></svg>${rules.push_enabled ? '已开启' : '已暂停'}</button>
         </div>
         <div class="rule-tabs" role="tablist" aria-label="群规则分类">${RULE_SECTIONS.map(([key, title]) => `<button type="button" role="tab" id="rule-tab-${key}" aria-controls="rule-fields" aria-selected="${key === activeSection}" tabindex="${key === activeSection ? 0 : -1}" data-rule-section="${key}">${title}</button>`).join('')}</div>
         <div id="rule-fields" class="rule-fields" role="tabpanel" aria-labelledby="rule-tab-${activeSection}">${section[2].map(key => renderField(RULE_FIELDS.find(field => field[0] === key), rules)).join('')}</div>
@@ -158,22 +152,6 @@ export function createGroupRuleEditor({ getConfig, getDraft, getDefaults, edit, 
   }
   host.addEventListener('change', event => {
     const element = event.target;
-    if (element.id === 'rule-mode') {
-      const gid = selected;
-      run(element, async () => {
-        if (element.value === 'custom') {
-          const values = templateRules(effectiveRules(merged(), gid));
-          edit(draft => { draft.group_rules[gid] = values; });
-        } else {
-          if (await dialog('沿用默认规则', `群 ${gid} 将清除本群独立规则，跟随默认配置。点击保存配置后生效。`)) {
-            edit(draft => { delete draft.group_rules[gid]; });
-            presetGroupsRequiringTeams.delete(gid);
-          } else render();
-        }
-        pendingPreset = null; presetTeams = []; render();
-      });
-      return;
-    }
     if (element.id === 'rule-group') { selected = element.value; pendingPreset = null; presetTeams = []; searchVersion++; searchResults = []; render(); onSelect?.(selected); return; }
     if (element.dataset.ruleInherit) {
       const key = element.dataset.ruleInherit;
