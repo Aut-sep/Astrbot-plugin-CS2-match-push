@@ -51,6 +51,7 @@ function fixture() {
     config, draft, editor, host, toasts,
     abandon() { draft = config; editor.render(); },
     inherit(key, checked) { events.change({ target: { dataset: { ruleInherit: key }, checked } }); },
+    toggle(checked) { events.change({ target: { type: 'checkbox', checked, dataset: { ruleValue: 'push_enabled' } } }); },
     value(key, value, valid = true) {
       const element = { dataset: { ruleValue: key }, value, error: '', reported: false,
         checkValidity: () => valid, reportValidity() { this.reported = true; },
@@ -191,7 +192,7 @@ test('a group without overrides can be edited directly without a configuration m
   assert.equal(f.draft.group_rules['100001'].remind_minutes, 18);
   assert.equal(f.config.group_rules['100001'], undefined);
   assert.equal(f.draft.group_rules['100002'].remind_minutes, 30);
-  await f.click('', { ruleToggle: 'push_enabled' });
+  f.toggle(false);
   assert.equal(f.draft.group_rules['100001'].push_enabled, false);
 });
 

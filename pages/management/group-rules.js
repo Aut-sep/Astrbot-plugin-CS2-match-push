@@ -129,10 +129,7 @@ export function createGroupRuleEditor({ getConfig, getDraft, getDefaults, edit, 
     host.innerHTML = `${renderPresets(rules)}<div class="card-header rule-header"><div><h3>群推送规则</h3></div>
       <label class="field">选择接收群<select id="rule-group"><option value="">选择一个群开始设置</option>${groups.map(gid => `<option value="${esc(gid)}" ${selected === gid ? 'selected' : ''}>群 ${esc(gid)}</option>`).join('')}</select></label></div>
       ${!selected ? '' : `<div class="rule-content">
-        <div class="rule-master">
-          <h3>本群赛事推送</h3>
-          <button type="button" class="button ${rules.push_enabled ? 'primary ' : ''}rule-master-toggle" role="switch" aria-label="本群赛事推送" aria-checked="${!!rules.push_enabled}" data-rule-toggle="push_enabled"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v9M7 5.5a8 8 0 1 0 10 0" /></svg>${rules.push_enabled ? '已开启' : '已暂停'}</button>
-        </div>
+        <label class="switch-row rule-master"><strong>本群赛事推送</strong><input type="checkbox" role="switch" data-rule-value="push_enabled" aria-label="本群赛事推送" ${rules.push_enabled ? 'checked' : ''}></label>
         <div class="rule-tabs" role="tablist" aria-label="群规则分类">${RULE_SECTIONS.map(([key, title]) => `<button type="button" role="tab" id="rule-tab-${key}" aria-controls="rule-fields" aria-selected="${key === activeSection}" tabindex="${key === activeSection ? 0 : -1}" data-rule-section="${key}">${title}</button>`).join('')}</div>
         <div id="rule-fields" class="rule-fields" role="tabpanel" aria-labelledby="rule-tab-${activeSection}">${section[2].map(key => renderField(RULE_FIELDS.find(field => field[0] === key), rules)).join('')}</div>
         <div class="rule-footer"><span>修改暂存于当前页面，点击「保存配置」后生效。</span>
@@ -160,7 +157,7 @@ export function createGroupRuleEditor({ getConfig, getDraft, getDefaults, edit, 
       const key = element.dataset.ruleValue;
       const field = RULE_FIELDS.find(item => item[0] === key);
       let value = element.value;
-      if (field[2] === 'bool') value = value === 'true';
+      if (field[2] === 'bool') value = element.type === 'checkbox' ? element.checked : value === 'true';
       else if (field[2] === 'number') {
         if (!element.checkValidity()) { element.reportValidity(); return; }
         value = Number(value);
@@ -172,6 +169,7 @@ export function createGroupRuleEditor({ getConfig, getDraft, getDefaults, edit, 
         element.setCustomValidity('');
       }
       set(key, value);
+      if (key === 'push_enabled') host.querySelector('[data-rule-value="push_enabled"]')?.focus();
     } else if (element.dataset.ruleTier) {
       set('min_tiers', [...host.querySelectorAll('[data-rule-tier]:checked')].map(input => input.dataset.ruleTier));
     }
@@ -193,12 +191,6 @@ export function createGroupRuleEditor({ getConfig, getDraft, getDefaults, edit, 
   host.addEventListener('click', event => {
     const button = event.target.closest('button');
     if (!button) return;
-    if (button.dataset.ruleToggle === 'push_enabled') {
-      if (button.disabled) return;
-      set('push_enabled', !effectiveRules(merged(), selected).push_enabled);
-      host.querySelector('[data-rule-toggle="push_enabled"]')?.focus();
-      return;
-    }
     if (button.dataset.ruleSection) {
       activeSection = button.dataset.ruleSection; render();
       host.querySelector(`[data-rule-section="${activeSection}"]`).focus(); return;
