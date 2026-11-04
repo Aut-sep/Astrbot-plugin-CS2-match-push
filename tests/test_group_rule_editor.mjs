@@ -50,6 +50,11 @@ function fixture() {
   return {
     config, draft, editor, host, toasts,
     abandon() { draft = config; editor.render(); },
+    async mode(value) {
+      pending = undefined;
+      events.change({ target: { id: 'rule-mode', value } });
+      await pending;
+    },
     inherit(key, checked) { events.change({ target: { dataset: { ruleInherit: key }, checked } }); },
     value(key, value, valid = true) {
       const element = { dataset: { ruleValue: key }, value, error: '', reported: false,
@@ -180,4 +185,32 @@ test('discarding a fan preset draft clears its pending team validation', async (
   await f.click('data-preset-action', { presetAction: 'apply-selected' });
   f.abandon();
   assert.doesNotThrow(() => f.editor.validate());
+});
+
+test('group independent mode snapshots defaults and can return to inheritance', async () => {
+  const f = fixture();
+  await f.mode('custom');
+  assert.equal(Object.keys(f.draft.group_rules['100001']).length, RULE_FIELDS.length);
+  f.config.remind_minutes = 45;
+  assert.equal(effectiveRules({ ...f.config, group_rules: f.draft.group_rules }, '100001').remind_minutes, 23);
+  assert.equal(f.draft.group_rules['100002'].remind_minutes, 30);
+  f.value('remind_minutes', '18');
+  assert.equal(f.draft.group_rules['100001'].remind_minutes, 18);
+  await f.mode('inherit');
+  assert.equal(f.draft.group_rules['100001'], undefined);
+  assert.equal(effectiveRules({ ...f.config, group_rules: f.draft.group_rules }, '100001').remind_minutes, 45);
+});
+
+test('existing partial rules keep inherited values editable and put overrides in advanced settings', () => {
+  const f = fixture();
+  f.editor.select('100002');
+  assert.deepEqual(f.draft.group_rules['100002'], { remind_minutes: 30, image_push_enabled: false });
+  const main = f.host.innerHTML.split('<details class="rule-inheritance"')[0];
+  assert.doesNotMatch(main, /data-rule-inherit=/);
+  assert.match(f.host.innerHTML, /高级设置：逐项继承/);
+  assert.match(main, /data-rule-value="filter_mode"[^>]*><option/);
+  assert.doesNotMatch(main, /data-rule-value="filter_mode"[^>]*disabled/);
+  f.value('filter_mode', 'tiers');
+  assert.equal(f.draft.group_rules['100002'].filter_mode, 'tiers');
+  assert.equal(f.draft.group_rules['100002'].remind_minutes, 30);
 });

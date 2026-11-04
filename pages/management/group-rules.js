@@ -2,7 +2,7 @@ import { BUILTIN_PRESETS, newPresetId, presetRules } from './presets.js';
 
 // Group drafts share the page's existing Save/Discard transaction.
 export const RULE_FIELDS = [
-  ['push_enabled', '自动推送总开关', 'bool', true],
+  ['push_enabled', '本群赛事推送', 'bool', true],
   ['filter_mode', '比赛筛选方式', 'mode', 'tiers_or_followed'],
   ['min_tiers', '赛事级别', 'tiers', ['s', 'a']],
   ['followed_teams', '关注战队', 'teams', []],
@@ -37,6 +37,7 @@ export function createGroupRuleEditor({ getConfig, getDraft, getDefaults, edit, 
   const host = document.querySelector('#group-rules-editor');
   let selected = '';
   let activeSection = 'scope';
+  let advancedOpen = false;
   let pendingPreset = null;
   let presetTeams = [];
   const presetGroupsRequiringTeams = new Set();
@@ -57,12 +58,12 @@ export function createGroupRuleEditor({ getConfig, getDraft, getDefaults, edit, 
     const rules = effectiveRules(config, gid);
     const independent = Object.keys(config.group_rules?.[gid] || {}).length;
     const mode = { tiers: '按级别', followed: '只看关注', tiers_or_followed: '级别或关注' }[rules.filter_mode];
-    return `${rules.push_enabled ? '开启' : '暂停'} · ${independent ? '含独立设置' : '继承默认'} · ${mode} · 赛前${rules.upcoming_enabled ? rules.remind_minutes + '分钟' : '关闭'}`;
+    return `${rules.push_enabled ? '开启' : '暂停'} · ${independent ? '本群独立配置' : '沿用默认规则'} · ${mode} · 赛前${rules.upcoming_enabled ? rules.remind_minutes + '分钟' : '关闭'}`;
   }
   function valueEditor(field, value, custom) {
     const [key, label, type, , min, max] = field;
     const disabled = custom ? '' : 'disabled';
-    if (type === 'bool') return `<select data-rule-value="${key}" aria-label="${label}" ${disabled}><option value="true" ${value ? 'selected' : ''}>开启</option><option value="false" ${!value ? 'selected' : ''}>关闭</option></select>`;
+    if (type === 'bool') return `<select data-rule-value="${key}" aria-label="${label}" ${disabled}><option value="true" ${value ? 'selected' : ''}>开启</option><option value="false" ${!value ? 'selected' : ''}>${key === 'push_enabled' ? '暂停' : '关闭'}</option></select>`;
     if (type === 'number') return `<input type="number" data-rule-value="${key}" aria-label="${label}" min="${min}" max="${max}" step="1" value="${Number(value)}" required ${disabled}>`;
     if (type === 'mode') return `<select data-rule-value="${key}" aria-label="${label}" ${disabled}>${[['tiers','按赛事级别'],['followed','只看关注战队'],['tiers_or_followed','赛事级别或关注战队']].map(([v,l]) => `<option value="${v}" ${v === value ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
     if (type === 'tiers') return `<fieldset class="tiers rule-tiers" aria-label="${label}" ${disabled}>${['s','a','b','c','d','unranked'].map(tier => `<label><input type="checkbox" data-rule-tier="${tier}" ${(value || []).includes(tier) ? 'checked' : ''}>${tier === 'unranked' ? '未评级' : tier.toUpperCase()}</label>`).join('')}</fieldset>`;
@@ -85,10 +86,11 @@ export function createGroupRuleEditor({ getConfig, getDraft, getDefaults, edit, 
   function renderField(field, rules) {
     const [key, label, type] = field;
     const custom = hasOwn(key);
+    const independent = Object.keys(getDraft().group_rules?.[selected] || {}).length > 0;
     return `<div class="rule-field${type === 'teams' ? ' rule-field-wide' : ''}${custom ? ' is-custom' : ''}" role="group" aria-labelledby="rule-label-${key}">
       <div class="rule-field-heading"><span id="rule-label-${key}">${label}</span>
-        <label class="rule-override"><input type="checkbox" data-rule-inherit="${key}" aria-label="${label}使用本群独立设置" ${custom ? 'checked' : ''}>独立设置</label></div>
-      <div class="rule-field-value">${valueEditor(field, rules[key], custom)}</div>
+        ${independent && !custom ? '<small class="muted">沿用默认值</small>' : ''}</div>
+      <div class="rule-field-value">${valueEditor(field, rules[key], independent)}</div>
     </div>`;
   }
   function templateRules(rules) {
@@ -127,15 +129,18 @@ export function createGroupRuleEditor({ getConfig, getDraft, getDefaults, edit, 
     const count = Object.keys(getDraft().group_rules?.[selected] || {}).length;
     const section = RULE_SECTIONS.find(([key]) => key === activeSection);
     const description = selected
-      ? (count ? `${count} 项独立设置，其余沿用默认。` : '全部沿用默认，可按需调整。')
+      ? (count ? '直接调整本群规则，修改后保存配置。' : '当前跟随默认规则，切换为本群独立配置后可直接编辑。')
       : (groups.length ? '选择接收群，只调整需要不同的项目。' : '先在上方添加接收群，再设置独立规则。');
     host.innerHTML = `${renderPresets(rules)}<div class="card-header rule-header"><div><h3>群推送规则</h3><p>${description}</p></div>
       <label class="field">选择接收群<select id="rule-group"><option value="">选择一个群开始设置</option>${groups.map(gid => `<option value="${esc(gid)}" ${selected === gid ? 'selected' : ''}>群 ${esc(gid)}</option>`).join('')}</select></label></div>
       ${!selected ? '' : `<div class="rule-content">
+        <div class="rule-mode"><label class="field">配置方式<select id="rule-mode"><option value="inherit" ${!count ? 'selected' : ''}>沿用默认规则</option><option value="custom" ${count ? 'selected' : ''}>本群独立配置</option></select></label><p>${count ? (count < RULE_FIELDS.length ? '部分项目仍跟随默认值，可在高级设置中调整继承关系。' : '本群规则独立保存，修改默认配置不会影响本群。') : '默认规则改变时，本群同步更新。应用预设可直接创建本群独立配置。'}</p></div>
         <div class="rule-master">${renderField(RULE_FIELDS[0], rules)}</div>
         <div class="rule-tabs" role="tablist" aria-label="群规则分类">${RULE_SECTIONS.map(([key, title]) => `<button type="button" role="tab" id="rule-tab-${key}" aria-controls="rule-fields" aria-selected="${key === activeSection}" tabindex="${key === activeSection ? 0 : -1}" data-rule-section="${key}">${title}</button>`).join('')}</div>
         <div id="rule-fields" class="rule-fields" role="tabpanel" aria-labelledby="rule-tab-${activeSection}">${section[2].map(key => renderField(RULE_FIELDS.find(field => field[0] === key), rules)).join('')}</div>
-        <div class="rule-footer"><span>勾选「独立设置」后修改，取消勾选恢复继承。</span><details class="rule-copy-menu"><summary>复制与恢复</summary><div class="rule-copy"><label class="field">复制规则来源<select id="rule-copy-from"><option value="">默认规则</option>${groups.filter(gid => gid !== selected).map(gid => `<option value="${esc(gid)}">群 ${esc(gid)}</option>`).join('')}</select></label><button type="button" class="button" data-rule-copy>复制完整规则</button><button type="button" class="button ghost" data-rule-reset>全部恢复继承</button></div></details></div>
+        <div class="rule-footer"><span>修改暂存于当前页面，点击「保存配置」后生效。</span>
+        <details class="rule-inheritance" data-rule-advanced ${advancedOpen ? 'open' : ''}><summary>高级设置：逐项继承</summary><p>勾选的项目使用本群值，未勾选的项目跟随默认规则。已有逐项配置会继续保留。</p><div class="rule-inheritance-grid">${RULE_FIELDS.map(([key, label]) => `<label class="rule-override"><input type="checkbox" data-rule-inherit="${key}" aria-label="${label}使用本群值" ${hasOwn(key) ? 'checked' : ''}>${label}</label>`).join('')}</div></details>
+        <details class="rule-copy-menu"><summary>复制与恢复</summary><div class="rule-copy"><label class="field">复制规则来源<select id="rule-copy-from"><option value="">默认规则</option>${groups.filter(gid => gid !== selected).map(gid => `<option value="${esc(gid)}">群 ${esc(gid)}</option>`).join('')}</select></label><button type="button" class="button" data-rule-copy>复制完整规则</button><button type="button" class="button ghost" data-rule-reset>全部恢复继承</button></div></details></div>
       </div>`}`;
     refreshTargetSelectors();
   }
@@ -150,6 +155,22 @@ export function createGroupRuleEditor({ getConfig, getDraft, getDefaults, edit, 
   }
   host.addEventListener('change', event => {
     const element = event.target;
+    if (element.id === 'rule-mode') {
+      const gid = selected;
+      run(element, async () => {
+        if (element.value === 'custom') {
+          const values = templateRules(effectiveRules(merged(), gid));
+          edit(draft => { draft.group_rules[gid] = values; });
+        } else {
+          if (await dialog('沿用默认规则', `群 ${gid} 将清除本群独立规则，跟随默认配置。点击保存配置后生效。`)) {
+            edit(draft => { delete draft.group_rules[gid]; });
+            presetGroupsRequiringTeams.delete(gid);
+          } else render();
+        }
+        pendingPreset = null; presetTeams = []; render();
+      });
+      return;
+    }
     if (element.id === 'rule-group') { selected = element.value; pendingPreset = null; presetTeams = []; searchVersion++; searchResults = []; render(); onSelect?.(selected); return; }
     if (element.dataset.ruleInherit) {
       const key = element.dataset.ruleInherit;
@@ -174,6 +195,9 @@ export function createGroupRuleEditor({ getConfig, getDraft, getDefaults, edit, 
       set('min_tiers', [...host.querySelectorAll('[data-rule-tier]:checked')].map(input => input.dataset.ruleTier));
     }
   });
+  host.addEventListener('toggle', event => {
+    if (event.target.hasAttribute?.('data-rule-advanced')) advancedOpen = event.target.open;
+  }, true);
   host.addEventListener('input', event => { event.target.setCustomValidity?.(''); if (event.target.id === 'rule-team-query') searchVersion++; });
   host.addEventListener('keydown', event => {
     const tab = event.target.closest('[data-rule-section]');

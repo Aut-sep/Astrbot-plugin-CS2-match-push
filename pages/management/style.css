@@ -1285,6 +1285,13 @@ dialog p { margin: 10px 0 16px; font-size: 13.5px; white-space: pre-line; }
 .preset-team-options .inline-check { padding: 6px 9px; background: var(--surface-alt); border: 1px solid var(--border); }
 .rule-header .field { width: 280px; max-width: 100%; margin: 0; }
 .rule-content { border-top: 1px solid var(--border); }
+.rule-mode { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 24px; padding: 18px 24px; background: var(--surface-alt); border-bottom: 1px solid var(--border); }
+.rule-mode .field { margin: 0; width: 240px; max-width: 100%; }
+.rule-mode p { flex: 1; min-width: 180px; margin: 0; font-size: 13px; color: var(--muted); }
+.rule-inheritance { margin-top: 14px; }
+.rule-inheritance > summary { cursor: pointer; color: var(--muted); }
+.rule-inheritance p { margin: 12px 0; font-size: 13px; }
+.rule-inheritance-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .rule-master { padding: 0 24px; background: var(--surface-alt); }
 .rule-master .rule-field { display: flex; align-items: center; justify-content: space-between; gap: 24px; padding: 14px 0; }
 .rule-master .rule-field-heading { flex: 1; justify-content: flex-start; gap: 24px; }
@@ -1454,6 +1461,9 @@ dialog p { margin: 10px 0 16px; font-size: 13.5px; white-space: pre-line; }
   .preset-library-header { flex-wrap: wrap; }
   .preset-library-header > .button { width: 100%; }
   .rule-header .field { width: 100%; }
+  .rule-mode { padding: 16px; }
+  .rule-mode .field { width: 100%; }
+  .rule-inheritance-grid { grid-template-columns: 1fr; }
   .rule-master { padding: 0 16px; }
   .rule-master .rule-field { align-items: end; gap: 12px; }
   .rule-master .rule-field-heading { gap: 8px; }
