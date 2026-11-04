@@ -1,9 +1,11 @@
 """Major stage reminders from the shared, freshly fetched bracket snapshot."""
 import asyncio
 from datetime import timedelta
+from pathlib import Path
 
 from .formatters import CST, now_utc
 from .group_rules import groups_for
+from .major_notifications import stage_context
 from .tournament_events import _date
 
 
@@ -75,8 +77,15 @@ class MajorStageNotices:
                     _, Plain, Image = self.plugin._message_component_types()
                     text = (f"【CS Major 阶段开赛提醒】\n{snapshot['title']}\n"
                             f"{stage['title']} · 北京时间 {start.astimezone(CST):%m-%d %H:%M} 开始")
+                    path = await asyncio.to_thread(
+                        self.plugin._banner_renderer.render_notification,
+                        text, self.plugin._new_notice_path(), major=stage_context(snapshot, stage, start),
+                    )
+                    card = await asyncio.to_thread(Path(path).read_bytes)
+                    if not any(active(target) for target in targets):
+                        return []
                     return await self.plugin._push_components_to_targets_with_refs(
-                        targets, [Plain(text), Image.fromBytes(data)], is_active=active,
+                        targets, [Plain(text), Image.fromBytes(card), Image.fromBytes(data)], is_active=active,
                     )
 
                 await self.plugin._deliver_notification(key, deliver)

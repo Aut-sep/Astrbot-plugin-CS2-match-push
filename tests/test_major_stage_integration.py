@@ -23,6 +23,8 @@ class MajorIntegrationTests(unittest.IsolatedAsyncioTestCase):
         class Image:
             fromBytes = staticmethod(lambda data: data)
         self.p._message_component_types = lambda: (object, str, Image)
+        self.p._banner_renderer = main.BannerRenderer()
+        self.p._banner_dir = self.temp.name
         images = types.SimpleNamespace(notice_image=AsyncMock(
             side_effect=render, return_value=b'offline-image'))
         return major.MajorStageNotices(self.p, images)
@@ -35,6 +37,8 @@ class MajorIntegrationTests(unittest.IsolatedAsyncioTestCase):
             await notifier.send(self.snapshot(), self.p._token)
         self.assertEqual([item[0] for item in self.sent], [A])
         self.assertEqual(self.sent[0][2][-1], b'offline-image')
+        self.assertEqual(len(self.sent[0][2]), 3)
+        self.assertTrue(self.sent[0][2][1].startswith(b'\x89PNG'))
         self.assertEqual(self.p.store.get_delivery_targets('major-stage:900:901'), {f'group:{A}'})
 
     async def test_partial_failure_retries_only_failed_group_after_reload(self):

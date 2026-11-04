@@ -51,6 +51,7 @@ from .config import ConfigError, integer, message_target_id
 from .official_extension import OFFICIAL_PLATFORMS, denial_reason
 from .bracket_data import format_bracket
 from .cs_major import MajorBracketService, STAGE_ALIASES as MAJOR_STAGE_ALIASES
+from .major_notifications import major_context
 from .bracket_images import BracketImages
 from .daily_image_cache import DailyImageCache, daily_image_key
 from .group_rules import Rules, current as current_rules, scope as rule_scope, selected_group, send_allowed, has_send_gate, groups_for, any_match
@@ -1444,6 +1445,8 @@ class CSMatchPlugin(Star):
             logo_images=images, team_names=names, center_text=center_text,
             start_time=start_time, team_marks=marks, round_winners=round_winners, winner_index=winner_index,
             event_marks=event_marks,
+            major=major_context(text=text, match=match, competition=competition,
+                                snapshot=getattr(getattr(self, 'major_brackets', None), 'cached', None)),
         )
         _, _, Image = self._message_component_types()
         image = self._make_image_file_component(Image, path)

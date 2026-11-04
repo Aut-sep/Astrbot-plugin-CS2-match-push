@@ -26,6 +26,7 @@ class BannerRenderer:
         round_winners: list[int] | None = None,
         winner_index: int | None = None,
         event_marks: list[dict] | None = None,
+        major: dict | None = None,
     ) -> str:
         """Render one compact editorial card; delivery failures propagate.
 
@@ -34,6 +35,13 @@ class BannerRenderer:
         ``start_time`` is a Beijing-time HH:MM displayed beneath VS. Result
         cards show only the score and never display a match time.
         """
+        if major is not None:
+            from .major_notifications import MajorNoticeRenderer
+            return MajorNoticeRenderer(self).render(
+                text, output_path, major, logo_images=logo_images, team_names=team_names,
+                center_text=center_text, team_marks=team_marks,
+                round_winners=round_winners, winner_index=winner_index,
+            )
         from PIL import Image as PILImage, ImageDraw, ImageStat
 
         names = [self._notification_text(name) for name in (team_names or [])[:2]]
