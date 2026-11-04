@@ -4,7 +4,7 @@
 
 AstrBot plugin for Counter-Strike 2 (CS2) match notifications, team subscriptions and Major brackets in QQ groups.
 
-> 当前源码版本为 `4.3.3`，整合每群独立规则与 Major 阶段提醒，仅包含 CS2 功能。赛事查询与推送需要 PandaScore API Token；主动推送仅支持 OneBot（如 NapCat），QQ 官方扩展仅支持查询。更新见[更新记录](CHANGELOG.md)，使用与验证说明见[功能证据与验收](docs/verification.md)。源码版本不代表已经发布到 GitHub Releases 或插件市场。
+> 当前源码版本为 `4.3.4`，整合主分支的每群独立规则、4.3.3 的 Major 阶段提醒，以及新版对阵图、Major 专属卡片与官方查询回复优化，仅包含 CS2 功能。赛事查询与推送需要 PandaScore API Token；主动推送仅支持 OneBot（如 NapCat），QQ 官方扩展仅支持查询。更新见[更新记录](CHANGELOG.md)，使用与验证说明见[功能证据与验收](docs/verification.md)。源码版本不代表已经发布到 GitHub Releases 或插件市场。
 
 [安装与配置](#安装与配置) · [平台区别](#普通机器人与官方机器人怎么选) · [常用指令](#常用指令) · [图片示例](#图片效果展示) · [常见问题](#常见问题)
 

@@ -89,7 +89,7 @@ def build_stage(stage, matches, *, kind_title):
     if kind == 'swiss':
         # Swiss pairings are redrawn. They are not a fixed elimination tree.
         edges = []
-        notes.append('按赛前战绩分组；箭头表示胜负流向，不预设后续对手')
+        notes.append('按赛前战绩分组；标签表示胜负去向，不预设后续对手')
         rows, swiss_groups, unknown = build_swiss(rows, title)
         columns = [(group['record'], group['matches']) for group in swiss_groups if group['matches']]
         if unknown:
