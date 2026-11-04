@@ -431,12 +431,10 @@ class OfficialCSMenu:
                 version = hashlib.sha256(portrait.read_bytes()).hexdigest()[:12]
                 photo_url = f"{self.photo_base_url}/{quote(portrait.name)}?v={version}"
                 photo = f"![选手照片 #{width}px #{height}px]({photo_url})\n\n"
-        result_label = "原结果 · 明日可再抽取" if result.repeated else "今日抽取已保存"
         reminder = "> 你今天已经抽取过啦，明天再来吧\n\n" if result.repeated else ""
         text = (
             "# 🌟 今日选手\n\n"
             f"{reminder}"
-            f"> {result.day.replace('-', '.')} · {result_label}\n\n"
             "🎉 **恭喜你！今天的专属选手是——**\n\n"
             f"## **【{player['name']}】**\n\n"
             f"**{player['team']}** · {player['role']}\n\n"

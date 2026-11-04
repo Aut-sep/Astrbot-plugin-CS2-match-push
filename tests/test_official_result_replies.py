@@ -67,6 +67,8 @@ class OfficialResultTests(unittest.IsolatedAsyncioTestCase):
             text = self.menu.send.await_args.args[1]
             self.assertIn('恭喜你！今天的专属选手是——', text)
             self.assertIn('**【Virtual Player】**', text)
+            self.assertNotIn('2026.11.03', text)
+            self.assertNotIn('今日抽取已保存', text)
             rows = self.menu.send.await_args.kwargs['rows']
             self.assertEqual(rows, [[('抽取今日选手', '/cs今日选手')]])
             keyboard = menu_module.build_keyboard(rows)
@@ -75,7 +77,11 @@ class OfficialResultTests(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(action['data'], '/cs今日选手')
             self.menu.draws.draw=lambda key:types.SimpleNamespace(player=player,day='2026-11-03',repeated=True)
             await self.menu.player(self.event)
-            self.assertIn('你今天已经抽取过啦，明天再来吧', self.menu.send.await_args.args[1])
+            repeated_text = self.menu.send.await_args.args[1]
+            self.assertEqual(repeated_text.count('你今天已经抽取过啦，明天再来吧'), 1)
+            self.assertNotIn('2026.11.03', repeated_text)
+            self.assertNotIn('原结果', repeated_text)
+            self.assertNotIn('明日可再抽取', repeated_text)
             self.assertIn('恭喜你！今天的专属选手是——', self.menu.send.await_args.args[1])
             self.assertEqual(self.menu.send.await_args.kwargs['rows'], rows)
             self.event.get_platform_name=lambda:'aiocqhttp'
