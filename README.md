@@ -4,7 +4,7 @@
 
 AstrBot plugin for Counter-Strike 2 (CS2) match notifications, team subscriptions and Major brackets in QQ groups.
 
-> **4.4.1** · 直接问 CS2 赛程与比分，近期赛程默认查询未来 7 天；改善 AI 查询引导与内嵌面板兼容性。查看[更新记录](CHANGELOG.md)。
+> **4.4.0** · 直接问 CS2 赛程与比分，近期赛程默认查询未来 7 天；改善 AI 查询引导与内嵌面板兼容性。查看[更新记录](CHANGELOG.md)。
 
 [安装与配置](#安装与配置) · [平台区别](#普通机器人与官方机器人怎么选) · [常用指令](#常用指令) · [图片示例](#图片效果展示) · [常见问题](#常见问题)
 
