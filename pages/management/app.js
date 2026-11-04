@@ -152,6 +152,7 @@ function editSubscriptions(edit) {
     push_groups: state.config.push_groups || [],
     followed_teams: state.config.followed_teams || [],
     group_rules: state.config.group_rules || {},
+    rule_presets: state.config.rule_presets || [],
   });
   edit(state.subscriptionsDraft);
   renderSubscriptions();
@@ -208,7 +209,10 @@ function formValues(section) {
       url: $(".stream-url", row).value.trim(),
     }));
   }
-  if (section === "subscriptions") values.group_rules = structuredClone(subscriptionValues().group_rules || {});
+  if (section === "subscriptions") {
+    values.group_rules = structuredClone(subscriptionValues().group_rules || {});
+    values.rule_presets = structuredClone(subscriptionValues().rule_presets || []);
+  }
   return values;
 }
 
@@ -1172,6 +1176,6 @@ async function initialize() {
 groupRuleEditor = createGroupRuleEditor({
   getConfig: () => state.config, getDraft: subscriptionValues,
   getDefaults: () => state.ready ? { ...state.config, ...formValues('subscriptions'), ...formValues('push') } : state.config,
-  edit: editSubscriptions, api, run, dialog, escape: escaped,
+    edit: editSubscriptions, api, run, dialog, escape: escaped, toast,
 });
 initialize();

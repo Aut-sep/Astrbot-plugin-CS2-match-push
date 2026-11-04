@@ -150,6 +150,7 @@ class WebPanel:
         a.add_get("/app.js",                    self.asset)
         a.add_get("/setup.js",                  self.asset)
         a.add_get("/group-rules.js",            self.asset)
+        a.add_get("/presets.js",                self.asset)
         a.add_get("/style.css",                 self.asset)
         a.add_get("/api/config",                self.get_config)
         a.add_patch("/api/config",              self.patch_config)
@@ -274,7 +275,8 @@ class WebPanel:
                     self.plugin.store.import_config(previous)
                     logger.error(f"[CS] Web 面板配置应用失败: {exc}")
                     return self._json({"ok": False, "msg": f"web panel reconfigure failed: {exc}"}, 500)
-            if changed:
+            runtime_changed = changed - {"rule_presets"}
+            if runtime_changed:
                 await self.plugin.reload_runtime_config()
             filters = {
                 "min_tiers", "blacklist_teams", "blacklist_leagues",
@@ -282,7 +284,7 @@ class WebPanel:
             }
             if changed & (filters | {"remind_minutes", "custom_remind_minutes"}):
                 self.plugin.rebuild_all_match_tasks()
-            elif imported or changed & {"pandascore_token", "fetch_ahead_days"}:
+            elif (imported and runtime_changed) or changed & {"pandascore_token", "fetch_ahead_days"}:
                 self.plugin.schedule_refresh("web_import_config" if imported else "web_patch_config")
             if changed & (filters | {"tournament_announce_enabled", "tournament_announce_hours"}):
                 self.plugin.rebuild_tournament_tasks()

@@ -10,11 +10,11 @@ RULE_KEYS = frozenset({
     'blacklist_teams', 'blacklist_leagues', 'upcoming_enabled', 'finished_enabled',
     'remind_minutes', 'reschedule_notify', 'tournament_announce_enabled',
     'tournament_announce_hours', 'daily_push_enabled', 'daily_push_times',
-    'daily_push_days', 'image_push_enabled',
+    'daily_push_days', 'image_push_enabled', 'major_stage_notify_enabled',
 })
 KIND_SWITCH = {'upcoming': 'upcoming_enabled', 'finished': 'finished_enabled',
                'reschedule': 'reschedule_notify', 'opening': 'tournament_announce_enabled',
-               'daily': 'daily_push_enabled'}
+               'daily': 'daily_push_enabled', 'major_stage': 'major_stage_notify_enabled'}
 # Context is task-local. Concurrent rendering never mutates the shared store.
 _SCOPE = ContextVar('cs_group_rule_scope', default=None)
 

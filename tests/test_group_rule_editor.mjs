@@ -4,8 +4,14 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 
 const source = await readFile(new URL('../pages/management/group-rules.js', import.meta.url));
+const presetSource = await readFile(new URL('../pages/management/presets.js', import.meta.url));
+globalThis.PRESETS_MODULE = await import(`data:text/javascript;base64,${presetSource.toString('base64')}`);
+const testableSource = source.toString().replace(
+  "import { BUILTIN_PRESETS, newPresetId, presetRules } from './presets.js';",
+  'const { BUILTIN_PRESETS, newPresetId, presetRules } = globalThis.PRESETS_MODULE;',
+);
 const { createGroupRuleEditor, effectiveRules, RULE_FIELDS } = await import(
-  `data:text/javascript;base64,${source.toString('base64')}`);
+  `data:text/javascript;base64,${Buffer.from(testableSource).toString('base64')}`);
 
 function fixture() {
   const config = {
@@ -13,7 +19,7 @@ function fixture() {
     followed_teams: [{ id: 1, name: 'NAVI' }], min_tiers: ['s', 'a'],
     group_rules: { '100002': { remind_minutes: 30, image_push_enabled: false } },
   };
-  const draft = structuredClone(config);
+  let draft = structuredClone(config);
   const events = {};
   let pending, copyFrom = '100002', checkedTiers = [];
   const host = {
@@ -23,20 +29,27 @@ function fixture() {
       return selector === '#rule-copy-from' ? { value: copyFrom } : { focus() {} };
     },
     querySelectorAll(selector) {
-      return selector === '[data-rule-tier]:checked' ? checkedTiers : [];
+      if (selector === '[data-rule-tier]:checked') return checkedTiers;
+      if (selector === '[data-preset-team]:checked') return [{ value: '7' }];
+      return [];
     },
   };
   globalThis.document = { querySelector: () => host, getElementById: () => null };
+  const toasts = [];
   const editor = createGroupRuleEditor({
     getConfig: () => config, getDraft: () => draft, getDefaults: () => config,
     edit(callback) { callback(draft); editor.render(); },
-    api() { throw new Error('No remote operations allowed'); },
+    api(path) {
+      if (path === '/api/teams/popular') return Promise.resolve({ teams: [{ id: 7, name: 'NAVI' }] });
+      throw new Error('No remote operations allowed');
+    },
     run(_button, operation) { pending = Promise.resolve(operation()); return pending; },
-    dialog: async () => ({}), escape: value => String(value ?? ''),
+    dialog: async () => ({}), escape: value => String(value ?? ''), toast: message => toasts.push(message),
   });
   editor.select('100001');
   return {
-    config, draft, editor, host,
+    config, draft, editor, host, toasts,
+    abandon() { draft = config; editor.render(); },
     inherit(key, checked) { events.change({ target: { dataset: { ruleInherit: key }, checked } }); },
     value(key, value, valid = true) {
       const element = { dataset: { ruleValue: key }, value, error: '', reported: false,
@@ -147,4 +160,24 @@ test('editing a category keeps it active after the draft rerenders', async () =>
   assert.match(f.host.innerHTML, /id="rule-tab-notices"[^>]*aria-selected="true"/);
   assert.match(f.host.innerHTML, /data-rule-value="remind_minutes"/);
   assert.doesNotMatch(f.host.innerHTML, /data-rule-value="daily_push_times"/);
+});
+
+test('applying a built-in preset through the editor applies the draft and reports status', async () => {
+  const f = fixture();
+  await f.click('data-preset-action', { presetAction: 'apply', presetId: 'builtin-big-event' });
+  const applied = f.draft.group_rules['100001'];
+  assert.equal(applied.filter_mode, 'tiers');
+  assert.deepEqual(applied.min_tiers, ['s']);
+  assert.equal(applied.major_stage_notify_enabled, true);
+  assert.match(f.toasts[0], /已应用到群 100001/);
+});
+
+test('discarding a fan preset draft clears its pending team validation', async () => {
+  const f = fixture();
+  f.config.group_rules['100001'] = { filter_mode: 'followed', followed_teams: [] };
+  f.config.followed_teams = [];
+  await f.click('data-preset-action', { presetAction: 'apply', presetId: 'builtin-favorite-team' });
+  await f.click('data-preset-action', { presetAction: 'apply-selected' });
+  f.abandon();
+  assert.doesNotThrow(() => f.editor.validate());
 });

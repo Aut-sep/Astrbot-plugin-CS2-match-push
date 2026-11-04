@@ -57,7 +57,7 @@ class MajorStageNotices:
                 if start is None:
                     continue
                 key = f"major-stage:{snapshot['serie_id']}:{stage['id']}"
-                targets = [('group', gid) for gid in groups_for(self.plugin.store)]
+                targets = [('group', gid) for gid in groups_for(self.plugin.store, 'major_stage')]
                 delivered = self.plugin.store.get_delivery_targets(key)
                 if not any(f'{kind}:{gid}' not in delivered for kind, gid in targets):
                     continue
@@ -65,7 +65,7 @@ class MajorStageNotices:
                 def active(target):
                     kind, gid = target
                     return (token == self.plugin._token and kind == 'group'
-                            and gid in groups_for(self.plugin.store)
+                            and gid in groups_for(self.plugin.store, 'major_stage')
                             and due_start(stage, now_utc()) is not None)
 
                 async def deliver():

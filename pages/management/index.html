@@ -68,6 +68,16 @@
           </form>
           <form id="setup-options-form" data-setup-step="2" hidden>
             <p>以下全部为可选项。保持当前设置即可开始使用，之后可随时调整。</p>
+            <section class="setup-preset card padded" aria-labelledby="setup-preset-title">
+              <h3 id="setup-preset-title">快速选择推送方式</h3>
+              <p>选择一个接收群和预设，完成引导后可在订阅管理中继续修改。</p>
+              <div class="setup-fields">
+                <label class="field">应用到接收群<select id="setup-preset-group"><option value="">暂不应用预设</option></select></label>
+                <label class="field">推送预设<select id="setup-preset"><option value="">暂不应用预设</option></select></label>
+              </div>
+              <p id="setup-preset-description" class="setup-note">选择预设后会显示基本功能与通知范围。</p>
+              <div id="setup-preset-teams" class="preset-team-options" hidden></div>
+            </section>
             <div class="setup-fields">
               <label class="field">提前几分钟提醒<input type="number" min="1" max="120" required data-setup-key="remind_minutes"><small>比赛开始前提醒一次；单场也可以独立调整。</small></label>
               <label class="field">普通推送平台 ID<input type="text" data-setup-key="push_platform_id" placeholder="留空自动选择 OneBot"><small>赛事主动推送使用 OneBot；不会使用官方机器人扩展的选择。</small></label>
@@ -356,6 +366,7 @@
               <div class="settings-title"><span class="settings-number">01</span><h3>比赛通知</h3></div>
               <label class="field">赛前提前提醒（分钟）<input type="number" data-key="remind_minutes" min="1" max="120" required><small>可在赛程中单独调整某一场。</small></label>
               <label class="switch-row"><span><strong>赛程变更通知</strong><small>临近开赛或已提醒过的比赛改期时通知。</small></span><input type="checkbox" role="switch" data-key="reschedule_notify"></label>
+              <label class="switch-row"><span><strong>Major 阶段开赛提醒</strong><small>在 Major 每个阶段开始前发送提醒，并附上该阶段对阵图。</small></span><input type="checkbox" role="switch" data-key="major_stage_notify_enabled"></label>
               <div class="setting-divider"></div>
               <label class="switch-row"><span><strong>赛事开幕预告</strong><small>在整届赛事开始前发送介绍。</small></span><input type="checkbox" role="switch" data-key="tournament_announce_enabled"></label>
               <label class="field">开幕提前通知（小时）<input type="number" data-key="tournament_announce_hours" min="1" max="168" required></label>

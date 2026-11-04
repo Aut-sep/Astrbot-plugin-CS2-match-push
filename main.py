@@ -2006,6 +2006,8 @@ class CSMatchPlugin(Star):
                 f'赛前：{"开启" if rules.enabled("upcoming") else "关闭"} · 提前 {rules.get("remind_minutes", 10)} 分钟\n'
                 f'赛果：{"开启" if rules.enabled("finished") else "关闭"}\n'
                 f'改期：{"开启" if rules.enabled("reschedule") else "关闭"}\n'
+                f'赛事开幕：{"开启" if rules.enabled("opening") else "关闭"}\n'
+                f'Major 阶段：{"开启" if rules.enabled("major_stage") else "关闭"}\n'
                 f'日报：{"、".join(rules.get("daily_push_times", [])) if rules.enabled("daily") else "关闭"}\n'
                 '管理员可在 CS2 管理 → 订阅管理中编辑；单场提醒设置优先。')
         return event.plain_result(text)

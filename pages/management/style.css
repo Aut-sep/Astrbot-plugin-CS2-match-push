@@ -1098,6 +1098,10 @@ dialog p { margin: 10px 0 16px; font-size: 13.5px; white-space: pre-line; }
   border-radius: var(--radius);
 }
 .setup-fields { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; margin: 4px 0 18px; }
+.setup-preset { margin: 16px 0; border-left: 3px solid var(--accent); }
+.setup-preset h3 { margin-bottom: 4px; }
+.setup-preset .setup-fields { margin: 12px 0 4px; }
+.setup-preset .preset-team-options { margin-top: 12px; }
 .setup-actions { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 10px; margin-top: 24px; }
 .setup-guide .inline-check { margin: 14px 0; }
 .setup-guide .notice h4 { margin-bottom: 4px; }
@@ -1260,6 +1264,25 @@ dialog p { margin: 10px 0 16px; font-size: 13.5px; white-space: pre-line; }
 
 /* ---------- 群规则编辑器 ---------- */
 .group-rules-editor { margin-top: 20px; scroll-margin-top: 16px; }
+.preset-library { padding: 22px 24px 18px; border-bottom: 1px solid var(--border); background: var(--surface-alt); }
+.preset-library-header { padding: 0 0 14px; }
+.preset-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.preset-card { display: flex; flex-direction: column; justify-content: space-between; gap: 14px; min-width: 0; padding: 14px; background: var(--surface); border: 1px solid var(--border-strong); border-top: 2px solid var(--border-strong); border-radius: var(--radius); }
+.preset-card-builtin { border-top-color: var(--accent); }
+.preset-card-copy { display: grid; gap: 6px; }
+.preset-card-copy p { margin: 0; font-size: 13px; line-height: 1.55; }
+.preset-card-copy > small { color: var(--accent-text); font-size: 11.5px; }
+.preset-card-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.preset-card-actions { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; }
+.preset-more { position: relative; }
+.preset-more > summary { color: var(--muted); font-size: 12px; cursor: pointer; }
+.preset-more-actions { position: absolute; z-index: 5; right: 0; top: 100%; display: grid; min-width: 150px; padding: 6px; background: var(--surface-raised); border: 1px solid var(--border-strong); box-shadow: var(--shadow-pop); }
+.preset-more-actions .button { justify-content: flex-start; border: 0; }
+.preset-library-note { display: block; margin-top: 12px; color: var(--muted); font-size: 12px; }
+.preset-team-picker { display: grid; gap: 12px; margin-top: 12px; padding: 16px; background: var(--surface); border: 1px solid var(--accent); border-left-width: 3px; }
+.preset-team-picker p { margin: 3px 0 0; font-size: 12px; }
+.preset-team-options { display: flex; flex-wrap: wrap; gap: 8px 14px; }
+.preset-team-options .inline-check { padding: 6px 9px; background: var(--surface-alt); border: 1px solid var(--border); }
 .rule-header .field { width: 280px; max-width: 100%; margin: 0; }
 .rule-content { border-top: 1px solid var(--border); }
 .rule-master { padding: 0 24px; background: var(--surface-alt); }
@@ -1426,6 +1449,10 @@ dialog p { margin: 10px 0 16px; font-size: 13.5px; white-space: pre-line; }
   .page-footer { flex-direction: column; gap: 2px; font-size: 11.5px; }
   .test-row .muted { flex-basis: 100%; }
   .rule-header { flex-wrap: wrap; }
+  .preset-library { padding: 18px 16px; }
+  .preset-grid { grid-template-columns: 1fr; }
+  .preset-library-header { flex-wrap: wrap; }
+  .preset-library-header > .button { width: 100%; }
   .rule-header .field { width: 100%; }
   .rule-master { padding: 0 16px; }
   .rule-master .rule-field { align-items: end; gap: 12px; }

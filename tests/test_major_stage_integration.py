@@ -67,6 +67,22 @@ class MajorIntegrationTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.sent, [])
         self.assertEqual(self.p.store.get_delivery_targets('major-stage:900:901'), set())
 
+    async def test_major_switch_inherits_and_can_be_overridden_per_group(self):
+        self.p.store.set('major_stage_notify_enabled', False)
+        self.p.store.set('group_rules', {B: {'major_stage_notify_enabled': True,
+                                            'tournament_announce_enabled': False}})
+        with patch.object(major, 'now_utc', return_value=NOW):
+            await self.notifier().send(self.snapshot(), self.p._token)
+        self.assertEqual([item[0] for item in self.sent], [B])
+
+    async def test_disabling_major_during_render_prevents_delivery(self):
+        async def render(*args):
+            self.p.store.set('major_stage_notify_enabled', False)
+            return b'offline-image'
+        with patch.object(major, 'now_utc', return_value=NOW):
+            await self.notifier(render).send(self.snapshot(), self.p._token)
+        self.assertEqual(self.sent, [])
+
     async def test_outside_window_started_unknown_and_stale_token_do_not_send(self):
         notifier = self.notifier()
         with patch.object(major, 'now_utc', return_value=NOW):

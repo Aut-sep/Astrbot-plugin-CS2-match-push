@@ -28,6 +28,7 @@ BOOLEAN_KEYS = {
     "daily_push_enabled", "tournament_announce_enabled", "image_push_enabled",
     "test_mode_enabled", "official_extension_enabled", "official_rich_replies",
     "push_enabled", "upcoming_enabled", "finished_enabled",
+    "major_stage_notify_enabled",
 }
 STRING_KEYS = {"pandascore_token", "web_panel_token", "test_target_id", "push_platform_id"}
 STRING_LIST_KEYS = {"blacklist_teams", "blacklist_leagues"}
@@ -100,6 +101,34 @@ def validate_config(cfg: dict) -> dict:
     if not isinstance(cfg, dict):
         raise ConfigError("configuration must be a JSON object")
     result = {}
+    if "rule_presets" in cfg:
+        from .group_rules import RULE_KEYS
+        presets = _list(cfg["rule_presets"], "rule_presets")
+        if len(presets) > 50:
+            raise ConfigError("最多保存 50 个自定义预设")
+        ids, names, normalized = set(), set(), []
+        for preset in presets:
+            if not isinstance(preset, dict) or set(preset) != {"id", "name", "rules"}:
+                raise ConfigError("预设需要 id、name 和 rules")
+            identity = string(preset["id"], "preset id", nonempty=True)
+            name = string(preset["name"], "preset name", nonempty=True)
+            if (not re.fullmatch(r"[A-Za-z0-9_-]{1,64}", identity)
+                    or identity.startswith("builtin-")):
+                raise ConfigError("预设 ID 无效")
+            if len(name) > 40:
+                raise ConfigError("预设名称不能超过 40 个字符")
+            if identity in ids or name.casefold() in names:
+                raise ConfigError("预设 ID 和名称不能重复")
+            rules = preset["rules"]
+            if not isinstance(rules, dict) or set(rules) != RULE_KEYS:
+                raise ConfigError("预设必须包含完整的群推送规则，不能包含账号或接收群信息")
+            values = validate_config(rules)
+            if values["filter_mode"] == "followed" and not values["followed_teams"]:
+                raise ConfigError("只看关注战队的预设至少需要选择一支战队")
+            ids.add(identity)
+            names.add(name.casefold())
+            normalized.append({"id": identity, "name": name, "rules": values})
+        result["rule_presets"] = normalized
     if "filter_mode" in cfg:
         mode = string(cfg["filter_mode"], "filter_mode")
         if mode not in {"tiers", "followed", "tiers_or_followed"}:

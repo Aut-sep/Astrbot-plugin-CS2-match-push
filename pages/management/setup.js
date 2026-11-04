@@ -1,7 +1,15 @@
+import { BUILTIN_PRESETS, applyPresetToGroup, presetRules } from './presets.js';
+import { RULE_FIELDS, effectiveRules } from './group-rules.js';
+
 /** Guided setup uses the same authenticated operations as the management forms. */
 export function createSetupGuide({ api, getState, loadConfig, activateTab, toast }) {
   const $ = (selector) => document.querySelector(selector);
   let step = 0, busy = false, verified = false, checks = null, draft = {};
+  let presetTeams = [];
+  let presetTeamIds = new Set();
+  let presetTargetTouched = false;
+  let presetBaseGroupRules = {};
+  const esc = value => String(value ?? '').replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
   const titles = ['连接数据源', '添加接收群', '选择推送与扩展', '检查并完成'];
   const setError = (message = '') => {
     $('#setup-error').textContent = message;
@@ -14,6 +22,19 @@ export function createSetupGuide({ api, getState, loadConfig, activateTab, toast
     $('#setup-open').disabled = !state.ready;
     $('#setup-token-hint').textContent = state.tokenConfigured ? '已保存 Token。留空使用当前 Token，填写新值可替换。' : '还没有 Token？按下面步骤获取后粘贴到这里。';
     $('#setup-groups-status').textContent = draft.push_groups?.length ? `已选择 ${draft.push_groups.length} 个接收群，完成引导后统一保存。` : '尚未添加接收群。';
+    const group = $('#setup-preset-group');
+    const selected = group.value;
+    group.innerHTML = '<option value="">暂不应用预设</option>' + (draft.push_groups || []).map(gid => `<option value="${gid}">群 ${gid}</option>`).join('');
+    group.value = (draft.push_groups || []).includes(selected) ? selected : (presetTargetTouched ? '' : (draft.push_groups || [])[0] || '');
+    const preset = $('#setup-preset');
+    const selectedPreset = preset.value;
+    const custom = getState().config.rule_presets || [];
+    preset.innerHTML = '<option value="">暂不应用预设</option>' + [...BUILTIN_PRESETS, ...custom].map(item => `<option value="${esc(item.id)}">${esc(item.name)}</option>`).join('');
+    preset.value = [...BUILTIN_PRESETS, ...custom].some(item => item.id === selectedPreset) ? selectedPreset : '';
+    const item = [...BUILTIN_PRESETS, ...custom].find(entry => entry.id === preset.value);
+    $('#setup-preset-description').textContent = item ? `${item.description || '自定义推送规则'} ${item.summary || ''}` : '选择预设后会显示基本功能与通知范围。';
+    $('#setup-preset-teams').hidden = !item || item.rules.filter_mode !== 'followed' || !!item.rules.followed_teams?.length;
+    $('#setup-preset-teams').innerHTML = presetTeams.map(team => `<label class="inline-check"><input type="checkbox" data-setup-preset-team value="${esc(team.id)}" ${presetTeamIds.has(String(team.id)) ? 'checked' : ''}><span>${esc(team.name)}</span></label>`).join('');
   }
   function showStep(next) {
     step = next;
@@ -31,7 +52,13 @@ export function createSetupGuide({ api, getState, loadConfig, activateTab, toast
   function open() {
     if (getState().dirty.size) return toast('请先保存或放弃页面中尚未保存的修改，再开始引导。', true);
     const config = getState().config;
-    draft = { push_groups: [...(config.push_groups || [])] };
+    presetBaseGroupRules = structuredClone(config.group_rules || {});
+    draft = { push_groups: [...(config.push_groups || [])], group_rules: structuredClone(presetBaseGroupRules) };
+    presetTeams = [];
+    presetTeamIds = new Set();
+    presetTargetTouched = false;
+    $('#setup-preset').value = '';
+    $('#setup-preset-group').value = '';
     $('#setup-token').value = '';
     $('#setup-group').value = '';
     $('#setup-bot-confirm').checked = false;
@@ -99,6 +126,23 @@ export function createSetupGuide({ api, getState, loadConfig, activateTab, toast
     result.groups = { ok: !!draft.push_groups?.length, message: `已选择 ${draft.push_groups?.length || 0} 个接收群，保存后生效。` };
     showChecks(result);
   }
+  $('#setup-preset').addEventListener('change', async () => {
+    const item = [...BUILTIN_PRESETS, ...(getState().config.rule_presets || [])].find(entry => entry.id === $('#setup-preset').value);
+    setError();
+    presetTeams = [];
+    presetTeamIds = new Set();
+    if (item?.rules.filter_mode === 'followed' && !item.rules.followed_teams?.length) {
+      try { presetTeams = (await api('/api/teams/popular')).teams || []; }
+      catch { presetTeams = []; setError('无法读取常看战队。完成引导后可在订阅管理中选择主队，再应用此预设。'); }
+    }
+    sync();
+  });
+  $('#setup-preset-teams').addEventListener('change', event => {
+    if (!event.target.matches('[data-setup-preset-team]')) return;
+    if (event.target.checked) presetTeamIds.add(String(event.target.value));
+    else presetTeamIds.delete(String(event.target.value));
+  });
+  $('#setup-preset-group').addEventListener('change', () => { presetTargetTouched = true; });
   $('#setup-open').addEventListener('click', open);
   $('#setup-close').addEventListener('click', close);
   $('#setup-token').addEventListener('input', () => verified = false);
@@ -134,6 +178,9 @@ export function createSetupGuide({ api, getState, loadConfig, activateTab, toast
     event.preventDefault();
     action($('#setup-options-save'), async () => {
       if (!event.currentTarget.reportValidity()) return;
+      // Apply a single selected preset to a fresh copy so changing the target,
+      // going back, or choosing “skip” never leaves stale wizard edits behind.
+      draft.group_rules = structuredClone(presetBaseGroupRules);
       const values = {};
       document.querySelectorAll('[data-setup-key]').forEach(el => {
         values[el.dataset.setupKey] = el.type === 'checkbox' ? el.checked : el.type === 'number' ? Number(el.value) : el.value.trim();
@@ -142,11 +189,32 @@ export function createSetupGuide({ api, getState, loadConfig, activateTab, toast
       values.daily_push_times = [...new Set($('#setup-daily-times').value.split(/[,，\s]+/).filter(Boolean))];
       if (values.daily_push_enabled && !values.daily_push_times.length) throw new Error('开启日报时，请填写至少一个推送时间，例如 08:00。');
       if (values.daily_push_times.some(time => !/^([01]\d|2[0-3]):[0-5]\d$/.test(time))) throw new Error('日报时间请使用 HH:MM，例如 08:00、18:00。');
+      const presetId = $('#setup-preset').value;
+      const target = $('#setup-preset-group').value;
+      if (presetId && target) {
+        const builtin = BUILTIN_PRESETS.find(item => item.id === presetId);
+        const preset = builtin || (getState().config.rule_presets || []).find(item => item.id === presetId);
+        if (!preset) throw new Error('找不到所选预设，请刷新页面重试。');
+        const rules = { ...getState().config, group_rules: draft.group_rules || {} };
+        const current = effectiveRules(rules, target);
+        const applied = presetRules(preset, current, { builtin: !!builtin });
+        if (preset.rules.filter_mode === 'followed' && !applied.followed_teams.length) {
+          const ids = presetTeamIds;
+          const selected = presetTeams.filter(team => ids.has(String(team.id)));
+          if (!selected.length) throw new Error('主队粉丝预设至少选择一支战队。');
+          applied.followed_teams = selected.map(team => ({ id: team.id, name: team.name, slug: team.slug || '' }));
+        }
+        draft.group_rules = applyPresetToGroup(draft.group_rules, target, preset, current, { builtin: !!builtin });
+        draft.group_rules[target] = Object.fromEntries(RULE_FIELDS.map(([key]) => [key, structuredClone(applied[key])]));
+      }
       Object.assign(draft, values);
       await goToCheck();
     });
   });
-  $('#setup-options-skip').addEventListener('click', event => action(event.currentTarget, goToCheck));
+  $('#setup-options-skip').addEventListener('click', event => action(event.currentTarget, async () => {
+    draft.group_rules = structuredClone(presetBaseGroupRules);
+    await goToCheck();
+  }));
   $('#setup-recheck').addEventListener('click', event => action(event.currentTarget, goToCheck));
   $('#setup-finish').addEventListener('click', event => action(event.currentTarget, async () => {
     if (!verified || !checks?.source?.ok || !checks?.groups?.ok) throw new Error('请完成数据源和接收群配置，并通过检查后继续。');
