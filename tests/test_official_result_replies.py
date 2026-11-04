@@ -52,7 +52,7 @@ class OfficialResultTests(unittest.IsolatedAsyncioTestCase):
         await self.menu.menu(self.event)
         self.assertTrue(self.menu.send.await_args.args[2])
 
-    async def test_daily_player_result_does_not_attach_menu(self):
+    async def test_daily_player_result_has_public_draw_button(self):
         with tempfile.TemporaryDirectory() as directory:
             self.menu.root=Path(directory)
             self.menu.players_by_id={'demo':{'id':'demo','name':'Virtual Player'}}
@@ -64,4 +64,12 @@ class OfficialResultTests(unittest.IsolatedAsyncioTestCase):
             self.event.get_platform_id=lambda:'offline-account'
             await self.menu.player(self.event)
             self.assertEqual(len(self.menu.send.await_args.args),2)
-            self.assertNotIn('rows',self.menu.send.await_args.kwargs)
+            rows = self.menu.send.await_args.kwargs['rows']
+            self.assertEqual(rows, [[('抽取今日选手', '/cs今日选手')]])
+            keyboard = menu_module.build_keyboard(rows)
+            action = keyboard['content']['rows'][0]['buttons'][0]['action']
+            self.assertEqual(action['permission'], {'type': 2})
+            self.assertEqual(action['data'], '/cs今日选手')
+            self.event.get_platform_name=lambda:'aiocqhttp'
+            await self.menu.player(self.event)
+            self.assertIsNone(self.menu.send.await_args.kwargs['rows'])

@@ -443,5 +443,7 @@ class OfficialCSMenu:
         await self.send(
             event,
             text,
+            rows=([[('抽取今日选手', '/cs今日选手')]]
+                  if event.get_platform_name() in OFFICIAL_PLATFORMS else None),
             player=player,
         )
