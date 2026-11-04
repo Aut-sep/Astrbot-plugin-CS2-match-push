@@ -64,12 +64,20 @@ class OfficialResultTests(unittest.IsolatedAsyncioTestCase):
             self.event.get_platform_id=lambda:'offline-account'
             await self.menu.player(self.event)
             self.assertEqual(len(self.menu.send.await_args.args),2)
+            text = self.menu.send.await_args.args[1]
+            self.assertIn('恭喜你！今天的专属选手是——', text)
+            self.assertIn('**【Virtual Player】**', text)
             rows = self.menu.send.await_args.kwargs['rows']
             self.assertEqual(rows, [[('抽取今日选手', '/cs今日选手')]])
             keyboard = menu_module.build_keyboard(rows)
             action = keyboard['content']['rows'][0]['buttons'][0]['action']
             self.assertEqual(action['permission'], {'type': 2})
             self.assertEqual(action['data'], '/cs今日选手')
+            self.menu.draws.draw=lambda key:types.SimpleNamespace(player=player,day='2026-11-03',repeated=True)
+            await self.menu.player(self.event)
+            self.assertIn('你今天已经抽取过啦，明天再来吧', self.menu.send.await_args.args[1])
+            self.assertIn('恭喜你！今天的专属选手是——', self.menu.send.await_args.args[1])
+            self.assertEqual(self.menu.send.await_args.kwargs['rows'], rows)
             self.event.get_platform_name=lambda:'aiocqhttp'
             await self.menu.player(self.event)
             self.assertIsNone(self.menu.send.await_args.kwargs['rows'])
