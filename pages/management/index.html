@@ -7,7 +7,7 @@
     <title>CS2 比赛推送 · 管理</title>
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='10' fill='%23152032'/%3E%3Cpath d='M0 0h7v64H0z' fill='%23ff8a4c'/%3E%3Ctext x='34' y='40' font-family='sans-serif' font-size='23' font-weight='700' text-anchor='middle' fill='white'%3ECS2%3C/text%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M0 0h50l14 14v50H0z' fill='%23252c24'/%3E%3Ctext x='31' y='41' font-family='sans-serif' font-style='italic' font-size='24' font-weight='800' text-anchor='middle' fill='%23d3ef81'%3ECS2%3C/text%3E%3C/svg%3E"
     />
     <link rel="stylesheet" href="./style.css" />
     <script type="module" src="./app.js"></script>
@@ -15,18 +15,11 @@
   <body>
     <main class="app" id="app" aria-busy="true">
       <header class="page-header">
-        <svg class="broadcast-map" viewBox="0 0 380 180" fill="none" aria-hidden="true">
-          <path d="M16 48h82V18h72v42h64V30h112v54h-48v64h-90v-30h-64v42H48V96H16z" />
-          <path d="M98 48v48h46m26-36v58m64-58v48h64M48 96h50v64m110-42v-34h90" />
-          <circle cx="270" cy="60" r="24" /><path d="M270 26v19m0 30v19m-34-34h19m30 0h19" />
-          <path d="M62 116h24v24H62zM312 44h18v18h-18z" />
-        </svg>
         <div class="identity">
           <span class="brand" aria-hidden="true">CS<span>2</span></span>
           <div>
-            <span class="broadcast-kicker">COUNTER-STRIKE 2</span>
             <h1>CS2 比赛推送</h1>
-            <p>赛程 · 订阅 · 赛事播报</p>
+            <p>赛程、订阅与消息推送，一处管理。</p>
           </div>
         </div>
         <div class="connection">
@@ -42,8 +35,8 @@
       </div>
       <section class="card setup-guide" id="setup-guide" aria-labelledby="setup-title">
         <div class="card-header">
-          <div><h2 id="setup-title">新手引导</h2><p id="setup-summary">先完成必填配置，再按需选择推送方式。</p></div>
-          <button class="button" type="button" id="setup-open" disabled>开始配置 / 重新检查</button>
+          <div class="setup-intro"><span class="setup-mark" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M5 5h5M5 5v5M19 19h-5M19 19v-5M5 19 19 5M13 5h6v6"/></svg></span><div><h2 id="setup-title">新手引导</h2><p id="setup-summary">先完成必填配置，再按需选择推送方式。</p></div></div>
+          <button class="button primary" type="button" id="setup-open" disabled>开始配置 / 重新检查</button>
         </div>
         <div id="setup-wizard" hidden>
           <ol class="setup-progress" aria-label="配置进度">
@@ -112,7 +105,7 @@
           aria-selected="true"
           data-tab="overview"
         >
-          赛程概览
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 11h16M8 15h2M14 15h2"/></svg>赛程概览
         </button>
         <button
           id="tab-subscriptions"
@@ -122,7 +115,7 @@
           tabindex="-1"
           data-tab="subscriptions"
         >
-          订阅管理<span class="tab-dirty" hidden>●</span>
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9L12 3Z"/></svg>订阅管理<span class="tab-dirty" hidden>●</span>
         </button>
         <button
           id="tab-push"
@@ -132,9 +125,9 @@
           tabindex="-1"
           data-tab="push"
         >
-          推送设置<span class="tab-dirty" hidden>●</span>
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m21 3-7 18-4-7-7-4L21 3ZM10 14 21 3"/></svg>推送设置<span class="tab-dirty" hidden>●</span>
         </button>
-        <button id="tab-tools" role="tab" aria-controls="tools" aria-selected="false" tabindex="-1" data-tab="tools">赛事工具</button>
+        <button id="tab-tools" role="tab" aria-controls="tools" aria-selected="false" tabindex="-1" data-tab="tools"><svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 3h8v5a4 4 0 0 1-8 0V3ZM8 5H4v2a4 4 0 0 0 4 4M16 5h4v2a4 4 0 0 1-4 4M12 12v6M8 21h8M9 18h6v3"/></svg>赛事工具</button>
         <button
           id="tab-advanced"
           role="tab"
@@ -143,7 +136,7 @@
           tabindex="-1"
           data-tab="advanced"
         >
-          高级维护<span class="tab-dirty" hidden>●</span>
+          <svg class="nav-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h6M14 7h6M4 17h10M18 17h2M10 4v6M14 14v6"/></svg>高级维护<span class="tab-dirty" hidden>●</span>
         </button>
       </nav>
 
@@ -169,7 +162,7 @@
         <div id="setup-notice" class="notice" hidden>
           尚未配置 PandaScore Token。请先完成页面上方的新手引导，或在「高级维护」中填写。
         </div>
-        <div class="card schedule-card">
+        <div class="card">
           <div class="card-header">
             <div>
               <h2>比赛日程</h2>
