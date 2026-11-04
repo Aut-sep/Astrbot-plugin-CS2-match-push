@@ -66,7 +66,7 @@ export function createGroupRuleEditor({ getConfig, getDraft, getDefaults, edit, 
     if (type === 'bool') return `<select data-rule-value="${key}" aria-label="${label}" ${disabled}><option value="true" ${value ? 'selected' : ''}>开启</option><option value="false" ${!value ? 'selected' : ''}>${key === 'push_enabled' ? '暂停' : '关闭'}</option></select>`;
     if (type === 'number') return `<input type="number" data-rule-value="${key}" aria-label="${label}" min="${min}" max="${max}" step="1" value="${Number(value)}" required ${disabled}>`;
     if (type === 'mode') return `<select data-rule-value="${key}" aria-label="${label}" ${disabled}>${[['tiers','按赛事级别'],['followed','只看关注战队'],['tiers_or_followed','赛事级别或关注战队']].map(([v,l]) => `<option value="${v}" ${v === value ? 'selected' : ''}>${l}</option>`).join('')}</select>`;
-    if (type === 'tiers') return `<fieldset class="tiers rule-tiers" aria-label="${label}" ${disabled}>${['s','a','b','c','d','unranked'].map(tier => `<label><input type="checkbox" data-rule-tier="${tier}" ${(value || []).includes(tier) ? 'checked' : ''}>${tier === 'unranked' ? '未评级' : tier.toUpperCase()}</label>`).join('')}</fieldset>`;
+    if (type === 'tiers') return `<fieldset class="tiers rule-tiers" aria-label="${label}" ${disabled}>${['s','a','b','c','d','unranked'].map(tier => `<label><input type="checkbox" data-rule-tier="${tier}" ${(value || []).includes(tier) ? 'checked' : ''}>${tier === 'unranked' ? '未定级' : tier.toUpperCase()}</label>`).join('')}</fieldset>`;
     if (type === 'teams') {
       const list = (value || []).map((team,index) => `<div class="rule-team"><span>${esc(typeof team === 'string' ? team : team.name)}</span>${custom ? `<button type="button" class="button ghost" data-rule-team-remove="${index}" aria-label="取消关注 ${esc(typeof team === 'string' ? team : team.name)}">×</button>` : ''}</div>`).join('') || '<small>没有关注战队</small>';
       return `<div class="rule-team-list">${list}</div>${custom ? '<div class="add-row"><input id="rule-team-query" type="search" placeholder="输入战队名、简称或中文外号" aria-label="搜索本群关注战队"><button type="button" class="button" data-rule-search>搜索</button></div><div id="rule-team-results" aria-live="polite"></div>' : ''}`;
@@ -124,11 +124,21 @@ export function createGroupRuleEditor({ getConfig, getDraft, getDefaults, edit, 
     }
     const groups = getDraft().push_groups || [];
     if (!groups.includes(selected)) selected = '';
+    if (!groups.length) {
+      host.innerHTML = `<div class="card-header rule-header"><div><h3>群推送规则</h3></div></div>
+        <p class="rule-empty-hint">还没有推送群组，先添加接收群才能设置按群覆盖的规则。</p>
+        <button type="button" class="button primary" data-navigate="subscriptions">去添加群组</button>`;
+      return;
+    }
     const rules = effectiveRules(merged(), selected);
     const section = RULE_SECTIONS.find(([key]) => key === activeSection);
-    host.innerHTML = `${renderPresets(rules)}<div class="card-header rule-header"><div><h3>群推送规则</h3></div>
+    host.innerHTML = `<div class="card-header rule-header"><div><h3>群推送规则</h3></div>
       <label class="field">选择接收群<select id="rule-group"><option value="">选择一个群开始设置</option>${groups.map(gid => `<option value="${esc(gid)}" ${selected === gid ? 'selected' : ''}>群 ${esc(gid)}</option>`).join('')}</select></label></div>
-      ${!selected ? '' : `<div class="rule-content">
+      ${!selected ? '<p class="rule-empty-hint">选择接收群后可应用预设或调整规则。</p>' : `<div class="rule-content">
+        <details class="preset-quickstart" open>
+          <summary><span>快速起步：应用推送预设<small>可选，应用后仍可在下方逐项调整</small></span></summary>
+          <div class="preset-quickstart-body">${renderPresets(rules)}</div>
+        </details>
         <label class="switch-row rule-master"><strong>本群赛事推送</strong><input type="checkbox" role="switch" data-rule-value="push_enabled" aria-label="本群赛事推送" ${rules.push_enabled ? 'checked' : ''}></label>
         <div class="rule-tabs" role="tablist" aria-label="群规则分类">${RULE_SECTIONS.map(([key, title]) => `<button type="button" role="tab" id="rule-tab-${key}" aria-controls="rule-fields" aria-selected="${key === activeSection}" tabindex="${key === activeSection ? 0 : -1}" data-rule-section="${key}">${title}</button>`).join('')}</div>
         <div id="rule-fields" class="rule-fields" role="tabpanel" aria-labelledby="rule-tab-${activeSection}">${section[2].map(key => renderField(RULE_FIELDS.find(field => field[0] === key), rules)).join('')}</div>

@@ -287,68 +287,6 @@
             <div class="empty compact">打开订阅管理后加载常看战队…</div>
           </div>
         </div>
-        <form id="subscriptions-form" data-section="subscriptions">
-<div class="card padded">
-            <h3>默认赛事范围</h3>
-            <p class="description">
-              未设置独立规则的群沿用这里的范围。黑名单始终优先。
-            </p>
-            <fieldset class="tiers">
-              <legend>允许的赛事级别</legend>
-              <label
-                ><input type="checkbox" data-key="min_tiers" value="s" />S
-                级</label
-              ><label
-                ><input type="checkbox" data-key="min_tiers" value="a" />A
-                级</label
-              ><label
-                ><input type="checkbox" data-key="min_tiers" value="b" />B
-                级</label
-              ><label
-                ><input type="checkbox" data-key="min_tiers" value="c" />C
-                级</label
-              ><label
-                ><input type="checkbox" data-key="min_tiers" value="d" />D
-                级</label
-              ><label
-                ><input
-                  type="checkbox"
-                  data-key="min_tiers"
-                  value="unranked"
-                />未定级</label
-              >
-            </fieldset>
-            <label class="switch-row"
-              ><span
-                ><strong>关注战队优先</strong
-                ><small>关注战队不受级别限制，仍受黑名单限制。</small></span
-              ><input
-                type="checkbox"
-                role="switch"
-                data-key="notify_all_followed"
-            /></label>
-            <div class="form-grid">
-              <label class="field"
-                >屏蔽战队<textarea
-                  data-key="blacklist_teams"
-                  data-type="lines"
-                  rows="3"
-                  placeholder="每行一个名称关键词"
-                ></textarea
-                ><small>按名称关键词匹配，不区分大小写。</small></label
-              ><label class="field"
-                >屏蔽赛事<textarea
-                  data-key="blacklist_leagues"
-                  data-type="lines"
-                  rows="3"
-                  placeholder="每行一个赛事关键词"
-                ></textarea
-                ><small>例如屏蔽某些区域联赛。</small></label
-              >
-            </div>
-          </div>
-</form>
-        <div id="group-rules-editor" class="card group-rules-editor"></div>
       </section>
 
       <section id="push" role="tabpanel" aria-labelledby="tab-push" hidden>
@@ -360,57 +298,137 @@
         </div>
         <div id="push-readiness" class="notice" role="status" hidden></div>
         <div class="push-shortcuts"><button type="button" class="button ghost" data-navigate="subscriptions">管理群组与订阅</button><span class="muted">概览为已保存配置</span></div>
+        <nav class="push-view-switch" role="tablist" aria-label="推送设置分类">
+          <button type="button" id="push-view-tab-defaults" role="tab" aria-selected="true" aria-controls="push-view-defaults" data-push-view="defaults">
+            <span class="push-view-letter">A</span>默认规则<span class="count push-view-count" id="push-view-defaults-count" hidden>0</span>
+          </button>
+          <button type="button" id="push-view-tab-groups" role="tab" aria-selected="false" tabindex="-1" aria-controls="push-view-groups" data-push-view="groups">
+            <span class="push-view-letter">B</span>按群覆盖<span class="count push-view-count" id="push-view-groups-count" hidden>0</span>
+          </button>
+        </nav>
         <form id="push-form" data-section="push">
-          <div class="two-columns settings-grid">
+          <div id="push-view-defaults" role="tabpanel" aria-labelledby="push-view-tab-defaults">
+            <div class="notice" id="push-defaults-override-notice" hidden>
+              <span id="push-defaults-override-text"></span>
+              <button type="button" class="button ghost" data-push-view-goto="groups">查看</button>
+            </div>
             <article class="card padded">
-              <div class="settings-title"><span class="settings-number">01</span><h3>比赛通知</h3></div>
-              <label class="field">赛前提前提醒（分钟）<input type="number" data-key="remind_minutes" min="1" max="120" required><small>可在赛程中单独调整某一场。</small></label>
-              <label class="switch-row"><span><strong>赛程变更通知</strong><small>临近开赛或已提醒过的比赛改期时通知。</small></span><input type="checkbox" role="switch" data-key="reschedule_notify"></label>
-              <label class="switch-row"><span><strong>Major 阶段开赛提醒</strong><small>在 Major 每个阶段开始前发送提醒，并附上该阶段对阵图。</small></span><input type="checkbox" role="switch" data-key="major_stage_notify_enabled"></label>
-              <div class="setting-divider"></div>
-              <label class="switch-row"><span><strong>赛事开幕预告</strong><small>在整届赛事开始前发送介绍。</small></span><input type="checkbox" role="switch" data-key="tournament_announce_enabled"></label>
-              <label class="field">开幕提前通知（小时）<input type="number" data-key="tournament_announce_hours" min="1" max="168" required></label>
-              <details class="help-details"><summary>提醒与改期规则</summary><div>双方队伍已确定，且原定或新开赛时间距现在两小时内时通知；已发赛前提醒的比赛改期也通知。同次刷新 3 场起合并为汇总，远期和待定赛事静默更新。单场自定义提醒优先于群规则。</div></details>
+              <div class="settings-title"><span class="settings-number">01</span><h3>赛事范围</h3></div>
+              <p class="description">
+                未设置独立规则的群沿用这里的范围。黑名单始终优先。
+              </p>
+              <fieldset class="tiers">
+                <legend>允许的赛事级别</legend>
+                <label
+                  ><input type="checkbox" data-key="min_tiers" value="s" />S
+                  级</label
+                ><label
+                  ><input type="checkbox" data-key="min_tiers" value="a" />A
+                  级</label
+                ><label
+                  ><input type="checkbox" data-key="min_tiers" value="b" />B
+                  级</label
+                ><label
+                  ><input type="checkbox" data-key="min_tiers" value="c" />C
+                  级</label
+                ><label
+                  ><input type="checkbox" data-key="min_tiers" value="d" />D
+                  级</label
+                ><label
+                  ><input
+                    type="checkbox"
+                    data-key="min_tiers"
+                    value="unranked"
+                  />未定级</label
+                >
+              </fieldset>
+              <label class="switch-row"
+                ><span
+                  ><strong>关注战队优先</strong
+                  ><small>关注战队不受级别限制，仍受黑名单限制。</small></span
+                ><input
+                  type="checkbox"
+                  role="switch"
+                  data-key="notify_all_followed"
+              /></label>
+              <div class="form-grid">
+                <label class="field"
+                  >屏蔽战队<textarea
+                    data-key="blacklist_teams"
+                    data-type="lines"
+                    rows="3"
+                    placeholder="每行一个名称关键词"
+                  ></textarea
+                  ><small>按名称关键词匹配，不区分大小写。</small></label
+                ><label class="field"
+                  >屏蔽赛事<textarea
+                    data-key="blacklist_leagues"
+                    data-type="lines"
+                    rows="3"
+                    placeholder="每行一个赛事关键词"
+                  ></textarea
+                  ><small>例如屏蔽某些区域联赛。</small></label
+                >
+              </div>
             </article>
+            <div class="two-columns settings-grid">
+              <article class="card padded">
+                <div class="settings-title"><span class="settings-number">02</span><h3>比赛通知</h3></div>
+                <label class="field">赛前提前提醒（分钟）<input type="number" data-key="remind_minutes" min="1" max="120" required><small>可在赛程中单独调整某一场。</small></label>
+                <label class="switch-row"><span><strong>改期通知</strong><small>临近开赛或已提醒过的比赛改期时通知。</small></span><input type="checkbox" role="switch" data-key="reschedule_notify"></label>
+                <label class="switch-row"><span><strong>Major 阶段开赛提醒</strong><small>在 Major 每个阶段开始前发送提醒，并附上该阶段对阵图。</small></span><input type="checkbox" role="switch" data-key="major_stage_notify_enabled"></label>
+                <div class="setting-divider"></div>
+                <label class="switch-row"><span><strong>赛事开幕预告</strong><small>在整届赛事开始前发送介绍。</small></span><input type="checkbox" role="switch" data-key="tournament_announce_enabled"></label>
+                <label class="field">开幕提前提醒（小时）<input type="number" data-key="tournament_announce_hours" min="1" max="168" required></label>
+                <details class="help-details"><summary>提醒与改期规则</summary><div>双方队伍已确定，且原定或新开赛时间距现在两小时内时通知；已发赛前提醒的比赛改期也通知。同次刷新 3 场起合并为汇总，远期和待定赛事静默更新。单场自定义提醒优先于群规则。</div></details>
+              </article>
+              <article class="card padded">
+                <div class="settings-title"><span class="settings-number">03</span><h3>赛程日报</h3></div>
+                <label class="switch-row"><span><strong>定时发送日报</strong><small>按北京时间发送比赛安排。</small></span><input type="checkbox" role="switch" data-key="daily_push_enabled"></label>
+                <label class="field">推送时间<input data-key="daily_push_times" data-type="times" placeholder="08:00, 18:00"><small>24 小时制，多个时间用逗号分隔。</small></label>
+                <label class="field">包含天数<input type="number" data-key="daily_push_days" min="1" max="30" required><small>1 为今天，2 为今天和明天。</small></label>
+                <details class="help-details"><summary>日报包含哪些比赛</summary><div>按北京时间自然日计算，仅包含已获取、符合所选规则且双方战队已确定的比赛。各群的推送时间与范围可在群规则中独立设置。</div></details>
+              </article>
+            </div>
             <article class="card padded">
-              <div class="settings-title"><span class="settings-number">02</span><h3>赛程日报</h3></div>
-              <label class="switch-row"><span><strong>定时发送日报</strong><small>按北京时间发送比赛安排。</small></span><input type="checkbox" role="switch" data-key="daily_push_enabled"></label>
-              <label class="field">推送时间<input data-key="daily_push_times" data-type="times" placeholder="08:00, 18:00"><small>24 小时制，多个时间用逗号分隔。</small></label>
-              <label class="field">包含天数<input type="number" data-key="daily_push_days" min="1" max="30" required><small>1 为今天，2 为今天和明天。</small></label>
-              <details class="help-details"><summary>日报包含哪些比赛</summary><div>按北京时间自然日计算，仅包含已获取、符合所选规则且双方战队已确定的比赛。各群的推送时间与范围可在群规则中独立设置。</div></details>
+              <div class="settings-title"><span class="settings-number">04</span><h3>消息样式</h3></div>
+              <label class="switch-row"><span><strong>图片推送</strong><small>包含队标、赛程与比分；关闭后使用文字和紧凑图标。</small></span><input type="checkbox" role="switch" data-key="image_push_enabled"></label>
+              <details class="inline-settings"><summary>直播链接与推送平台</summary><div>
+                <label class="field">推送平台 ID<span class="settings-tag">仅全局</span><input data-key="push_platform_id" placeholder="留空自动选择 OneBot"><small>自动推送仅使用普通 OneBot 机器人。</small></label>
+                <div class="subsection-heading"><h4>文字消息中的直播链接<span class="settings-tag">仅全局</span></h4><p>图片内不展示可点击链接。</p></div>
+                <div id="stream-list"></div><button type="button" class="button ghost" id="add-stream">＋ 添加直播链接</button>
+              </div></details>
             </article>
           </div>
-          <article class="card padded">
-            <div class="settings-title"><span class="settings-number">03</span><h3>消息样式与投递</h3></div>
-            <label class="switch-row"><span><strong>图片推送</strong><small>包含队标、赛程与比分；关闭后使用文字和紧凑图标。</small></span><input type="checkbox" role="switch" data-key="image_push_enabled"></label>
-            <details class="inline-settings"><summary>直播链接与推送平台</summary><div>
-              <label class="field">推送平台 ID<input data-key="push_platform_id" placeholder="留空自动选择 OneBot"><small>自动推送仅使用普通 OneBot 机器人。</small></label>
-              <div class="subsection-heading"><h4>文字消息中的直播链接</h4><p>图片内不展示可点击链接。</p></div>
-              <div id="stream-list"></div><button type="button" class="button ghost" id="add-stream">＋ 添加直播链接</button>
-            </div></details>
-          </article>
-          <article class="card padded manual-push-card">
-            <div class="settings-title"><span class="settings-number">04</span><h3>立即推送</h3><span class="settings-tag">手动操作</span></div>
-            <div class="manual-push-controls">
-              <label class="field">接收群<select id="push-rule-group"><option value="">全部启用的群（各用本群规则）</option></select></label>
-              <label class="field">包含天数<input id="push-now-days" type="number" min="1" max="30" value="1"></label>
-              <div class="button-group"><button type="button" class="button" id="preview-daily">先预览日报</button><button type="button" class="button primary" id="push-now">立即推送</button></div>
-            </div><p class="action-note">使用已保存的规则；点击「立即推送」会实际发送到所选群。</p>
-          </article>
-          <details class="card disclosure">
-            <summary><span>推送测试<small>向指定目标发送模拟消息</small></span><span class="settings-tag">实际发送</span></summary>
-            <div class="disclosure-body">
-              <label class="switch-row"><span><strong>启用测试模式</strong><small>仅用于手动测试。</small></span><input type="checkbox" role="switch" data-key="test_mode_enabled"></label>
-              <div class="form-grid">
-                <label class="field">目标类型<select data-key="test_target_type"><option value="private">私聊 QQ</option><option value="group">QQ 群</option></select></label>
-                <label class="field">测试 QQ 号或群号<input data-key="test_target_id" pattern="[1-9][0-9]*" inputmode="numeric" placeholder="纯数字 QQ 号或群号"></label>
-                <label class="field">采用的规则<select id="test-rule-group"><option value="">默认规则</option></select></label>
-                <label class="field">测试日报天数<input type="number" id="test-days" min="1" max="30" value="1"></label>
+          <div id="push-view-groups" role="tabpanel" aria-labelledby="push-view-tab-groups" hidden>
+            <div class="notice" id="push-groups-coverage-notice"></div>
+            <div id="group-rules-editor" class="card group-rules-editor"></div>
+          </div>
+          <div class="push-actions">
+            <div class="subsection-heading"><h4>手动操作</h4><p>使用已保存规则</p></div>
+            <article class="card padded manual-push-card">
+              <div class="settings-title"><h3>立即推送</h3><span class="settings-tag">手动操作</span></div>
+              <div class="manual-push-controls">
+                <label class="field">接收群<select id="push-rule-group"><option value="">全部启用的群（各用本群规则）</option></select></label>
+                <label class="field">包含天数<input id="push-now-days" type="number" min="1" max="30" value="1"></label>
+                <div class="button-group"><button type="button" class="button" id="preview-daily">先预览日报</button><button type="button" class="button primary" id="push-now">立即推送</button></div>
+              </div><p class="action-note">使用已保存的规则；点击「立即推送」会实际发送到所选群。</p>
+            </article>
+            <details class="card disclosure">
+              <summary><span>推送测试<small>向指定目标发送模拟消息</small></span><span class="settings-tag">实际发送</span></summary>
+              <div class="disclosure-body">
+                <label class="switch-row"><span><strong>启用测试模式</strong><small>仅用于手动测试。</small></span><input type="checkbox" role="switch" data-key="test_mode_enabled"></label>
+                <div class="form-grid">
+                  <label class="field">目标类型<select data-key="test_target_type"><option value="private">私聊 QQ</option><option value="group">QQ 群</option></select></label>
+                  <label class="field">测试 QQ 号或群号<input data-key="test_target_id" pattern="[1-9][0-9]*" inputmode="numeric" placeholder="纯数字 QQ 号或群号"></label>
+                  <label class="field">采用的规则<select id="test-rule-group"><option value="">默认规则</option></select></label>
+                  <label class="field">测试日报天数<input type="number" id="test-days" min="1" max="30" value="1"></label>
+                </div>
+                <div class="test-row"><select id="test-action" aria-label="测试消息类型"><option>赛前</option><option>赛果</option><option>变更</option><option>开幕</option><option>日报</option><option>全部</option></select><button type="button" class="button" id="send-test">发送测试消息</button></div>
+                <p class="action-note">先保存测试设置。无论选择哪个群的规则，消息都只发往测试目标。</p>
               </div>
-              <div class="test-row"><select id="test-action" aria-label="测试消息类型"><option>赛前</option><option>赛果</option><option>变更</option><option>开幕</option><option>日报</option><option>全部</option></select><button type="button" class="button" id="send-test">发送测试消息</button></div>
-              <p class="action-note">先保存测试设置。无论选择哪个群的规则，消息都只发往测试目标。</p>
-            </div>
-          </details>
+            </details>
+          </div>
         </form>
       </section>
 

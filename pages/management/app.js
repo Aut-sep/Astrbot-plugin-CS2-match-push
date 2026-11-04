@@ -46,6 +46,25 @@ let refreshTimer;
 let searchSequence = 0;
 let setupGuide;
 let groupRuleEditor;
+let pushViewInitialized = false;
+
+// Sandboxed AstrBot views can throw even when accessing the storage property.
+// Remembering a tab is optional; storage failures must not block the panel.
+function readSession(key) {
+  try {
+    return window.sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function writeSession(key, value) {
+  try {
+    window.sessionStorage.setItem(key, value);
+  } catch {
+    // Keep the current page state when browser storage is unavailable.
+  }
+}
 
 async function api(path, method = "GET", body, query = {}) {
   let result;
@@ -158,23 +177,29 @@ function editSubscriptions(edit) {
   renderSubscriptions();
   syncTeamFollowedState();
   checkDirty("subscriptions");
+  checkDirty("push");
 }
 
 function updateDirtyIndicators() {
   $("#save-all-bar").hidden = !state.dirty.size;
   $("#save-all").disabled = state.saving;
   $("#discard-all").disabled = state.saving;
-  $$("form[data-section]").forEach((form) => {
-    const section = form.dataset.section;
+  for (const section of ["subscriptions", "push", "advanced"]) {
     const dirty = state.dirty.has(section);
     $(`#tab-${section} .tab-dirty`).hidden = !dirty;
-  });
+  }
 }
 
 function formValues(section) {
+  if (section === "subscriptions") {
+    const draft = subscriptionValues();
+    return {
+      push_groups: structuredClone(draft.push_groups || []),
+      followed_teams: structuredClone(draft.followed_teams || []),
+    };
+  }
   const form = $(`#${section}-form`);
-  const values = section === "subscriptions" && state.subscriptionsDraft
-    ? structuredClone(state.subscriptionsDraft) : {};
+  const values = {};
   const tiers = $$('[data-key="min_tiers"]:checked', form).map(
     (input) => input.value,
   );
@@ -209,7 +234,7 @@ function formValues(section) {
       url: $(".stream-url", row).value.trim(),
     }));
   }
-  if (section === "subscriptions") {
+  if (section === "push") {
     values.group_rules = structuredClone(subscriptionValues().group_rules || {});
     values.rule_presets = structuredClone(subscriptionValues().rule_presets || []);
   }
@@ -229,6 +254,7 @@ function checkDirty(section) {
 }
 
 function fillForm(section) {
+  if (section === "subscriptions") return;
   const form = $(`#${section}-form`);
   $$("[data-key]", form).forEach((input) => {
     const key = input.dataset.key;
@@ -282,6 +308,11 @@ async function loadConfig() {
   renderPushSummary();
   updateDirtyIndicators();
   setupGuide?.sync();
+  if (!pushViewInitialized) {
+    pushViewInitialized = true;
+    const stored = readSession("cs2.pushView");
+    activatePushView(stored === "groups" ? "groups" : "defaults");
+  }
 }
 
 function renderOfficialPlatforms(platforms, note) {
@@ -313,13 +344,25 @@ function renderOfficialPlatforms(platforms, note) {
 
 async function saveSection() {
   if (state.saving || !state.dirty.size) return;
+  const invalidRuleInput = $$("input", $("#group-rules-editor")).find((input) => !input.checkValidity());
+  if (invalidRuleInput) {
+    activateTab("push");
+    activatePushView("groups");
+    invalidRuleInput.reportValidity();
+    return;
+  }
   groupRuleEditor.validate();
   const sections = [...state.dirty];
   const values = {};
   for (const section of sections) {
-    const form = $(`#${section}-form`);
-    if (!form.checkValidity()) {
+    const form = section === "subscriptions" ? null : $(`#${section}-form`);
+    if (form && !form.checkValidity()) {
       activateTab(section);
+      if (section === "push") {
+        const invalid = form.querySelector(":invalid");
+        const view = invalid?.closest("#push-view-groups") ? "groups" : "defaults";
+        activatePushView(view);
+      }
       form.reportValidity();
       return;
     }
@@ -652,6 +695,29 @@ async function loadMatches({ quiet = false } = {}) {
   }
 }
 
+function customizedGroupCount() {
+  const draft = subscriptionValues();
+  const rules = draft.group_rules || {};
+  return (draft.push_groups || []).filter(
+    (gid) => Object.keys(rules[gid] || {}).length > 0,
+  ).length;
+}
+
+function renderPushGroupsCoverage() {
+  const total = (subscriptionValues().push_groups || []).length;
+  const customized = customizedGroupCount();
+  const countBadge = $("#push-view-groups-count");
+  countBadge.textContent = customized;
+  countBadge.hidden = customized === 0;
+  $("#push-defaults-override-notice").hidden = customized === 0;
+  if (customized > 0)
+    $("#push-defaults-override-text").textContent =
+      `${customized} 个群有独立规则，它们改过的字段不受这里影响。`;
+  $("#push-groups-coverage-notice").textContent = customized === 0
+    ? "所有群都在沿用默认规则。选择一个群开始覆盖。"
+    : `已自定义 ${customized} / ${total} 个群`;
+}
+
 function renderSubscriptions() {
   const groups = subscriptionValues().push_groups || [];
   const teams = subscriptionValues().followed_teams || [];
@@ -674,6 +740,7 @@ function renderSubscriptions() {
         .join("")
     : '<div class="empty compact">还没有关注战队，搜索战队开始关注。</div>';
   groupRuleEditor?.render();
+  renderPushGroupsCoverage();
   renderMatches();
 }
 
@@ -715,8 +782,20 @@ function activateTab(name, { focus = false } = {}) {
   if (name === "subscriptions" && state.ready) loadPopularTeams();
 }
 
+function activatePushView(view, { focus = false } = {}) {
+  if (view !== "defaults" && view !== "groups") return;
+  $$("[data-push-view]").forEach((button) => {
+    const active = button.dataset.pushView === view;
+    button.setAttribute("aria-selected", String(active));
+    button.tabIndex = active ? 0 : -1;
+    if (active && focus) button.focus();
+  });
+  $("#push-view-defaults").hidden = view !== "defaults";
+  $("#push-view-groups").hidden = view !== "groups";
+  writeSession("cs2.pushView", view);
+}
+
 function installEvents() {
-  $$("[data-navigate]").forEach(button => button.addEventListener("click", () => activateTab(button.dataset.navigate, { focus: true })));
   $$("[data-preview]").forEach(button => button.addEventListener("click", () => run(button, () => previewTool(button.dataset.preview))));
   $("#preview-daily").addEventListener("click", () => {
     activateTab("tools");
@@ -770,6 +849,27 @@ function installEvents() {
           : (index + (event.key === "ArrowRight" ? 1 : -1) + tabs.length) %
             tabs.length;
     activateTab(tabs[next].dataset.tab, { focus: true });
+  });
+  $$("[data-push-view]").forEach((button) =>
+    button.addEventListener("click", () => activatePushView(button.dataset.pushView)),
+  );
+  $(".push-view-switch").addEventListener("keydown", (event) => {
+    const views = $$("[data-push-view]");
+    const index = views.findIndex((view) => view === document.activeElement);
+    if (
+      index < 0 ||
+      !["ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)
+    )
+      return;
+    event.preventDefault();
+    const next =
+      event.key === "Home"
+        ? 0
+        : event.key === "End"
+          ? views.length - 1
+          : (index + (event.key === "ArrowRight" ? 1 : -1) + views.length) %
+            views.length;
+    activatePushView(views[next].dataset.pushView, { focus: true });
   });
   $$("form[data-section]").forEach((form) => {
     form.addEventListener("input", () => checkDirty(form.dataset.section));
@@ -852,7 +952,13 @@ function installEvents() {
   document.addEventListener("click", (event) => {
     const button = event.target.closest("button");
     if (!button) return;
-    if (button.hasAttribute("data-group-edit")) groupRuleEditor.select(button.dataset.groupEdit);
+    if (button.hasAttribute("data-navigate")) activateTab(button.dataset.navigate, { focus: true });
+    if (button.hasAttribute("data-push-view-goto")) activatePushView(button.dataset.pushViewGoto);
+    if (button.hasAttribute("data-group-edit")) {
+      activateTab("push");
+      activatePushView("groups");
+      groupRuleEditor.select(button.dataset.groupEdit);
+    }
     if (button.hasAttribute("data-group-remove"))
       editSubscriptions(draft => {
         draft.push_groups = draft.push_groups.filter(gid => String(gid) !== button.dataset.groupRemove);
@@ -1132,10 +1238,10 @@ async function initialize() {
       try {
         sessionToken =
           new URLSearchParams(location.search).get("token") ||
-          sessionStorage.getItem("cs_panel_token") ||
+          readSession("cs_panel_token") ||
           "";
         if (sessionToken)
-          sessionStorage.setItem("cs_panel_token", sessionToken);
+          writeSession("cs_panel_token", sessionToken);
       } catch {
         /* HttpOnly session cookies remain usable if browser storage is unavailable. */
       }
