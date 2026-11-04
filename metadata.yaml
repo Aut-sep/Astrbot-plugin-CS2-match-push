@@ -5,7 +5,7 @@ desc: >-
   查询 CS2 赛程、赛果、Major 对阵和今日选手，支持战队关注、各群独立规则与 Web 管理面板。
   OneBot 普通机器人可推送赛前提醒和赛后比分；QQ 官方机器人仅支持查询回复，不支持主动推送。
   使用 PandaScore 数据，需配置 API Token。
-version: 4.3.4
+version: 4.4.0
 author: Aut-sep
 repo: "https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push"
 category: entertainment

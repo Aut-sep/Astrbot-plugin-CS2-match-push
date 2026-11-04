@@ -1,13 +1,13 @@
 <!doctype html>
-<html lang="zh-CN" data-theme="light">
+<html lang="zh-CN" data-theme="dark">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="light dark" />
+    <meta name="color-scheme" content="dark light" />
     <title>CS2 比赛推送 · 管理</title>
     <link
       rel="icon"
-      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%232196f3'/%3E%3Ctext x='32' y='40' font-family='sans-serif' font-size='23' font-weight='700' text-anchor='middle' fill='white'%3ECS2%3C/text%3E%3C/svg%3E"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Cpath d='M0 0h50l14 14v50H14L0 50z' fill='%23f0a531'/%3E%3Ctext x='32' y='41' font-family='Bahnschrift,Arial Narrow,sans-serif' font-size='24' font-weight='700' text-anchor='middle' fill='%231a1206'%3ECS2%3C/text%3E%3C/svg%3E"
     />
     <link rel="stylesheet" href="./style.css" />
     <script type="module" src="./app.js"></script>
@@ -22,9 +22,14 @@
             <p>赛程、订阅与消息推送，一处管理。</p>
           </div>
         </div>
-        <div class="connection">
-          <span class="status-dot" id="connection-dot"></span
-          ><span id="connection-label">正在连接</span>
+        <div class="header-actions">
+          <button type="button" class="theme-toggle" id="theme-toggle" aria-label="切换为浅色主题" title="切换为浅色主题">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="8" /><path class="fill" d="M12 4a8 8 0 0 1 0 16z" /></svg>
+          </button>
+          <div class="connection">
+            <span class="status-dot" id="connection-dot"></span
+            ><span id="connection-label">正在连接</span>
+          </div>
         </div>
       </header>
       <div id="page-error" class="notice error" role="alert" hidden></div>
@@ -344,7 +349,7 @@
           <div><span class="summary-label">自动推送</span><strong id="push-rule-summary">正在读取</strong></div>
         </div>
         <div id="push-readiness" class="notice" role="status" hidden></div>
-        <div class="push-shortcuts"><button type="button" class="button ghost" data-navigate="subscriptions">管理群组与订阅 →</button><span class="muted">概览为已保存配置</span></div>
+        <div class="push-shortcuts"><button type="button" class="button ghost" data-navigate="subscriptions">管理群组与订阅</button><span class="muted">概览为已保存配置</span></div>
         <form id="push-form" data-section="push">
           <div class="two-columns settings-grid">
             <article class="card padded">

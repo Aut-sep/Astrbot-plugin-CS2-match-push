@@ -1074,9 +1074,41 @@ async function importConfig(input) {
   toast("配置已导入并生效。");
 }
 
+// 主题：手动选择优先并记住；否则内嵌时跟随 AstrBot，独立访问默认深色。
+const THEME_KEY = "cs_panel_theme";
+function storedTheme() {
+  try {
+    const value = localStorage.getItem(THEME_KEY);
+    return value === "dark" || value === "light" ? value : "";
+  } catch {
+    return "";
+  }
+}
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  const next = theme === "dark" ? "浅色" : "深色";
+  const toggle = $("#theme-toggle");
+  if (!toggle) return;
+  toggle.setAttribute("aria-label", `切换为${next}主题`);
+  toggle.title = `切换为${next}主题`;
+}
+function installThemeToggle() {
+  applyTheme(storedTheme() || "dark");
+  $("#theme-toggle")?.addEventListener("click", () => {
+    const theme = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    applyTheme(theme);
+    try {
+      localStorage.setItem(THEME_KEY, theme);
+    } catch {
+      /* 存储不可用时仅本次页面生效。 */
+    }
+  });
+}
+
 async function initialize() {
   document.title = `${gameLabel} 比赛推送`;
   $(".identity h1").textContent = `${gameLabel} 比赛推送`;
+  installThemeToggle();
   installEvents();
   setupGuide = createSetupGuide({ api, getState: () => state, loadConfig, activateTab, toast });
   try {
@@ -1084,10 +1116,8 @@ async function initialize() {
       const context = await bridge.ready();
       const applyContext = (value) => {
         const next = value || bridge.getContext?.();
-        if (next && typeof next.isDark === "boolean")
-          document.documentElement.dataset.theme = next.isDark
-            ? "dark"
-            : "light";
+        if (!storedTheme() && next && typeof next.isDark === "boolean")
+          applyTheme(next.isDark ? "dark" : "light");
         document.title = `${gameLabel} 比赛推送`;
       };
       applyContext(context);
@@ -1095,14 +1125,6 @@ async function initialize() {
       window.addEventListener("pagehide", unsubscribe, { once: true });
       $("#host-mode").textContent = "AstrBot 内嵌管理视图";
     } else {
-      const media = window.matchMedia("(prefers-color-scheme: dark)");
-      const applyTheme = () => {
-        document.documentElement.dataset.theme = media.matches
-          ? "dark"
-          : "light";
-      };
-      applyTheme();
-      media.addEventListener("change", applyTheme);
       try {
         sessionToken =
           new URLSearchParams(location.search).get("token") ||
