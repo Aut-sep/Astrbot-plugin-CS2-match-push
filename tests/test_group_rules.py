@@ -11,6 +11,7 @@ import unittest
 from unittest.mock import AsyncMock, Mock, patch
 
 from test_start_notifications import main
+formatters = importlib.import_module('cs_start_checked.formatters')
 rules_module = importlib.import_module('cs_start_checked.group_rules')
 Rules, scope = rules_module.Rules, rules_module.scope
 notices = importlib.import_module('cs_start_checked.reschedule_notices')
@@ -61,7 +62,9 @@ class GroupRuleTests(unittest.IsolatedAsyncioTestCase):
         self.sender = send
         for patcher in (patch.object(main, 'send_target', side_effect=send),
                         patch.object(main, 'now_utc', side_effect=lambda: self.clock),
-                        patch.object(main, 'now_cst', side_effect=lambda: self.clock.astimezone(timezone(timedelta(hours=8))))):
+                        patch.object(main, 'now_cst', side_effect=lambda: self.clock.astimezone(timezone(timedelta(hours=8)))),
+                        patch.object(formatters, 'now_utc', side_effect=lambda: self.clock),
+                        patch.object(formatters, 'now_cst', side_effect=lambda: self.clock.astimezone(timezone(timedelta(hours=8))))):
             patcher.start(); self.addCleanup(patcher.stop)
 
     def overrides(self, values):

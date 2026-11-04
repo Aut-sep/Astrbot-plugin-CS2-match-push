@@ -1,5 +1,6 @@
 """Offline checks for Major notices integrated with per-group rules."""
 import importlib
+import base64
 import types
 import unittest
 from unittest.mock import AsyncMock, patch
@@ -112,6 +113,39 @@ class MajorIntegrationTests(unittest.IsolatedAsyncioTestCase):
         await self.p.cmd_cs_bracket(object())
         self.p.bracket_images.get.assert_awaited_once()
         self.assertNotIn('尚未开赛', self.p._query_reply.await_args.args[1])
+
+    async def test_panel_next_stage_respects_selected_groups_text_mode(self):
+        snapshot = self.snapshot()
+        stage = snapshot['stages'][0]
+        stage.update(columns=[], notes=[], edges=[])
+        self.p.store.set('group_rules', {B: {'image_push_enabled': False}})
+        self.p.bracket_images = types.SimpleNamespace(get=AsyncMock(return_value=(snapshot, [stage], None)))
+        preview = await fixture.previews.build_preview(self.p, {'kind': 'bracket', 'stage': 'next', 'group_id': B})
+        self.p.bracket_images.get.assert_awaited_once_with('next', images_enabled=False)
+        self.assertIn('尚未开赛', preview['text'])
+        self.assertIsNone(preview['image'])
+        self.assertEqual(self.sent, [])
+
+    async def test_panel_current_stage_falls_back_to_published_next_stage(self):
+        snapshot = self.snapshot()
+        stage = snapshot['stages'][0]
+        stage.update(columns=[], notes=[], edges=[])
+        self.p.bracket_images = types.SimpleNamespace(get=AsyncMock(side_effect=[
+            (snapshot, [], None), (snapshot, [stage], b'offline-chart')]))
+        preview = await fixture.previews.build_preview(self.p, {'kind': 'bracket', 'stage': 'current'})
+        self.assertEqual([call.args[0] for call in self.p.bracket_images.get.await_args_list], ['current', 'next'])
+        self.assertIn('当前无进行中阶段', preview['text'])
+        self.assertIn('尚未开赛', preview['text'])
+        self.assertEqual(base64.b64decode(preview['image']), b'offline-chart')
+
+    async def test_panel_live_stage_does_not_fall_back(self):
+        snapshot = self.snapshot()
+        stage = snapshot['stages'][0]
+        stage.update(columns=[], notes=[], edges=[])
+        self.p.bracket_images = types.SimpleNamespace(get=AsyncMock(return_value=(snapshot, [stage], None)))
+        preview = await fixture.previews.build_preview(self.p, {'kind': 'bracket', 'stage': 'current'})
+        self.p.bracket_images.get.assert_awaited_once_with('current', images_enabled=True)
+        self.assertNotIn('尚未开赛', preview['text'])
 
     def test_next_stage_selection_excludes_finished_and_unpublished(self):
         module = importlib.import_module('cs_start_checked.bracket_stage')
