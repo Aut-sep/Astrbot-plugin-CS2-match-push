@@ -40,7 +40,7 @@
       </div>
       <section class="card setup-guide" id="setup-guide" aria-labelledby="setup-title">
         <div class="card-header">
-          <div><h2 id="setup-title">新手引导</h2><p id="setup-summary">先完成必填配置，再按需选择推送方式。</p></div>
+          <div><h2 id="setup-title">新手引导</h2><p id="setup-summary">先完成必填配置，再选择推送配置。</p></div>
           <button class="button primary" type="button" id="setup-open" disabled>开始配置 / 重新检查</button>
         </div>
         <div id="setup-wizard" hidden>
@@ -67,10 +67,9 @@
             <div class="setup-actions"><button type="button" data-setup-back class="button">上一步</button><button type="submit" id="setup-group-next" class="button primary">确认接收群，下一步</button></div>
           </form>
           <form id="setup-options-form" data-setup-step="2" hidden>
-            <p>以下全部为可选项。保持当前设置即可开始使用，之后可随时调整。</p>
+            <p>选择一套推送配置并应用到接收群。</p>
             <section class="setup-preset card padded" aria-labelledby="setup-preset-title">
-              <h3 id="setup-preset-title">快速选择推送方式</h3>
-              <p>选择一个接收群和预设，完成引导后可在订阅管理中继续修改。</p>
+              <h3 id="setup-preset-title">选择推送配置</h3>
               <div class="setup-fields">
                 <label class="field">应用到接收群<select id="setup-preset-group"><option value="">暂不应用预设</option></select></label>
                 <label class="field">推送预设<select id="setup-preset"><option value="">暂不应用预设</option></select></label>
@@ -79,18 +78,18 @@
               <div id="setup-preset-teams" class="preset-team-options" hidden></div>
             </section>
             <div class="setup-fields">
-              <label class="field">提前几分钟提醒<input type="number" min="1" max="120" required data-setup-key="remind_minutes"><small>比赛开始前提醒一次；单场也可以独立调整。</small></label>
+              <label class="field" hidden inert>提前几分钟提醒<input type="number" min="1" max="120" required disabled data-setup-key="remind_minutes"><small>比赛开始前提醒一次；单场也可以独立调整。</small></label>
               <label class="field">普通推送平台 ID<input type="text" data-setup-key="push_platform_id" placeholder="留空自动选择 OneBot"><small>赛事主动推送使用 OneBot；不会使用官方机器人扩展的选择。</small></label>
             </div>
-            <fieldset class="tiers"><legend>推送哪些级别的赛事</legend><label><input type="checkbox" value="s" data-setup-tier>S</label><label><input type="checkbox" value="a" data-setup-tier>A</label><label><input type="checkbox" value="b" data-setup-tier>B</label><label><input type="checkbox" value="c" data-setup-tier>C</label><label><input type="checkbox" value="d" data-setup-tier>D</label><label><input type="checkbox" value="unranked" data-setup-tier>未评级</label></fieldset>
-            <p class="setup-note">新安装默认关注 S、A 级赛事。不关注具体战队也能收到所选级别的比赛；喜欢的队伍可在「订阅管理」中用简称或中文外号搜索关注。</p>
-            <label class="inline-check"><input type="checkbox" data-setup-key="image_push_enabled">图片推送（默认开启，包含队标、赛程和比分）</label>
-            <label class="inline-check"><input type="checkbox" data-setup-key="daily_push_enabled">每天定时发送赛程日报</label>
-            <div class="setup-fields">
+            <fieldset class="tiers" hidden inert><legend>推送哪些级别的赛事</legend><label><input type="checkbox" value="s" data-setup-tier>S</label><label><input type="checkbox" value="a" data-setup-tier>A</label><label><input type="checkbox" value="b" data-setup-tier>B</label><label><input type="checkbox" value="c" data-setup-tier>C</label><label><input type="checkbox" value="d" data-setup-tier>D</label><label><input type="checkbox" value="unranked" data-setup-tier>未评级</label></fieldset>
+            <p class="setup-note" hidden inert>新安装默认关注 S、A 级赛事。不关注具体战队也能收到所选级别的比赛；喜欢的队伍可在「订阅管理」中用简称或中文外号搜索关注。</p>
+            <label class="inline-check" hidden inert><input type="checkbox" data-setup-key="image_push_enabled">图片推送（默认开启，包含队标、赛程和比分）</label>
+            <label class="inline-check" hidden inert><input type="checkbox" data-setup-key="daily_push_enabled">每天定时发送赛程日报</label>
+            <div class="setup-fields" hidden inert>
               <label class="field">日报时间（北京时间）<input type="text" id="setup-daily-times" placeholder="08:00, 18:00"><small>24 小时制；多个时间用逗号分隔。</small></label>
-              <label class="field">日报包含未来几天<input type="number" min="1" max="30" required data-setup-key="daily_push_days"><small>1 为今天，2 为今天和明天。</small></label>
+              <label class="field">日报包含未来几天<input type="number" min="1" max="30" required disabled data-setup-key="daily_push_days"><small>1 为今天，2 为今天和明天。</small></label>
             </div>
-            <p class="setup-note">直播链接、开幕预告、黑名单和更多设置，可在完成后进入「推送设置」或「订阅管理」。</p>
+            <p class="setup-note" hidden inert>直播链接、开幕预告、黑名单和更多设置，可在完成后进入「推送设置」或「订阅管理」。</p>
             <div class="notice" aria-labelledby="setup-official-title">
               <h4 id="setup-official-title">官方机器人扩展（可选）</h4>
               <p>普通 QQ 机器人已支持全部命令和自动推送；有官方机器人时，可再增加一个查询入口。</p>
@@ -230,10 +229,10 @@
         hidden
       >
         <div class="section-heading">
-          <h2>选择你关心的比赛</h2>
-          <p>先设置默认订阅，再按需为不同群单独调整。</p>
+          <h2>群组与推送配置</h2>
+          <p>管理接收群，并为群组选择推送配置。</p>
         </div>
-        <div class="two-columns">
+        <div class="subscription-targets">
           <div class="card">
             <div class="card-header">
               <div>
@@ -254,7 +253,7 @@
             </form>
             <div id="group-list" class="item-list"></div>
           </div>
-          <div class="card">
+          <div class="card" hidden inert>
             <div class="card-header">
               <div>
                 <h3>默认关注战队</h3>
@@ -275,7 +274,7 @@
             <div id="team-list" class="item-list"></div>
           </div>
         </div>
-        <div class="card popular-card">
+        <div class="card popular-card" hidden inert>
           <div class="card-header">
             <div>
               <h3>常看战队</h3>
@@ -287,7 +286,7 @@
             <div class="empty compact">打开订阅管理后加载常看战队…</div>
           </div>
         </div>
-        <form id="subscriptions-form" data-section="subscriptions">
+        <form id="subscriptions-form" data-section="subscriptions" hidden inert>
 <div class="card padded">
             <h3>默认赛事范围</h3>
             <p class="description">
@@ -352,7 +351,7 @@
       </section>
 
       <section id="push" role="tabpanel" aria-labelledby="tab-push" hidden>
-        <div class="section-heading"><h2>推送设置</h2><p id="push-description">设置默认提醒、日报与消息样式。各群可单独覆盖。</p></div>
+        <div class="section-heading"><h2>推送设置</h2></div>
         <div class="push-summary card" aria-label="已保存的推送配置">
           <div><span class="summary-label">接收群组</span><strong id="push-target-summary">正在读取</strong></div>
           <div><span class="summary-label">消息样式</span><strong id="push-format-summary">正在读取</strong></div>
@@ -361,8 +360,8 @@
         <div id="push-readiness" class="notice" role="status" hidden></div>
         <div class="push-shortcuts"><button type="button" class="button ghost" data-navigate="subscriptions">管理群组与订阅</button><span class="muted">概览为已保存配置</span></div>
         <form id="push-form" data-section="push">
-          <div class="two-columns settings-grid">
-            <article class="card padded">
+          <div class="two-columns settings-grid" hidden inert>
+            <article class="card padded" hidden inert>
               <div class="settings-title"><span class="settings-number">01</span><h3>比赛通知</h3></div>
               <label class="field">赛前提前提醒（分钟）<input type="number" data-key="remind_minutes" min="1" max="120" required><small>可在赛程中单独调整某一场。</small></label>
               <label class="switch-row"><span><strong>赛程变更通知</strong><small>临近开赛或已提醒过的比赛改期时通知。</small></span><input type="checkbox" role="switch" data-key="reschedule_notify"></label>
@@ -372,7 +371,7 @@
               <label class="field">开幕提前通知（小时）<input type="number" data-key="tournament_announce_hours" min="1" max="168" required></label>
               <details class="help-details"><summary>提醒与改期规则</summary><div>双方队伍已确定，且原定或新开赛时间距现在两小时内时通知；已发赛前提醒的比赛改期也通知。同次刷新 3 场起合并为汇总，远期和待定赛事静默更新。单场自定义提醒优先于群规则。</div></details>
             </article>
-            <article class="card padded">
+            <article class="card padded" hidden inert>
               <div class="settings-title"><span class="settings-number">02</span><h3>赛程日报</h3></div>
               <label class="switch-row"><span><strong>定时发送日报</strong><small>按北京时间发送比赛安排。</small></span><input type="checkbox" role="switch" data-key="daily_push_enabled"></label>
               <label class="field">推送时间<input data-key="daily_push_times" data-type="times" placeholder="08:00, 18:00"><small>24 小时制，多个时间用逗号分隔。</small></label>
@@ -382,7 +381,7 @@
           </div>
           <article class="card padded">
             <div class="settings-title"><span class="settings-number">03</span><h3>消息样式与投递</h3></div>
-            <label class="switch-row"><span><strong>图片推送</strong><small>包含队标、赛程与比分；关闭后使用文字和紧凑图标。</small></span><input type="checkbox" role="switch" data-key="image_push_enabled"></label>
+            <label class="switch-row" hidden inert><span><strong>图片推送</strong><small>包含队标、赛程与比分；关闭后使用文字和紧凑图标。</small></span><input type="checkbox" role="switch" data-key="image_push_enabled"></label>
             <details class="inline-settings"><summary>直播链接与推送平台</summary><div>
               <label class="field">推送平台 ID<input data-key="push_platform_id" placeholder="留空自动选择 OneBot"><small>自动推送仅使用普通 OneBot 机器人。</small></label>
               <div class="subsection-heading"><h4>文字消息中的直播链接</h4><p>图片内不展示可点击链接。</p></div>
@@ -404,7 +403,7 @@
               <div class="form-grid">
                 <label class="field">目标类型<select data-key="test_target_type"><option value="private">私聊 QQ</option><option value="group">QQ 群</option></select></label>
                 <label class="field">测试 QQ 号或群号<input data-key="test_target_id" pattern="[1-9][0-9]*" inputmode="numeric" placeholder="纯数字 QQ 号或群号"></label>
-                <label class="field">采用的规则<select id="test-rule-group"><option value="">默认规则</option></select></label>
+                <label class="field">采用的规则<select id="test-rule-group"><option value="">默认配置</option></select></label>
                 <label class="field">测试日报天数<input type="number" id="test-days" min="1" max="30" value="1"></label>
               </div>
               <div class="test-row"><select id="test-action" aria-label="测试消息类型"><option>赛前</option><option>赛果</option><option>变更</option><option>开幕</option><option>日报</option><option>全部</option></select><button type="button" class="button" id="send-test">发送测试消息</button></div>
@@ -416,7 +415,7 @@
 
       <section id="tools" role="tabpanel" aria-labelledby="tab-tools" hidden>
         <div class="section-heading"><h2>赛事工具</h2><p>查询结果仅在本页展示，不发送到群。</p></div>
-        <div class="tool-context"><label class="field">查询规则<select id="tool-rule-group"><option value="">默认规则</option></select></label><span>使用已保存配置</span></div>
+        <div class="tool-context"><label class="field">查询规则<select id="tool-rule-group"><option value="">默认配置</option></select></label><span>使用已保存配置</span></div>
         <div class="tool-grid">
           <article class="card padded tool-card"><span class="settings-tag">赛程</span><h3>未来赛程</h3><p>查看接下来几天的比赛。</p>
             <div class="tool-fields"><label class="field">查询天数<input id="tool-days" type="number" value="3" min="1" max="30"></label></div>

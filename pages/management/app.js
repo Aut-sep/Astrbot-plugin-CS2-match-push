@@ -1,5 +1,5 @@
 import { createSetupGuide } from './setup.js';
-import { createGroupRuleEditor } from './group-rules.js';
+import { createGroupRuleEditor, effectiveRules, RULE_FIELDS } from './group-rules.js';
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const gameLabel = "CS2";
@@ -7,6 +7,7 @@ const bridge = window.AstrBotPluginView || window.AstrBotPluginPage;
 const state = {
   config: {},
   subscriptionsDraft: null,
+  defaultRulesDraft: null,
   saving: false,
   matches: [],
   teams: [],
@@ -160,6 +161,29 @@ function editSubscriptions(edit) {
   checkDirty("subscriptions");
 }
 
+function editDefaultRules(values) {
+  if (!state.ready || state.saving) return;
+  // Before changing defaults, freeze every existing group's current effective
+  // rules so the new defaults only affect future groups and explicit applies.
+  if (state.defaultRulesDraft === null) {
+    const config = state.config;
+    editSubscriptions(draft => {
+      const snapshotConfig = { ...config, group_rules: draft.group_rules || config.group_rules || {} };
+      for (const gid of draft.push_groups || []) {
+        const current = effectiveRules(snapshotConfig, gid);
+        draft.group_rules[String(gid)] = Object.fromEntries(
+          RULE_FIELDS.map(([key]) => [key, structuredClone(current[key])]),
+        );
+      }
+    });
+  }
+  state.defaultRulesDraft = Object.fromEntries(
+    RULE_FIELDS.map(([key]) => [key, structuredClone(values[key])]),
+  );
+  renderSubscriptions();
+  checkDirty("subscriptions");
+}
+
 function updateDirtyIndicators() {
   $("#save-all-bar").hidden = !state.dirty.size;
   $("#save-all").disabled = state.saving;
@@ -181,6 +205,8 @@ function formValues(section) {
   $$("[data-key]", form).forEach((input) => {
     if (input.disabled) return;
     const key = input.dataset.key;
+    if ((section === "subscriptions" || section === "push") &&
+        (RULE_FIELDS.some(([field]) => field === key) || key === "notify_all_followed")) return;
     if (key === "min_tiers") {
       values[key] = tiers;
       return;
@@ -210,8 +236,10 @@ function formValues(section) {
     }));
   }
   if (section === "subscriptions") {
+    delete values.followed_teams;
     values.group_rules = structuredClone(subscriptionValues().group_rules || {});
     values.rule_presets = structuredClone(subscriptionValues().rule_presets || []);
+    if (state.defaultRulesDraft) Object.assign(values, structuredClone(state.defaultRulesDraft));
   }
   return values;
 }
@@ -262,6 +290,8 @@ function fillForm(section) {
 async function loadConfig() {
   const result = await api("/api/config");
   state.config = result.data;
+  state.subscriptionsDraft = null;
+  state.defaultRulesDraft = null;
   renderOfficialPlatforms(result.official_platforms || [], result.official_platforms_note || "");
   state.teamLogos = result.team_logos || {};
   state.teamLogoDarkNames = new Set(result.team_logo_dark_names || []);
@@ -318,9 +348,15 @@ async function saveSection() {
   const values = {};
   for (const section of sections) {
     const form = $(`#${section}-form`);
-    if (!form.checkValidity()) {
+    const invalidControl = [...form.elements].find(input => {
+      if (input.disabled || !input.willValidate || input.validity.valid) return false;
+      const key = input.dataset.key;
+      return !((section === "subscriptions" || section === "push") &&
+        (RULE_FIELDS.some(([field]) => field === key) || key === "notify_all_followed"));
+    });
+    if (invalidControl) {
       activateTab(section);
-      form.reportValidity();
+      invalidControl.reportValidity();
       return;
     }
     Object.assign(values, Object.fromEntries(Object.entries(formValues(section)).filter(
@@ -342,6 +378,7 @@ async function saveSection() {
     await api("/api/config", "PATCH", values);
     Object.assign(state.config, values);
     state.subscriptionsDraft = null;
+    state.defaultRulesDraft = null;
     state.dirty.clear();
     sections.forEach(fillForm);
     renderSubscriptions();
@@ -414,7 +451,7 @@ async function previewTool(kind, overrides = {}) {
 
 function renderStats() {
   $("#stat-matches").textContent = state.matches.length;
-  $("#stat-teams").textContent = (state.config.followed_teams || []).length;
+  $("#stat-teams").textContent = (state.defaultRulesDraft?.followed_teams ?? state.config.followed_teams ?? []).length;
   $("#stat-groups").textContent = (state.config.push_groups || []).length;
   $("#stat-remind").innerHTML =
     `${escaped(state.config.remind_minutes ?? 10)}<span class="unit">分钟</span>`;
@@ -448,7 +485,7 @@ function teamAvatar(team, name = team?.name || "TBD") {
 }
 
 function isTeamFollowed(candidate) {
-  return (subscriptionValues().followed_teams || []).some((item) =>
+  return (state.defaultRulesDraft?.followed_teams ?? state.config.followed_teams ?? []).some((item) =>
     typeof item === "string"
       ? item.toLowerCase() === String(candidate.name || "").toLowerCase()
       : item.id
@@ -548,7 +585,7 @@ function isFollowed(match) {
   const names = [teamName(match, 0), teamName(match, 1)].map((name) =>
     name.toLowerCase(),
   );
-  return (state.config.followed_teams || []).some((team) =>
+  return (state.defaultRulesDraft?.followed_teams ?? state.config.followed_teams ?? []).some((team) =>
     typeof team === "string"
       ? names.some((name) => name.includes(team.toLowerCase()))
       : team.id
@@ -661,7 +698,7 @@ function renderSubscriptions() {
     ? groups
         .map(
           (gid) =>
-            `<div class="item-row"><div class="item-name"><span class="item-avatar" aria-hidden="true">群</span><div><strong>${escaped(gid)}</strong><small>${escaped(groupRuleEditor?.summary(gid) || '继承默认规则')}</small></div></div><button type="button" class="button" data-group-edit="${escaped(gid)}">编辑规则</button><button type="button" class="button ghost" data-group-remove="${escaped(gid)}" aria-label="移除群组 ${escaped(gid)}">移除</button></div>`,
+            `<div class="item-row"><div class="item-name"><span class="item-avatar" aria-hidden="true">群</span><div><strong>${escaped(gid)}</strong><small>${escaped(groupRuleEditor?.summary(gid) || '默认配置')}</small></div></div><button type="button" class="button" data-group-edit="${escaped(gid)}">编辑配置</button><button type="button" class="button ghost" data-group-remove="${escaped(gid)}" aria-label="移除群组 ${escaped(gid)}">移除</button></div>`,
         )
         .join("")
     : '<div class="empty compact">还没有推送群组，添加后接收比赛消息。</div>';
@@ -727,6 +764,7 @@ function installEvents() {
   $("#discard-all").addEventListener("click", () => {
     const sections = [...state.dirty];
     state.subscriptionsDraft = null;
+    state.defaultRulesDraft = null;
     state.dirty.clear();
     sections.forEach(fillForm);
     renderSubscriptions();
@@ -1175,7 +1213,7 @@ async function initialize() {
 
 groupRuleEditor = createGroupRuleEditor({
   getConfig: () => state.config, getDraft: subscriptionValues,
-  getDefaults: () => state.ready ? { ...state.config, ...formValues('subscriptions'), ...formValues('push') } : state.config,
-    edit: editSubscriptions, api, run, dialog, escape: escaped, toast,
+  getDefaults: () => state.ready ? { ...state.config, ...(state.defaultRulesDraft || {}) } : state.config,
+    edit: editSubscriptions, editDefaults: editDefaultRules, api, run, dialog, escape: escaped, toast,
 });
 initialize();
