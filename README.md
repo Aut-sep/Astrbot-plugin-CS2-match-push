@@ -4,13 +4,13 @@
 
 AstrBot plugin for Counter-Strike 2 (CS2) match notifications, team subscriptions and Major brackets in QQ groups.
 
-> **4.4.0** · 直接问 CS2 赛程与比分，近期赛程默认查询未来 7 天；改善 AI 查询引导与内嵌面板兼容性。查看[更新记录](CHANGELOG.md)。
+> **4.4.0** · 直接问 CS2 赛程与比分，近期赛程默认查询未来 3 天；改善 AI 查询引导与内嵌面板兼容性。查看[更新记录](CHANGELOG.md)。
 
 [安装与配置](#安装与配置) · [平台区别](#普通机器人与官方机器人怎么选) · [常用指令](#常用指令) · [图片示例](#图片效果展示) · [常见问题](#常见问题)
 
 ## 核心功能
 
-- **AI 自然语言查询（Function Calling）**：直接问“最近有 NAVI 比赛吗”“今晚绿龙打谁”“昨天 NAVI 赢了吗”，也可查询本群关注战队和 Major 对阵。近期赛程默认查询未来 7 天；默认开启的查询引导帮助模型优先使用插件赛事数据，可在插件配置中关闭。需要支持工具调用的模型及有效 PandaScore Token（关注列表除外），实际调用仍受模型和人格设置影响。见[AI 查询使用说明](docs/ai-tools.md)。
+- **AI 自然语言查询（Function Calling）**：直接问“最近有 NAVI 比赛吗”“今晚绿龙打谁”“昨天 NAVI 赢了吗”，也可查询本群关注战队和 Major 对阵。近期赛程默认查询未来 3 天；默认开启的查询引导帮助模型优先使用插件赛事数据，可在插件配置中关闭。需要支持工具调用的模型及有效 PandaScore Token（关注列表除外），实际调用仍受模型和人格设置影响。见[AI 查询使用说明](docs/ai-tools.md)。
 - **按主队与赛事筛选通知**：支持战队关注、赛事级别和战队／联赛黑名单，中文外号、简称与拼写容错方便添加主队。默认推送 S/A 级，关注战队可覆盖级别限制，黑名单仍优先。见[战队搜索说明](docs/team-search.md)。
 - **每群独立规则**：各群分别设置关注战队、筛选、赛前提醒分钟数、通知开关、日报时间和图片样式；未设置的项目沿用默认规则。通知按群去重，发送失败时自动重试。见[群规则指南](docs/group-rules.md)。
 - **推送预设**：从“大赛观众”“主队粉丝”“赛事资讯群”快速开始，按需修改并另存为可重命名的自定义预设，方便不同群复用。
@@ -46,7 +46,7 @@ AstrBot plugin for Counter-Strike 2 (CS2) match notifications, team subscription
 
 ## 安装与配置
 
-在 AstrBot 插件管理中使用仓库地址安装插件，确认依赖安装完成，填写 PandaScore API Token 并重载。Token 获取方式见 [PandaScore 文档](https://developers.pandascore.co/docs/authentication)。优先打开「插件详情 → CS2 管理」，按新手引导填写数据源和接收群；普通机器人必须在线并已加入目标群。引导中的连接检查不会发送测试消息。
+在 AstrBot 插件管理中使用仓库地址安装插件，确认依赖安装完成，填写 PandaScore API Token 并重载。首次升级到 4.4.0 时，AstrBot 插件配置中的非默认值优先，默认值保留面板设置；之后在插件配置修改并重载，仅同步发生变更的项目。Token 获取方式见 [PandaScore 文档](https://developers.pandascore.co/docs/authentication)。优先打开「插件详情 → CS2 管理」，按新手引导填写数据源和接收群；普通机器人必须在线并已加入目标群。引导中的连接检查不会发送测试消息。
 
 ```text
 https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push
@@ -80,7 +80,7 @@ https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push
 | `push_platform_id` | 空 | 多机器人时指定 AstrBot 平台实例 ID |
 | `image_push_enabled` | `true` | 使用赛事图片；关闭后使用文字和队标条 |
 | `fetch_interval_min` | `5` | 自动刷新赛程的间隔（分钟） |
-| `fetch_ahead_days` | `2` | 自动获取的未来赛程范围 |
+| `fetch_ahead_days` | `3` | 自动获取的未来赛程范围 |
 | `web_panel_enabled` | `true` | 开启独立 Web 管理面板 |
 | `web_panel_host` | `127.0.0.1` | 面板监听地址 |
 | `web_panel_port` | `8765` | 面板监听端口 |
@@ -91,9 +91,9 @@ https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push
 
 | 指令 | 说明 |
 | --- | --- |
-| `/cs比赛 [天数/全部]` | 不填查看已获取的全部赛程；填 1–30 按北京时间今天起 N 天筛选 |
+| `/cs比赛 [天数/全部]` | 不填查看已获取的全部赛程；填 1–3 按北京时间今天起 N 天筛选 |
 | `/cs今日赛程` | 查询今日赛程快捷入口 |
-| `/cs未来赛程 [天数]` | 查询未来赛程快捷入口，默认今天及后两天；支持 1–30 天 |
+| `/cs未来赛程 [天数]` | 查询未来赛程快捷入口，默认今天及后两天；支持 1–3 天 |
 | `/cs赛果 [天数]` | 查询最近赛果，1–30 天，默认 3 天；也可用 `/cs赛果 比赛 <ID>` 指定比赛 |
 | `/cs今日选手` | 抽取今日选手，OneBot 返回文字和本地图片 |
 | `/cs对阵图 [阶段]` | 查看 Major 当前阶段、指定阶段或全部对阵 |
@@ -108,7 +108,7 @@ https://github.com/Aut-sep/Astrbot-plugin-CS2-match-push
 | `/cs日报` | 查看默认日报设置和子命令（管理员） |
 | `/cs面板` | 私聊获取独立面板地址和令牌（管理员） |
 
-赛程指令读取已获取且符合筛选条件的缓存；查询 7 天不会自动把默认 2 天的获取范围扩大到 7 天。需要更多赛程时，先在面板调整 `fetch_ahead_days`（1–30）并刷新。最近赛果按北京时间的**计划开赛日期**回看，不按完赛日期筛选，也沿用本群的赛事级别、关注与黑名单规则；私聊和官方端使用默认规则。
+赛程指令读取已获取且符合筛选条件的缓存；后台默认获取未来 3 天，赛程查询、日报与手动推送最多支持 3 天。`fetch_ahead_days` 可设 1–3 天，缩小获取范围后，超出该范围的查询会提示覆盖不完整。最近赛果按北京时间的**计划开赛日期**回看，不按完赛日期筛选，也沿用本群的赛事级别、关注与黑名单规则；私聊和官方端使用默认规则。
 
 ## 图片效果展示
 

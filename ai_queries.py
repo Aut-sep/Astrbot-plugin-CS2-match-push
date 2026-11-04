@@ -43,7 +43,7 @@ def _match(row):
 
 
 def _window(start_date, days, *, results):
-    days = integer(days, 'days', 1, 30)
+    days = integer(days, 'days', 1, 30 if results else 3)
     raw = string(start_date, 'start_date')
     today = now_utc().astimezone(CST).date()
     if raw:
@@ -162,7 +162,7 @@ async def _remote(plugin, rules, action, params):
         rows = [match]
         window = None
     else:
-        start, end = _window(params.get('start_date', ''), params.get('days', 1), results=action == 'result')
+        start, end = _window(params.get('start_date', ''), params.get('days', 1 if action == 'result' else 3), results=action == 'result')
         rows = await plugin.client.get_matches_between(start, end)
         if rows is None:
             raise RuntimeError('incomplete upstream response')

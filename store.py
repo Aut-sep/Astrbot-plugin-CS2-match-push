@@ -73,7 +73,7 @@ class DataStore:
         "web_panel_enabled":           True,
         "web_panel_token":             "",
         "fetch_interval_min":          5,
-        "fetch_ahead_days":            2,
+        "fetch_ahead_days":            3,
         "custom_streams":              [],
         "blacklist_teams":             [],
         "blacklist_leagues":           [],
@@ -98,9 +98,9 @@ class DataStore:
         self._delivery_receipts_dirty = False
 
     @staticmethod
-    def _hours_to_days(hours, default: int = 2) -> int:
+    def _hours_to_days(hours, default: int = 3) -> int:
         try:
-            return max(1, (int(hours) + 23) // 24)
+            return max(1, min((int(hours) + 23) // 24, 3))
         except (TypeError, ValueError):
             return default
 
@@ -127,6 +127,20 @@ class DataStore:
                 for k, v in self._DEFAULTS.items():
                     if k not in data or (isinstance(v, (dict, list)) and not isinstance(data[k], type(v))):
                         data[k] = deepcopy(v)
+                def cap_windows(value):
+                    if isinstance(value, dict):
+                        for key, item in value.items():
+                            if key in {'fetch_ahead_days', 'daily_push_days'}:
+                                try:
+                                    value[key] = max(1, min(int(item), 3))
+                                except (TypeError, ValueError):
+                                    value[key] = 3 if key == 'fetch_ahead_days' else 1
+                            else:
+                                cap_windows(item)
+                    elif isinstance(value, list):
+                        for item in value:
+                            cap_windows(item)
+                cap_windows(data)
                 return data
             except (ValueError, UnicodeError) as e:
                 logger.error(f"[CS] 配置 JSON 解析失败: {e}")
@@ -503,6 +517,7 @@ class DataStore:
     def export_all(self) -> dict:
         """导出所有配置（排除通知记录）"""
         d = deepcopy(self._data)
+        d.pop("_host_config_fingerprints", None)
         d.pop("pandascore_token", None)
         d.pop("web_panel_token", None)
         d.pop("notified_upcoming", None)

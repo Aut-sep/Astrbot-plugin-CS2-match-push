@@ -45,8 +45,8 @@
   "fetch_ahead_days": {
     "description": "提前拉取多少天内的比赛",
     "type": "int",
-    "hint": "拉取未来 N 天内的比赛，建议 2",
-    "default": 2
+    "hint": "拉取未来 N 天内的比赛，默认 3 天，支持 1–3 天",
+    "default": 3
   },
   "qq_player_photo_base_url": {
     "description": "QQ 今日选手公开图片目录",

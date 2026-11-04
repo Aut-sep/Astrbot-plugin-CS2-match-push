@@ -107,7 +107,7 @@ class GuidanceTests(unittest.IsolatedAsyncioTestCase):
         part = self.req.extra_user_content_parts[0]
         self.assertTrue(part.temporary)
         self.assertIn("get_cs2_schedule", part.text)
-        self.assertIn("7个日历天", part.text)
+        self.assertIn("3个日历天", part.text)
         self.assertIn("Asia/Shanghai", part.text)
         self.assertEqual(self.req.system_prompt, "original persona")
         self.assertEqual(self.req.prompt, "original user prompt")
@@ -157,4 +157,4 @@ class GuidanceTests(unittest.IsolatedAsyncioTestCase):
         result = json.loads(await self.p.ai_cs2_schedule(self.event, team="NAVI"))
         self.assertEqual(result["status"], "ok")
         start, end = self.p.client.get_matches_between.call_args.args
-        self.assertEqual((end - start).days, 7)
+        self.assertEqual((end - start).days, 3)

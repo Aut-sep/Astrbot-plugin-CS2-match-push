@@ -183,7 +183,7 @@ class OfficialCSMenu:
             "schedule": [
                 ("schedule", "今日", "/cs今日赛程"),
                 ("schedule", "3天", "/cs未来赛程"),
-                ("schedule", "7天", "/cs未来赛程 7"),
+                ("schedule", "2天", "/cs未来赛程 2"),
             ],
             "bracket": [
                 ("bracket", "当前", "/cs对阵图"),

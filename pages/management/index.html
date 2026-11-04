@@ -88,7 +88,7 @@
             <label class="inline-check"><input type="checkbox" data-setup-key="daily_push_enabled">每天定时发送赛程日报</label>
             <div class="setup-fields">
               <label class="field">日报时间（北京时间）<input type="text" id="setup-daily-times" placeholder="08:00, 18:00"><small>24 小时制；多个时间用逗号分隔。</small></label>
-              <label class="field">日报包含未来几天<input type="number" min="1" max="30" required data-setup-key="daily_push_days"><small>1 为今天，2 为今天和明天。</small></label>
+              <label class="field">日报包含未来几天<input type="number" min="1" max="3" required data-setup-key="daily_push_days"><small>1 为今天，2 为今天和明天。</small></label>
             </div>
             <p class="setup-note">直播链接、开幕预告、黑名单和更多设置，可在完成后进入「推送设置」或「订阅管理」。</p>
             <div class="notice" aria-labelledby="setup-official-title">
@@ -386,7 +386,7 @@
                 <div class="settings-title"><span class="settings-number">03</span><h3>赛程日报</h3></div>
                 <label class="switch-row"><span><strong>定时发送日报</strong><small>按北京时间发送比赛安排。</small></span><input type="checkbox" role="switch" data-key="daily_push_enabled"></label>
                 <label class="field">推送时间<input data-key="daily_push_times" data-type="times" placeholder="08:00, 18:00"><small>24 小时制，多个时间用逗号分隔。</small></label>
-                <label class="field">包含天数<input type="number" data-key="daily_push_days" min="1" max="30" required><small>1 为今天，2 为今天和明天。</small></label>
+                <label class="field">包含天数<input type="number" data-key="daily_push_days" min="1" max="3" required><small>1 为今天，2 为今天和明天。</small></label>
                 <details class="help-details"><summary>日报包含哪些比赛</summary><div>按北京时间自然日计算，仅包含已获取、符合所选规则且双方战队已确定的比赛。各群的推送时间与范围可在群规则中独立设置。</div></details>
               </article>
             </div>
@@ -410,7 +410,7 @@
               <div class="settings-title"><h3>立即推送</h3><span class="settings-tag">手动操作</span></div>
               <div class="manual-push-controls">
                 <label class="field">接收群<select id="push-rule-group"><option value="">全部启用的群（各用本群规则）</option></select></label>
-                <label class="field">包含天数<input id="push-now-days" type="number" min="1" max="30" value="1"></label>
+                <label class="field">包含天数<input id="push-now-days" type="number" min="1" max="3" value="1"></label>
                 <div class="button-group"><button type="button" class="button" id="preview-daily">先预览日报</button><button type="button" class="button primary" id="push-now">立即推送</button></div>
               </div><p class="action-note">使用已保存的规则；点击「立即推送」会实际发送到所选群。</p>
             </article>
@@ -422,7 +422,7 @@
                   <label class="field">目标类型<select data-key="test_target_type"><option value="private">私聊 QQ</option><option value="group">QQ 群</option></select></label>
                   <label class="field">测试 QQ 号或群号<input data-key="test_target_id" pattern="[1-9][0-9]*" inputmode="numeric" placeholder="纯数字 QQ 号或群号"></label>
                   <label class="field">采用的规则<select id="test-rule-group"><option value="">默认规则</option></select></label>
-                  <label class="field">测试日报天数<input type="number" id="test-days" min="1" max="30" value="1"></label>
+                  <label class="field">测试日报天数<input type="number" id="test-days" min="1" max="3" value="1"></label>
                 </div>
                 <div class="test-row"><select id="test-action" aria-label="测试消息类型"><option>赛前</option><option>赛果</option><option>变更</option><option>开幕</option><option>日报</option><option>全部</option></select><button type="button" class="button" id="send-test">发送测试消息</button></div>
                 <p class="action-note">先保存测试设置。无论选择哪个群的规则，消息都只发往测试目标。</p>
@@ -437,7 +437,7 @@
         <div class="tool-context"><label class="field">查询规则<select id="tool-rule-group"><option value="">默认规则</option></select></label><span>使用已保存配置</span></div>
         <div class="tool-grid">
           <article class="card padded tool-card"><span class="settings-tag">赛程</span><h3>未来赛程</h3><p>查看接下来几天的比赛。</p>
-            <div class="tool-fields"><label class="field">查询天数<input id="tool-days" type="number" value="3" min="1" max="30"></label></div>
+            <div class="tool-fields"><label class="field">查询天数<input id="tool-days" type="number" value="3" min="1" max="3"></label></div>
             <button type="button" class="button primary" data-preview="schedule">查看赛程</button>
             <details class="help-details"><summary>范围说明</summary><div id="schedule-source-note">使用已缓存并按所选规则筛选的赛程。可从推送设置进入日报预览。</div></details>
           </article>
@@ -466,7 +466,7 @@
           <article class="card padded">
             <div class="settings-title"><span class="settings-number">01</span><h3>数据源连接</h3><span class="settings-tag">PandaScore</span></div>
             <label class="field">API Token<div class="secret-input"><input type="password" data-key="pandascore_token" autocomplete="new-password" placeholder="留空保留当前 Token"><button type="button" class="button ghost" data-reveal="pandascore_token" aria-label="显示 PandaScore Token">显示</button></div><small id="pandascore-secret-hint">尚未配置</small></label>
-            <div class="form-grid"><label class="field">获取周期（分钟）<input type="number" data-key="fetch_interval_min" min="1" max="1440" required></label><label class="field">提前获取范围（天）<input type="number" data-key="fetch_ahead_days" min="1" max="30" required></label></div>
+            <div class="form-grid"><label class="field">获取周期（分钟）<input type="number" data-key="fetch_interval_min" min="1" max="1440" required></label><label class="field">提前获取范围（天）<input type="number" data-key="fetch_ahead_days" min="1" max="3" required></label></div>
             <details class="help-details"><summary>更换或清除 Token</summary><div><p>输入新值并保存即可替换。Token 不在页面回显，仅用于连接赛事数据源。</p><label class="inline-check clear-secret"><input type="checkbox" data-clear="pandascore_token">清除已保存的 Token</label></div></details>
           </article>
           <div class="optional-settings-heading"><h3>可选扩展</h3><span>按需展开配置</span></div>

@@ -19,8 +19,8 @@ INTEGER_RANGES = {
     "remind_minutes": (1, 120),
     "web_panel_port": (1, 65535),
     "fetch_interval_min": (1, 1440),
-    "fetch_ahead_days": (1, 30),
-    "daily_push_days": (1, 30),
+    "fetch_ahead_days": (1, 3),
+    "daily_push_days": (1, 3),
     "tournament_announce_hours": (1, 168),
 }
 BOOLEAN_KEYS = {
@@ -152,7 +152,7 @@ def validate_config(cfg: dict) -> dict:
         if key in cfg:
             result[key] = integer(cfg[key], key, *bounds)
     if "fetch_ahead_days" not in cfg and "fetch_ahead_hours" in cfg:
-        hours = integer(cfg["fetch_ahead_hours"], "fetch_ahead_hours", 1, 720)
+        hours = integer(cfg["fetch_ahead_hours"], "fetch_ahead_hours", 1, 72)
         result["fetch_ahead_days"] = (hours + 23) // 24
     for key in BOOLEAN_KEYS:
         if key in cfg:

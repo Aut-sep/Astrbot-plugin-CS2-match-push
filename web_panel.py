@@ -358,7 +358,7 @@ class WebPanel:
     async def push_now(self, req):
         """立即推送赛程到所有群"""
         body = await self._body(req, allow_empty=True)
-        days = integer(body.get("days", 1), "days", 1, 30)
+        days = integer(body.get("days", 1), "days", 1, 3)
         gid = string(body.get('group_id', ''), 'group_id')
         if gid and gid not in self.plugin.store.get_groups():
             raise ConfigError('请选择已配置的接收群')
@@ -370,7 +370,7 @@ class WebPanel:
     async def send_test(self, req):
         body = await self._body(req, allow_empty=True)
         action = string(body.get("action", ""), "action") or "赛前"
-        days = integer(body.get("days", 1), "days", 1, 30)
+        days = integer(body.get("days", 1), "days", 1, 3)
         if not self.plugin.is_test_mode_enabled():
             return self._json({"ok": False, "msg": "测试模式未开启"}, 400)
         if not self.plugin.has_test_target():

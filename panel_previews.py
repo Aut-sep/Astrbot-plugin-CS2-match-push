@@ -59,10 +59,13 @@ async def build_preview(plugin, query):
         from .cs_results import preview_results
         return await preview_results(plugin, query.get("days", 3), match_id, rules=rules)
 
-    days = integer(query.get("days", 3), "days", 1, 30)
+    days = integer(query.get("days", 3), "days", 1, 3)
     matches = [plugin._match_with_snapshot_names(match) for match in plugin._scheduled if rules.accepts(match)]
+    text = fmt_daily_schedule(matches, rules.get_followed_team_names(), days)
+    if days > plugin._fetch_ahead:
+        text += f"\n当前仅获取未来 {plugin._fetch_ahead} 天，以上仅反映已获取范围。"
     return {
-        "text": fmt_daily_schedule(matches, rules.get_followed_team_names(), days),
+        "text": text,
         "note": "使用已获取且符合筛选条件的赛程；按北京时间自然日计算。此处预览文字内容，实际发送沿用已保存的图片或文字样式。",
     }
 

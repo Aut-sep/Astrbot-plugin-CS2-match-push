@@ -418,8 +418,8 @@ async function previewTool(kind, overrides = {}) {
   if (!state.ready) throw new Error("页面正在连接，请稍后重试。");
   if (state.saving || state.dirty.size) throw new Error("请先保存或放弃未保存的修改，再查询预览。");
   const days = overrides.days ?? Number($(kind === "results" ? "#tool-results-days" : "#tool-days").value);
-  if ((kind === "schedule" || kind === "results") && (!Number.isInteger(days) || days < 1 || days > 30))
-    throw new Error("查询天数应为 1～30 的整数。");
+  if ((kind === "schedule" || kind === "results") && (!Number.isInteger(days) || days < 1 || days > (kind === "results" ? 30 : 3)))
+    throw new Error("查询天数超出范围：赛程 1～3 天，赛果 1～30 天。");
   const matchId = $("#tool-match-id").value.trim();
   if (kind === "results" && matchId && !/^[1-9][0-9]*$/.test(matchId))
     throw new Error("比赛 ID 应为正整数。");
@@ -1019,7 +1019,7 @@ function installEvents() {
         throw new Error("请先在订阅管理中添加推送群组。");
       const gid = $('#push-rule-group').value;
       const days = Number($('#push-now-days').value);
-      if (!Number.isInteger(days) || days < 1 || days > 30) throw new Error('推送天数应为 1～30 的整数。');
+      if (!Number.isInteger(days) || days < 1 || days > 3) throw new Error('推送天数应为 1～3 的整数。');
       if (
         !(await dialog(
           "立即推送赛程",
@@ -1044,7 +1044,7 @@ function installEvents() {
         throw new Error("请启用测试模式并保存目标号码。");
       const action = $("#test-action").value;
       const days = ["日报", "全部"].includes(action) ? Number($("#test-days").value) : 1;
-      if (!Number.isInteger(days) || days < 1 || days > 30) throw new Error("测试日报天数应为 1～30 的整数。");
+      if (!Number.isInteger(days) || days < 1 || days > 3) throw new Error("测试日报天数应为 1～3 的整数。");
       if (
         !(await dialog(
           "发送测试消息",
