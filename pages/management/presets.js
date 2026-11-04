@@ -1,12 +1,3 @@
-export function getDefaultPreset(rules) {
-  return {
-    id: 'builtin-default', name: '默认配置',
-    description: '通用赛事提醒与比分推送。',
-    summary: `${rules.filter_mode === 'followed' ? '仅关注战队' : (rules.min_tiers || []).map(tier => tier.toUpperCase()).join('/') || '未选择级别'} · ${rules.upcoming_enabled ? `赛前 ${rules.remind_minutes} 分钟` : '赛前提醒关闭'} · ${rules.daily_push_enabled ? '定时日报' : '日报关闭'}`,
-    rules: structuredClone(rules),
-  };
-}
-
 export const BUILTIN_PRESETS = [
   {
     id: "builtin-big-event",
