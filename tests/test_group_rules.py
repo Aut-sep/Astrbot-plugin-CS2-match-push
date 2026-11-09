@@ -360,6 +360,39 @@ class GroupRuleTests(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(json.loads((await panel.push_now(request)).text)['skipped'])
         p.schedule_instant_push.assert_not_called()
 
+    async def test_chat_reuses_upcoming_cache_while_refreshing_or_after_failure(self):
+        p = self.p
+        event = types.SimpleNamespace(get_group_id=lambda: A, get_platform_name=lambda: 'aiocqhttp',
+                                      plain_result=lambda text: text, chain_result=lambda components: components)
+        p._schedule_data_ready = False
+        p._scheduled = [row(minutes=-1), row(2, minutes=60)]
+        for status in ('loading', 'error'):
+            p._schedule_status = status
+            for days in (None, 1):
+                result = await p._schedule_query_result(event, days)
+                self.assertEqual(result[0]['ids'], [2])
+        p._schedule_last_success_at = None
+        self.assertIn('赛程获取失败', await p._schedule_query_result(event))
+        self.assertFalse(p.has_daily_matches_to_push(1))
+
+    async def test_chat_results_send_one_image_or_text_in_text_mode(self):
+        p = self.p
+        event = types.SimpleNamespace(get_group_id=lambda: A, get_platform_name=lambda: 'aiocqhttp',
+                                      plain_result=lambda text: text, chain_result=lambda components: components)
+        match = {**row(), 'status': 'finished', 'results': [
+            {'team_id': 1, 'score': 2}, {'team_id': 2, 'score': 1},
+        ]}
+        p.client = types.SimpleNamespace(get_matches_between=AsyncMock(return_value=[match]),
+                                         get_match_result=AsyncMock(return_value=match))
+        p._banner_renderer = main.BannerRenderer()
+        p._message_component_types = lambda: (None, str, types.SimpleNamespace(fromBytes=lambda png: png))
+        for arguments in (('3',), ('比赛', '1')):
+            result = await p.cmd_results(event, *arguments)
+            self.assertEqual(len(result), 1)
+            self.assertTrue(result[0].startswith(b'\x89PNG\r\n\x1a\n'))
+        self.overrides({A: {'image_push_enabled': False}})
+        self.assertIn('2 : 1', await p.cmd_results(event, '3'))
+
     async def test_selected_rule_test_still_sends_only_to_test_target(self):
         p=self.p;p.store.set('test_target_type','private');p.store.set('test_target_id','999999')
         with scope(Rules(p.store,A)):

@@ -63,25 +63,26 @@ class BracketImages:
         return not check_stage or [s['id'] for s in ready.stages] == [
             s['id'] for s in selected_stages(ready.snapshot, 'current')]
 
-    def _image_key(self, snapshot, stages):
+    def _image_key(self, snapshot, stages, upcoming):
         # The fetch clock is not a content change. Image URLs and local overrides are.
         teams = self.plugin._notice_teams(matches=[m for stage in stages for m in stage['matches']])
         local = []
         for team in teams:
             data = self.plugin.team_logos.get(team['name']) or self.plugin.team_logos.get(team.get('acronym', ''))
             local.append((team['name'], hashlib.sha256(data).hexdigest() if data else None))
-        payload = {'version': 3, 'game': 'csgo', 'title': snapshot['title'],
-                   'stages': stages, 'local_marks': local}
+        payload = {'version': 4, 'game': 'csgo', 'title': snapshot['title'],
+                   'stages': stages, 'local_marks': local, 'upcoming': upcoming}
         return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
 
     async def _image(self, snapshot, stages, selected, token, enabled=None):
-        key = self._image_key(snapshot, stages)
+        upcoming = selected == 'next'
+        key = self._image_key(snapshot, stages, upcoming)
 
         async def render(path):
             matches = [m for stage in stages for m in stage['matches']]
             marks = await self.plugin._resolve_team_marks(self.plugin._notice_teams(matches=matches))
             await asyncio.to_thread(BracketRenderer(self.plugin._banner_renderer).render,
-                                    snapshot, stages, path, marks)
+                                    snapshot, stages, path, marks, upcoming=upcoming)
 
         return await self.images.get(SLOTS[selected], key, render,
                                      lambda: token == self.plugin._token

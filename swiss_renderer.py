@@ -2,7 +2,7 @@
 from .bracket_data import bracket_team_name
 from .team_logos import normalize_name
 from .swiss_data import CAPACITY
-from .major_theme import MajorTheme, PANEL, ROW, INK, MUTED, FAINT, GOLD, GREEN, RED, LINE
+from .major_theme import MajorTheme, ROW, INK, MUTED, FAINT, GOLD, GOLD_WASH, GREEN, GREEN_WASH, RED, RED_WASH
 
 
 class SwissRenderer(MajorTheme):
@@ -49,9 +49,9 @@ class SwissRenderer(MajorTheme):
                       y+13, 15, color, True, width=96)
         left, right = (scores.get(str(team.get('id'))) for team in teams)
         show = status in ('running', 'finished') and all(isinstance(v, int) and not isinstance(v, bool) and v >= 0 for v in (left, right))
-        draw.rounded_rectangle((x+154, y+7, x+206, y+35), radius=4, fill='#2b3540')
+        draw.rounded_rectangle((x+154, y+7, x+206, y+35), radius=5, fill=GOLD_WASH)
         self.text(draw, f'{left} : {right}' if show else 'VS', x+180, y+12,
-                  16 if show else 13, GOLD if status == 'running' else INK if show else MUTED, True)
+                  17 if show else 13, GOLD if status == 'running' else INK if show else MUTED, True)
 
     def group(self, image, draw, group, position, marks):
         x, y, height = position
@@ -60,8 +60,8 @@ class SwissRenderer(MajorTheme):
             advanced = record.startswith('3-')
             color = GREEN if advanced else RED
             draw.rounded_rectangle((x+8, y+8, x+self.CELL-8, y+height-8), radius=5,
-                                   fill='#1a3532' if advanced else '#34292f')
-            self.text(draw, record+'  /  '+('晋级' if advanced else '淘汰'), x+self.CELL/2, y+16, 15, color, True)
+                                   fill=GREEN_WASH if advanced else RED_WASH)
+            self.text(draw, record+'  /  '+('晋级' if advanced else '淘汰'), x+self.CELL/2, y+16, 17, color, True)
             count = max(group['capacity'], len(group['teams']))
             for index in range(count):
                 team = group['teams'][index] if index < len(group['teams']) else {}
@@ -71,8 +71,9 @@ class SwissRenderer(MajorTheme):
             return
         wins, losses = map(int, record.split('-'))
         category = '晋级 / 淘汰' if wins == losses == 2 else '晋级战' if wins == 2 else '淘汰战' if losses == 2 else '赛前战绩'
-        self.text(draw, record, x+18, y+15, 29)
-        self.text(draw, category, x+136, y+24, 14, GREEN if wins == 2 else RED if losses == 2 else MUTED)
+        self.text(draw, record, x+18, y+15, 29, bold=True)
+        color = GOLD if wins == losses == 2 else GREEN if wins == 2 else RED if losses == 2 else MUTED
+        self.text(draw, category, x+136, y+24, 14, color)
         games = {m.get('number_of_games') for m in group['matches'] if m.get('number_of_games')}
         self.text(draw, 'BO'+str(next(iter(games))) if len(games) == 1 else 'BO—', x+self.CELL-49, y+25, 13, FAINT, True)
         count = max(CAPACITY[record], len(group['matches']))
@@ -84,7 +85,7 @@ class SwissRenderer(MajorTheme):
         self.text(draw, f'胜  {wins+1}-{losses}'+(' 晋级' if wins == 2 else ''), x+18, route_y, 12, GREEN)
         self.text(draw, f'负  {wins}-{losses+1}'+(' 淘汰' if losses == 2 else ''), x+218, route_y, 12, RED)
 
-    def render(self, snapshot, stage, team_marks):
+    def render(self, snapshot, stage, team_marks, *, upcoming=False):
         groups = {group['record']: group for group in stage['swiss_groups']}
         positions, packs, graph_height = self.positions(groups, 220)
         unknown = stage.get('unclassified_matches') or []
@@ -94,16 +95,13 @@ class SwissRenderer(MajorTheme):
             raise ValueError('Swiss chart exceeds safe size')
         image, draw = self.canvas(self.WIDTH, height, snapshot, 'SWISS STAGE')
         marks = {normalize_name(mark['name']): mark for mark in team_marks}
-        self.text(draw, stage['title'], 40, 137, 24)
+        self.stage_heading(draw, stage['title'], 40, 137, upcoming)
         self.text(draw, '三胜晋级 · 三负淘汰    /    每轮重新配对，胜负标签仅表示战绩去向', 1120, 143, 15, MUTED)
         for column in range(5):
             x = self.PAD+column*(self.CELL+self.GAP)
-            self.text(draw, f'0{column+1}', x, 186, 17, GOLD)
-            self.text(draw, f'第 {column+1} 轮', x+37, 188, 14, MUTED)
-            draw.line((x+110, 196, x+self.CELL, 196), fill=LINE)
+            self.round_heading(draw, column+1, f'第 {column+1} 轮', x, 178, self.CELL)
         for x, y, h in packs:
-            draw.rounded_rectangle((x, y+3, x+self.CELL, y+h+3), radius=9, fill='#0b1016')
-            draw.rounded_rectangle((x, y, x+self.CELL, y+h), radius=8, fill=PANEL)
+            self.panel(draw, x, y, self.CELL, h)
         for record, position in positions.items():
             self.group(image, draw, groups[record], position, marks)
         if unknown:

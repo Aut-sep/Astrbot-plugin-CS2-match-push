@@ -4,7 +4,7 @@ from PIL import Image
 from .formatters import fmt_time, translate_match_stage
 from .bracket_data import bracket_team_name
 from .team_logos import normalize_name
-from .major_theme import MajorTheme, BG, PANEL, ROW, INK, MUTED, FAINT, GOLD, GREEN, RED, LINE
+from .major_theme import MajorTheme, BG, ROW, INK, MUTED, FAINT, GOLD, GOLD_WASH, GREEN, GREEN_WASH, RED
 
 
 class BracketRenderer(MajorTheme):
@@ -12,9 +12,6 @@ class BracketRenderer(MajorTheme):
 
     def __init__(self, shared_renderer):
         self.shared = shared_renderer
-
-    def _text(self, draw, text, x, y, size=16, color=INK, centered=False):
-        self.text(draw, text, x, y, size, color, centered)
 
     def _positions(self, stage, width, top):
         columns = stage['columns']
@@ -77,10 +74,10 @@ class BracketRenderer(MajorTheme):
                     draw.line((p, q), fill=color, width=2)
 
     def _card(self, image, draw, match, x, y, marks):
-        draw.rounded_rectangle((x,y+3,x+self.CARD_W,y+self.CARD_H+3), radius=9, fill='#0b1016')
-        draw.rounded_rectangle((x,y,x+self.CARD_W,y+self.CARD_H), radius=8, fill=PANEL)
         caption = translate_match_stage(match.get('name') or '') or '对阵待定'
-        self.text(draw, caption, x+16, y+13, 13, GOLD if caption.startswith('总决赛') else MUTED,
+        final = caption.startswith('总决赛')
+        self.panel(draw, x, y, self.CARD_W, self.CARD_H, featured=final)
+        self.text(draw, caption, x+16, y+13, 14, GOLD if final else MUTED,
                   width=self.CARD_W-32)
         opponents = [(slot.get('opponent') or {}) for slot in match.get('opponents') or []][:2]
         opponents += [{} for _ in range(2-len(opponents))]
@@ -91,16 +88,16 @@ class BracketRenderer(MajorTheme):
             label = bracket_team_name(team)
             is_winner = match.get('status') == 'finished' and winner is not None and team.get('id') is not None and str(team['id']) == str(winner)
             draw.rounded_rectangle((x+8,row_top-1,x+self.CARD_W-8,row_top+37), radius=5,
-                                   fill='#1b3431' if is_winner else ROW)
+                                   fill=GREEN_WASH if is_winner else GOLD_WASH if final else ROW)
             if is_winner:
                 draw.rounded_rectangle((x+8,row_top+8,x+11,row_top+28), radius=1, fill=GREEN)
             self.mark(image,draw,team,x+20,row_top+4,marks)
             self.text(draw,label,x+62,row_top+11,18,INK if is_winner or match.get('status') != 'finished' else MUTED,
-                      width=self.CARD_W-126)
+                      width=self.CARD_W-126, bold=is_winner)
             score = scores.get(str(team.get('id')))
             show = match.get('status') in {'running','finished'} and isinstance(score,int) and not isinstance(score,bool) and score >= 0
-            self._text(draw,score if show else '—',x+self.CARD_W-30,row_top+10,19,
-                       GREEN if is_winner else MUTED,centered=True)
+            self.text(draw, score if show else '—', x+self.CARD_W-30, row_top+10, 19,
+                      GREEN if is_winner else MUTED, True, bold=is_winner)
         status = {'finished':'已结束','running':'进行中','canceled':'已取消','postponed':'已延期'}.get(match.get('status'),'待开赛')
         when = fmt_time(match.get('scheduled_at') or match.get('begin_at'))
         bo = f"BO{match['number_of_games']}" if match.get('number_of_games') else ''
@@ -108,11 +105,11 @@ class BracketRenderer(MajorTheme):
         self.text(draw,detail,x+16,y+133,11,GOLD if match.get('status') == 'running' else FAINT,
                   width=self.CARD_W-32)
 
-    def render(self, snapshot, stages, output_path, team_marks):
+    def render(self, snapshot, stages, output_path, team_marks, *, upcoming=False):
         from .swiss_renderer import SwissRenderer
-        panels = [SwissRenderer(self.shared).render(snapshot,stage,team_marks)
+        panels = [SwissRenderer(self.shared).render(snapshot,stage,team_marks,upcoming=upcoming)
                   if stage['kind']=='swiss' and stage.get('swiss_groups')
-                  else self._tree_image(snapshot,[stage],team_marks) for stage in stages]
+                  else self._tree_image(snapshot,[stage],team_marks,upcoming=upcoming) for stage in stages]
         if not panels:
             panels=[self._tree_image(snapshot,[],team_marks)]
         width=max(panel.width for panel in panels)
@@ -126,7 +123,7 @@ class BracketRenderer(MajorTheme):
         image.save(output_path,format='PNG',optimize=True)
         return output_path
 
-    def _tree_image(self, snapshot, stages, team_marks):
+    def _tree_image(self, snapshot, stages, team_marks, *, upcoming=False):
         max_columns = max((len(s['columns']) for s in stages), default=1)
         if max_columns > 8:
             raise ValueError('bracket has too many columns')
@@ -144,18 +141,16 @@ class BracketRenderer(MajorTheme):
         image, draw = self.canvas(width,height,snapshot,'PLAYOFFS')
         marks = {normalize_name(mark['name']):mark for mark in team_marks}
         for top,stage,positions,graph_height in layout:
-            self._text(draw,stage['title'],self.PAD,top+10,24)
+            self.stage_heading(draw, stage['title'], self.PAD, top+10, upcoming)
             note = ' · '.join(stage['notes']) if stage['notes'] else '实线：胜者晋级　虚线：败者转入败者组' if any(e['type']=='loser' for e in stage['edges']) else '按已公布晋级关系连接；未知队伍显示待定'
             self.text(draw,note,self.PAD,top+45,14,MUTED,width=width-80)
             if not positions:
-                self._text(draw,'本阶段对阵尚未公布',width//2,top+100,18,'#66758a',centered=True)
+                self.text(draw,'本阶段对阵尚未公布',width//2,top+100,18,MUTED,True)
                 continue
             for col_index,column in enumerate(stage['columns']):
                 if column['matches']:
                     x=positions[str(column['matches'][0]['id'])][0]
-                    self._text(draw,f'0{col_index+1}',x,top+79,17,GOLD)
-                    self._text(draw,column['label'],x+38,top+81,14,MUTED)
-                    draw.line((x+180,top+89,x+self.CARD_W,top+89),fill=LINE)
+                    self.round_heading(draw, col_index+1, column['label'], x, top+70, self.CARD_W)
             # Draw explicit match-to-match edges beneath the cards. Skip-column
             # links route below the graph rather than through intermediate cards.
             for index,edge in enumerate(stage['edges']):
@@ -167,7 +162,7 @@ class BracketRenderer(MajorTheme):
                     points=[start,(mid,start[1]),(mid,lane),(tx-14,lane),(tx-14,end[1]),end]
                 else:
                     points=[start,(mid,start[1]),(mid,end[1]),end]
-                self._edge(draw,points,'#526d67' if edge['type']=='winner' else '#865d66',edge['type']=='loser')
+                self._edge(draw, points, GOLD if edge['type']=='winner' else RED, edge['type']=='loser')
             for column in stage['columns']:
                 for match in column['matches']:
                     x,y,_=positions[str(match['id'])]

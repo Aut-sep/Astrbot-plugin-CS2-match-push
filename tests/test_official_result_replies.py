@@ -94,7 +94,7 @@ class OfficialResultTests(unittest.IsolatedAsyncioTestCase):
     async def test_image_result_is_one_message_without_extra_card(self):
         image=Image()
         await self.menu.reply(self.event,'完整对阵说明',feature='bracket',components=[image])
-        self.event.send.assert_awaited_once_with(['完整对阵说明\n图片已附在回复中。',image])
+        self.event.send.assert_awaited_once_with([image])
         self.request.assert_not_awaited()
         self.event.stop_event.assert_called_once()
 
@@ -104,7 +104,7 @@ class OfficialResultTests(unittest.IsolatedAsyncioTestCase):
         rows = self.request.await_args.kwargs['json']['keyboard']['content']['rows']
         self.assertEqual(
             [button['action']['data'] for button in rows[0]['buttons']],
-            ['/cs对阵图', '/cs对阵图 下一阶段'],
+            ['/major对阵图', '/major对阵图 下一阶段'],
         )
         self.event.send.assert_not_awaited()
 

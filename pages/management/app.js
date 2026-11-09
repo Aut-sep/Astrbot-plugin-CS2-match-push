@@ -443,7 +443,7 @@ async function previewTool(kind, overrides = {}) {
   activateTab("tools");
   const sequence = ++previewSequence;
   const panel = $("#tool-preview");
-  const titles = { schedule: "赛程预览", bracket: "晋级对阵图", results: "最近赛果" };
+  const titles = { schedule: "赛程预览", bracket: "Major 对阵图", results: "最近赛果" };
   const title = overrides.daily ? "日报预览" : titles[kind];
   $("#tool-preview-title").textContent = `${gameLabel} · ${title}`;
   $("#tool-preview-error").hidden = true;

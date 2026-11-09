@@ -15,7 +15,7 @@ class BannerRenderer:
     def render_notification(
         self,
         text: str,
-        output_path: str,
+        output_path: str | io.BytesIO,
         title: str = "",
         logo_images: list[bytes | None] | None = None,
         team_names: list[str] | None = None,
@@ -27,7 +27,7 @@ class BannerRenderer:
         winner_index: int | None = None,
         event_marks: list[dict] | None = None,
         major: dict | None = None,
-    ) -> str:
+    ) -> str | io.BytesIO:
         """Render one compact editorial card; delivery failures propagate.
 
         Logos are supplied by the caller. Image copy omits stream links and
@@ -296,10 +296,65 @@ class BannerRenderer:
         self._draw_small_mark(image, draw, right_edge, cursor + 5, item["right_mark"], 24, item["right"])
         for index, row in enumerate(item["right_rows"]):
             self._draw_card_text(draw, row, right_edge + 31, cursor + 6 + index * 19, body_font, ink)
-        self._draw_card_text(draw, item["detail_rows"][0], width - padding - 32, cursor + 8, label_font, muted)
+        if item["detail_rows"]:
+            self._draw_card_text(draw, item["detail_rows"][0], width - padding - 32, cursor + 8, label_font, muted)
         if item.get('stage'):
             self._draw_card_text(draw,'阶段：'+item['stage'],width//2,cursor+row_height-21,label_font,muted,centered=True)
         return cursor + row_height
+
+
+    def render_result_list(self, rows, label, output):
+        """Draw all recent results on one image when they fit at readable size."""
+        from PIL import Image as PILImage, ImageDraw
+
+        width, padding = 640, 38
+        ink, muted = "#132033", "#405369"
+        measure = ImageDraw.Draw(PILImage.new("RGB", (width, 1)))
+        body_font = self._pick_banner_font(18)
+        detail_font = self._pick_banner_font(14)
+        cursor = 142
+        height = cursor + 18
+        layout = []
+        for row in rows:
+            names = [self._notification_text(name) for name in row["names"]]
+            left_rows, right_rows = [
+                self._wrap_notification_text(measure, name, body_font, 145) for name in names
+            ]
+            details = self._wrap_notification_text(
+                measure, self._notification_text(row["detail"]), detail_font, width - 2 * padding,
+            )
+            left_mark, right_mark = [
+                {"name": name, "image": logo} for name, logo in zip(names, row["logos"])
+            ]
+            match_height = max(42, 20 * max(len(left_rows), len(right_rows)) + 10)
+            height += match_height + 20 * len(details) + 12
+            if height > 3000:
+                return
+            layout.append(({
+                "date": row["date"], "time": row["time"], "center_text": row["score"],
+                "left": names[0], "right": names[1],
+                "left_rows": left_rows, "right_rows": right_rows,
+                "left_mark": left_mark, "right_mark": right_mark,
+                "detail_rows": [], "height": match_height,
+            }, details))
+
+        image = PILImage.new("RGB", (width, height), "#f4f6f9")
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((0, 0, width, 96), fill=ink)
+        draw.rectangle((0, 0, 8, 96), fill="#ff6848")
+        self._draw_card_text(draw, self.game_label, padding, 23, self._pick_banner_font(16), "#ff8a70")
+        self._draw_card_text(draw, f"{self.game_label} 最近赛果 · {label}", padding, 53,
+                             self._pick_banner_font(23), "#ffffff")
+        self._draw_card_text(draw, f"共 {len(rows)} 场 · 北京时间 · 按计划开赛日期回看",
+                             padding, 112, detail_font, muted)
+        for match, details in layout:
+            cursor = self._draw_schedule_row(image, draw, match, cursor)
+            for line in details:
+                self._draw_card_text(draw, line, padding, cursor, detail_font, muted)
+                cursor += 20
+            draw.line((padding, cursor + 3, width - padding, cursor + 3), fill="#d3dce7")
+            cursor += 12
+        image.save(output, format="PNG", optimize=True)
 
 
     def _draw_matchup_card(self, image, draw, matchup, names, logo_images, is_result,

@@ -38,7 +38,7 @@ FEATURE_COMMANDS = {
     "/cs未来赛程": "schedule",
     "/cs三日赛程": "schedule",
     "/cs比赛": "schedule",
-    "/cs对阵图": "bracket",
+    "/major对阵图": "bracket",
     "/cs赛果": "results",
     "/cs今日选手": "player",
     "/cs关注列表": "followed",
@@ -48,8 +48,8 @@ FEATURE_COMMANDS = {
 FEATURE_ACTIONS = (
     ("schedule", "今日赛程", "/cs今日赛程"),
     ("schedule", "未来赛程", "/cs未来赛程"),
-    ("bracket", "Major 对阵", "/cs对阵图"),
-    ("bracket", "Major 下一阶段", "/cs对阵图 下一阶段"),
+    ("bracket", "Major 对阵图", "/major对阵图"),
+    ("bracket", "Major 下一阶段", "/major对阵图 下一阶段"),
     ("results", "赛后结果", "/cs赛果"),
     ("player", "今日选手", "/cs今日选手"),
     ("followed", "关注战队", "/cs关注列表"),
@@ -187,12 +187,6 @@ class OfficialCSMenu:
             await event.send(event.plain_result(self._plain_text(text)).use_markdown(False))
         event.stop_event()
 
-    @staticmethod
-    def _summary_with_image(text: str) -> str:
-        plain = OfficialCSMenu._plain_text(text)
-        first_lines = "\n".join(plain.splitlines()[:2]).strip()
-        return f"{first_lines}\n图片已附在回复中。" if first_lines else "详细内容见下方图片。"
-
     async def _send_official_card(self, event, text: str, *, rows=None, player=None):
         """Send a passive QQ rich reply, with a framework fallback on failure."""
         try:
@@ -270,14 +264,12 @@ class OfficialCSMenu:
 
     async def reply(self, event, text: str, *, feature: str, components=None):
         """Return the requested result once; menus are explicit user actions."""
-        images = [item for item in components or [] if isinstance(item, Image)]
-        if images:
-            content = [Plain(self._summary_with_image(text)), *images]
-            await event.send(event.chain_result(content).use_markdown(False))
+        if any(isinstance(item, Image) for item in components or []):
+            await event.send(event.chain_result(components).use_markdown(False))
             event.stop_event()
             return
         if event.get_platform_name() not in OFFICIAL_PLATFORMS or not self._rich_enabled():
-            return await self._framework_reply(event, text, components=images)
+            return await self._framework_reply(event, text)
 
         body = self._plain_text(text)
         title = FEATURE_TITLES.get(feature, "CS2 查询结果")

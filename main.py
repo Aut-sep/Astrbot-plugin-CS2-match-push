@@ -1323,11 +1323,16 @@ class CSMatchPlugin(Star):
 
     def _daily_image_request(self, days):
         rules = current_rules(self.store)
-        matches = [self._match_with_snapshot_names(match) for match in self._scheduled if rules.accepts(match)]
+        matches = [self._match_with_snapshot_names(match) for match in self._upcoming_cached_matches()
+                   if rules.accepts(match)]
         text = self._format(fmt_daily_schedule, matches, rules.get_followed_team_names(), days)
         if days > self._fetch_ahead:
             text += f"\n当前仅获取未来 {self._fetch_ahead} 天，以上仅反映已获取范围。"
         return text, self._daily_notice_matches(matches, days)
+
+    def _upcoming_cached_matches(self):
+        now = now_utc()
+        return [match for match in self._scheduled if parse_dt(sched_str(match)) > now]
 
     def _daily_image_key(self, text, matches):
         teams = []
@@ -1827,14 +1832,14 @@ class CSMatchPlugin(Star):
         await self._get_qq_official_menu().player(event)
 
 
-    @filter.command("cs对阵图", alias={"cs对阵表", "cs赛程表", "csmajor", "csMajor"})
+    @filter.command("major对阵图", alias={"Major对阵图", "cs对阵图", "cs对阵表", "cs赛程表", "csmajor", "csMajor"})
     async def cmd_cs_bracket(self, event: AstrMessageEvent, stage: str = "当前"):
         denied = self._official_denial(event, 'bracket')
         if denied is not None:
             return denied
         selected = MAJOR_STAGE_ALIASES.get(stage.strip().lower())
         if selected is None:
-            return await self._query_reply(event, "用法：/cs对阵图 [当前/下一阶段/全部/第一阶段/第二阶段/第三阶段/瑞士轮/淘汰赛]。", feature="bracket")
+            return await self._query_reply(event, "用法：/major对阵图 [当前/下一阶段/全部/第一阶段/第二阶段/第三阶段/瑞士轮/淘汰赛]。", feature="bracket")
         if not self._token:
             return await self._query_reply(event, "请先在 CS 管理面板配置 PandaScore Token。", feature="bracket")
         try:
@@ -1847,39 +1852,43 @@ class CSMatchPlugin(Star):
             if snapshot is None:
                 return await self._query_reply(event, "Major 对阵数据暂不可用，请稍后重试。", feature="bracket")
             if not stages:
-                message = ("当前没有进行中的阶段，也没有已公布的下一阶段对阵；可发送 /cs对阵图 全部 查看已收录阶段。"
+                message = ("当前没有进行中的阶段，也没有已公布的下一阶段对阵；可发送 /major对阵图 全部 查看已收录阶段。"
                            if selected == "current" else "下一阶段的对阵或开赛时间尚未公布。"
                            if selected == 'next' else "该阶段的对阵尚未公布。")
                 return await self._query_reply(event, snapshot['title'] + "：" + message, feature="bracket")
             text = format_bracket(snapshot, stages)
             if upcoming:
                 text = "当前无进行中阶段，以下为下一阶段已公布对阵（尚未开赛）。\n" + text if selected == 'current' else "下一阶段已公布对阵（尚未开赛）。\n" + text
-            if not self.query_rules(event).get('image_push_enabled', True):
+            if not image_data or not self.query_rules(event).get('image_push_enabled', True):
                 return await self._query_reply(event, text, feature="bracket")
             _, _, Image = self._message_component_types()
-            if image_data is None:
-                raise DeliveryError("对阵图生成失败")
             return await self._query_reply(event, text, feature="bracket", components=[Image.fromBytes(image_data)])
         except (ValueError, KeyError, DeliveryError, asyncio.TimeoutError):
             return await self._query_reply(event, "Major 对阵关系或图片暂不可用，请稍后重试。", feature="bracket")
 
 
     async def _schedule_query_result(self, event, days=None):
-        if not self._schedule_data_ready:
-            return await self._query_reply(event, '赛程尚未加载完成，请稍后再试。', feature='schedule')
+        if not self._token:
+            return await self._query_reply(event, '请先配置 PandaScore Token。', feature='schedule')
+        if not self._schedule_last_success_at:
+            text = '赛程获取失败，请稍后重试。' if self._schedule_status == 'error' else '正在获取首次赛程。'
+            return await self._query_reply(event, text, feature='schedule')
+        empty_cache = '缓存中暂无符合条件的赛程。' if not self._schedule_data_ready else None
         rules = self.query_rules(event)
         with rule_scope(rules):
             if days is not None:
                 text, matches = self._daily_image_request(days)
+                if not matches:
+                    return await self._query_reply(event, empty_cache or text, feature='schedule')
                 return await self._team_text_result(event, text, matches=matches, daily_days=days)
-            matches = [match for match in self._scheduled if rules.accepts(match)]
+            matches = [match for match in self._upcoming_cached_matches() if rules.accepts(match)]
             if not matches:
-                return await self._query_reply(event, '当前没有符合本群规则的已获取赛程。', feature='schedule')
+                return await self._query_reply(event, empty_cache or '当前没有符合本群规则的已获取赛程。', feature='schedule')
             text = self._format(fmt_schedule, matches, rules.get_followed_team_names())
             return await self._team_text_result(event, text, matches=[m for m in matches if is_push_ready_match(m)])
 
 
-    @filter.command("cs比赛")
+    @filter.command("cs比赛", alias={"cs赛程", "cs2赛程"})
     async def cmd_list(self, event: AstrMessageEvent, days: str = "") -> MessageEventResult:
         denied = self._official_denial(event, 'schedule')
         if denied is not None:
@@ -1891,7 +1900,7 @@ class CSMatchPlugin(Star):
             return await self._query_reply(event, "用法：/cs比赛 [天数/全部]，天数 1–7；不填查看已获取的全部赛程。", feature="schedule")
         return await self._schedule_query_result(event, count)
 
-    @filter.command("cs赛果", alias={"cs最近赛果"})
+    @filter.command("cs赛果", alias={"cs2赛果", "cs最近赛果"})
     async def cmd_results(self, event: AstrMessageEvent, arg: str = "", match_id: str = ""):
         denied = self._official_denial(event, "results")
         if denied is not None:
@@ -1910,8 +1919,15 @@ class CSMatchPlugin(Star):
             if not self._token:
                 return await self._query_reply(event, "请先在 CS 管理面板配置 PandaScore Token。", feature="results")
             from .cs_results import preview_results
-            result = await asyncio.wait_for(preview_results(self, days, identity, rules=self.query_rules(event)), timeout=60)
-            return await self._query_reply(event, result["text"], feature="results")
+            result = await asyncio.wait_for(
+                preview_results(self, days, identity, rules=self.query_rules(event), include_image=True),
+                timeout=60,
+            )
+            components = None
+            if result.get("image"):
+                _, _, Image = self._message_component_types()
+                components = [Image.fromBytes(result["image"])]
+            return await self._query_reply(event, result["text"], feature="results", components=components)
         except (ConfigError, ValueError, KeyError, asyncio.TimeoutError):
             return await self._query_reply(event, "查询暂不可用。用法：/cs赛果 [1–30天]，或 /cs赛果 比赛 <ID>。", feature="results")
 
@@ -2092,7 +2108,12 @@ class CSMatchPlugin(Star):
         if denied is not None:
             return denied
         if event.get_platform_name() in OFFICIAL_PLATFORMS:
-            ready = "已就绪" if self._schedule_data_ready else "等待首次刷新"
+            ready = {
+                "ready": "已就绪",
+                "error": "更新失败",
+                "unconfigured": "未配置",
+                "loading": "正在刷新",
+            }[self._schedule_status]
             text = ("CS2 查询状态\n"
                     f"赛程数据：{ready}\n"
                     f"已缓存比赛：{len(self._scheduled)} 场\n"
@@ -2393,7 +2414,7 @@ class CSMatchPlugin(Star):
             "  /cs比赛 [天数/全部]  查询已获取的赛程，天数 1–7\n"
             "  /cs今日赛程          查看北京时间今天的赛程\n"
             "  /cs未来赛程 [天数]   查看今天起 N 天赛程，默认 7 天\n"
-            "  /cs对阵图 [阶段]     查看 Major 晋级对阵图\n"
+            "  /major对阵图 [阶段]  查看 Major 晋级对阵图\n"
             "  /cs赛果 [天数]       查询最近赛果，默认 3 天\n"
             "  /cs赛果 比赛 <ID>    查询指定比赛赛果\n"
             "  /cs今日选手          抽取或查看今日选手\n"
