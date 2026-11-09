@@ -67,6 +67,7 @@ class BannerRenderer:
                 lines.pop(0)
         title = self._notification_text(title or f"{self.game_label} 赛事推送")
         is_result = has_matchup and "赛事结果" in title
+        compact_matchup = has_matchup and (is_result or any(kind in title for kind in ("赛前提醒", "已开赛")))
         if is_result and winner_index is None:
             scores = re.fullmatch(r"\s*(\d+)\s*:\s*(\d+)\s*", str(center_text))
             if scores and scores.group(1) != scores.group(2):
@@ -141,24 +142,38 @@ class BannerRenderer:
             if body and not re.match(r"^(?:平局|弃权|胜者|赛事名称|参赛战队)[：:]?", body[0]):
                 header_context = body.pop(0)
         header_event_mark = next((mark for mark in league_marks if mark["name"].casefold() in header_context.casefold()), None)
-        context_rows = self._wrap_notification_text(measure, header_context, detail_font, 200 if header_event_mark else 236) if header_context else []
-        title_rows = self._wrap_notification_text(measure, title, title_font, 300 if context_rows else width - 2 * padding)
+        context_label = re.sub(
+            r"\bESL Pro League Season (\d+)( Europe Closed Qualifier\b)?",
+            lambda match: f"EPL S{match[1]}" + (" · EU CQ" if match[2] else ""),
+            header_context, flags=re.IGNORECASE,
+        )
+        context_width = 200 if header_event_mark else 236
+        context_font = self._fit_banner_font(measure, context_label, context_width, 16, 13) if context_label else detail_font
+        if measure.textlength(context_label, font=context_font) > context_width:
+            while measure.textlength(context_label + "…", font=context_font) > context_width:
+                context_label = context_label[:-1]
+            context_label = context_label.rstrip() + "…"
+        title_rows = self._wrap_notification_text(measure, title, title_font, 300 if context_label else width - 2 * padding)
         title_y = 53
-        header_height = max(96, title_y + len(title_rows) * 29 + 15, 35 + len(context_rows) * 22 + 15)
+        header_height = max(96, title_y + len(title_rows) * 29 + 15)
         cursor = header_height + 16
         matchup = None
         if has_matchup:
             name_font = self._pick_banner_font(19)
             name_rows = [self._wrap_notification_text(measure, name, name_font, 198) for name in names]
             clean_score = self._notification_text(center_text)
-            score_font = self._fit_banner_font(measure, clean_score, 144, 49 if is_result else 27, 16)
+            score_font = self._fit_banner_font(
+                measure, clean_score, 144, 49 if is_result else 19 if compact_matchup else 27, 16,
+            )
             score_rows = self._wrap_notification_text(measure, clean_score, score_font, 144)
             score_height = 32 * len(score_rows)
-            match_height = max(115 + 25 * max(map(len, name_rows)), 30 + score_height + (68 if display_time else 0))
+            name_start = 105 if compact_matchup else 115
+            time_space = (63 if compact_matchup else 68) if display_time else 0
+            match_height = max(name_start + 25 * max(map(len, name_rows)), 30 + score_height + time_space)
             if is_result and game_outcomes:
                 match_height += 30
             matchup = (cursor, match_height, name_rows, name_font, score_rows, score_font)
-            cursor += match_height + 27
+            cursor += match_height + (21 if compact_matchup else 27)
 
         wrapped = []
         for line in body:
@@ -224,7 +239,8 @@ class BannerRenderer:
                                 "font": font, "indent": 34 if icon_mark else 0,
                                 "color": color, "centered": centered and not icon_mark, "bold": False,
                                 "icon": icon_mark})
-        height = cursor + sum(item[1] if isinstance(item, tuple) else item.get("height", 27) for item in wrapped) + 55
+        footer_height = 44 if compact_matchup else 50
+        height = cursor + sum(item[1] if isinstance(item, tuple) else item.get("height", 27) for item in wrapped) + footer_height + 5
         image = PILImage.new("RGB", (width, height), background)
         draw = ImageDraw.Draw(image)
         draw.rectangle((0, 0, width, header_height), fill="#132033")
@@ -234,15 +250,18 @@ class BannerRenderer:
             self._draw_card_text(draw, "测试推送", width - padding - 48, 18, label_font, "#ff8a70")
         for index, row in enumerate(title_rows):
             self._draw_card_text(draw, row, padding, title_y + index * 29, title_font, "#ffffff")
-        context_x = width - padding - 236
-        if header_event_mark:
-            draw.rounded_rectangle((context_x - 2, 32, context_x + 30, 64), radius=6, fill="#ffffff")
-            self._draw_small_mark(image, draw, context_x, 34, header_event_mark, 28, header_event_mark["name"])
-        for index, row in enumerate(context_rows):
-            self._draw_card_text(draw, row, context_x + (36 if header_event_mark else 0), 35 + index * 22, detail_font, "#dce5f0")
+        if context_label:
+            bounds = draw.textbbox((0, 0), context_label, font=context_font)
+            context_x = width - padding - (bounds[2] - bounds[0])
+            if header_event_mark:
+                icon_x = context_x - 31
+                draw.rounded_rectangle((icon_x - 2, title_y - 2, icon_x + 24, title_y + 24),
+                                       radius=5, fill="#ffffff")
+                self._draw_small_mark(image, draw, icon_x, title_y, header_event_mark, 22, header_event_mark["name"])
+            self._draw_card_text(draw, context_label, context_x, title_y + 4, context_font, "#dce5f0")
         if matchup:
             self._draw_matchup_card(image, draw, matchup, names, logo_images, is_result,
-                                    game_outcomes, winner_index, display_time, time_transition)
+                                    game_outcomes, winner_index, display_time, time_transition, compact=compact_matchup)
         for item in wrapped:
             if isinstance(item, tuple):
                 row, row_height, font, indent, color, centered, bold = item
@@ -262,9 +281,10 @@ class BannerRenderer:
             if row:
                 self._draw_card_text(draw, row, width // 2 if item["centered"] else padding + item["indent"], cursor, item["font"], item["color"], centered=item["centered"], bold=item["bold"])
             cursor += item["height"]
-        draw.rectangle((0, height - 50, width, height), fill="#e5ebf2")
-        self._draw_card_text(draw, f"{self.game_label} 比赛推送", padding, height - 30, label_font, muted)
-        self._draw_card_text(draw, "比赛已结束" if is_result else "赛事资讯", width - padding - 72, height - 30, label_font, muted)
+        draw.rectangle((0, height - footer_height, width, height), fill="#e5ebf2")
+        footer_y = height - (footer_height + 10) // 2
+        self._draw_card_text(draw, f"{self.game_label} 比赛推送", padding, footer_y, label_font, muted)
+        self._draw_card_text(draw, "比赛已结束" if is_result else "赛事资讯", width - padding - 72, footer_y, label_font, muted)
         image.save(output_path, format="PNG", optimize=True)
         return output_path
 
@@ -358,7 +378,7 @@ class BannerRenderer:
 
 
     def _draw_matchup_card(self, image, draw, matchup, names, logo_images, is_result,
-                           game_outcomes, winner_index, display_time="", time_transition=""):
+                           game_outcomes, winner_index, display_time="", time_transition="", *, compact=False):
         """Draw the shared team, score and round-outcome layout for CS cards."""
         from PIL import ImageStat
         width = 640
@@ -366,9 +386,12 @@ class BannerRenderer:
         label_font = self._pick_banner_font(12)
         top, match_height, name_rows, name_font, score_rows, score_font = matchup
         logo_y = top + 7
-        for index, center_x in enumerate((153, 487)):
+        logo_size = 70 if compact else 76
+        name_y = top + (98 if compact else 105)
+        centers = (145, 495) if compact else (153, 487)
+        for index, center_x in enumerate(centers):
             data = (logo_images or [])[index] if index < len(logo_images or []) else None
-            logo = self._notification_logo(data, 76)
+            logo = self._notification_logo(data, logo_size)
             if logo is not None:
                 # Bright marks, including yellow ones, need a dark plate.
                 alpha = logo.getchannel("A")
@@ -377,15 +400,17 @@ class BannerRenderer:
                     ImageStat.Stat(rgb, mask=alpha).mean,
                     (0.2126, 0.7152, 0.0722))) > 175
                 if pale:
-                    draw.ellipse((center_x - 44, logo_y - 6, center_x + 44, logo_y + 82), fill="#333a40")
-                image.paste(logo, (center_x - logo.width // 2, logo_y + (76 - logo.height) // 2), alpha)
+                    radius = logo_size // 2 + 6
+                    draw.ellipse((center_x - radius, logo_y - 6, center_x + radius,
+                                  logo_y + logo_size + 6), fill="#333a40")
+                image.paste(logo, (center_x - logo.width // 2, logo_y + (logo_size - logo.height) // 2), alpha)
             else:
                 draw.ellipse((center_x - 33, logo_y + 5, center_x + 33, logo_y + 71), outline=rule, width=1)
                 initial = self._banner_placeholder_text(names[index])
                 initial_font = self._fit_banner_font(draw, initial, 50, 22, 12)
                 self._draw_card_text(draw, initial, center_x, logo_y + 28, initial_font, gold, centered=True)
             for row_index, row in enumerate(name_rows[index]):
-                self._draw_card_text(draw, row, center_x, top + 105 + row_index * 25, name_font, ink, centered=True)
+                self._draw_card_text(draw, row, center_x, name_y + row_index * 25, name_font, ink, centered=True)
             if is_result and game_outcomes and index == winner_index:
                 symbols = " ".join("✓" if winner == index else "✗" if winner in (0, 1) else "?" for winner in game_outcomes)
                 symbol_font = self._pick_result_symbol_font(22)
@@ -394,16 +419,18 @@ class BannerRenderer:
                     symbol_box = draw.textbbox((0, 0), symbols, font=symbol_font)
                     if symbol_box[2] - symbol_box[0] <= 198:
                         break
-                self._draw_card_text(draw, symbols, center_x, top + 110 + 25 * len(name_rows[index]), symbol_font, "#000000", centered=True)
-        score_top = top + (34 if is_result else 14)
+                self._draw_card_text(draw, symbols, center_x, name_y + 5 + 25 * len(name_rows[index]), symbol_font, "#000000", centered=True)
+        score_top = top + (29 if is_result and compact else 34 if is_result else 14)
+        if compact and score_rows == ["VS"]:
+            draw.rounded_rectangle((296, score_top - 5, 344, score_top + 20), radius=12, fill="#e5ebf2")
         for index, row in enumerate(score_rows):
-            self._draw_card_text(draw, row, width // 2, score_top + index * 32, score_font, ink if is_result else muted, centered=True, bold=is_result)
+            self._draw_card_text(draw, row, width // 2, score_top + index * 32, score_font, ink if is_result else muted, centered=True, bold=is_result and not compact)
         if display_time:
-            time_y = score_top + (48 if is_result else 32) * len(score_rows) + 8
+            time_y = score_top + (48 if is_result else 32) * len(score_rows) + (1 if compact else 8)
             shown_time = time_transition or display_time
             time_font = self._fit_banner_font(draw, shown_time, 180, 24, 16) if time_transition else self._pick_banner_font(34)
-            self._draw_card_text(draw, shown_time, width // 2, time_y, time_font, ink, centered=True, bold=not bool(time_transition))
-            self._draw_card_text(draw, "北京时间", width // 2, time_y + 45, label_font, gold, centered=True)
+            self._draw_card_text(draw, shown_time, width // 2, time_y, time_font, ink, centered=True, bold=not compact and not time_transition)
+            self._draw_card_text(draw, "北京时间", width // 2, time_y + (36 if compact else 45), label_font, gold, centered=True)
 
 
     @staticmethod

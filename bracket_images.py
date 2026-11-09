@@ -70,7 +70,8 @@ class BracketImages:
         for team in teams:
             data = self.plugin.team_logos.get(team['name']) or self.plugin.team_logos.get(team.get('acronym', ''))
             local.append((team['name'], hashlib.sha256(data).hexdigest() if data else None))
-        payload = {'version': 4, 'game': 'csgo', 'title': snapshot['title'],
+        tree_style = any(stage['kind'] != 'swiss' or not stage.get('swiss_groups') for stage in stages)
+        payload = {'version': 5 if tree_style else 4, 'game': 'csgo', 'title': snapshot['title'],
                    'stages': stages, 'local_marks': local, 'upcoming': upcoming}
         return hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode()).hexdigest()
 

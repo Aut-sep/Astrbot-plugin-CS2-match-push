@@ -59,7 +59,7 @@ class MajorTheme:
         self.text(draw, label, x+41, y+4, 15, INK, width=width-49)
         draw.line((x, y+29, x+width, y+29), fill=LINE)
 
-    def canvas(self, width, height, snapshot, mode):
+    def canvas(self, width, height, snapshot, mode, *, title_bold=True):
         image = Image.new('RGB', (width, height), BG)
         draw = ImageDraw.Draw(image)
         draw.rectangle((0, 0, width, 111), fill='#38281f')
@@ -75,7 +75,7 @@ class MajorTheme:
         draw.line((50, 34, 50, 39), fill=header_gold, width=2)
         draw.line((45, 39, 55, 39), fill=header_gold, width=2)
         self.text(draw, 'COUNTER-STRIKE 2   /   MAJOR', 70, 23, 16, header_gold)
-        self.text(draw, snapshot['title'], 40, 51, 36, '#fff5e0', width=width-360, bold=True)
+        self.text(draw, snapshot['title'], 40, 51, 36, '#fff5e0', width=width-360, bold=title_bold)
         draw.rounded_rectangle((width-249, 40, width-40, 72), radius=6,
                                fill='#f4dfb4', outline='#e0b972')
         self.text(draw, mode, width-145, 48, 17, '#57391c', True)

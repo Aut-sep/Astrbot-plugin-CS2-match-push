@@ -4,7 +4,10 @@ from PIL import Image
 from .formatters import fmt_time, translate_match_stage
 from .bracket_data import bracket_team_name
 from .team_logos import normalize_name
-from .major_theme import MajorTheme, BG, ROW, INK, MUTED, FAINT, GOLD, GOLD_WASH, GREEN, GREEN_WASH, RED
+from .major_theme import MajorTheme, BG, ROW, INK, MUTED, FAINT, GOLD, RED
+
+
+WINNER_ROW = '#ebd29e'
 
 
 class BracketRenderer(MajorTheme):
@@ -88,16 +91,16 @@ class BracketRenderer(MajorTheme):
             label = bracket_team_name(team)
             is_winner = match.get('status') == 'finished' and winner is not None and team.get('id') is not None and str(team['id']) == str(winner)
             draw.rounded_rectangle((x+8,row_top-1,x+self.CARD_W-8,row_top+37), radius=5,
-                                   fill=GREEN_WASH if is_winner else GOLD_WASH if final else ROW)
+                                   fill=WINNER_ROW if is_winner else ROW)
             if is_winner:
-                draw.rounded_rectangle((x+8,row_top+8,x+11,row_top+28), radius=1, fill=GREEN)
+                draw.rounded_rectangle((x+8,row_top+7,x+12,row_top+29), radius=2, fill=GOLD)
             self.mark(image,draw,team,x+20,row_top+4,marks)
             self.text(draw,label,x+62,row_top+11,18,INK if is_winner or match.get('status') != 'finished' else MUTED,
-                      width=self.CARD_W-126, bold=is_winner)
+                      width=self.CARD_W-126)
             score = scores.get(str(team.get('id')))
             show = match.get('status') in {'running','finished'} and isinstance(score,int) and not isinstance(score,bool) and score >= 0
             self.text(draw, score if show else '—', x+self.CARD_W-30, row_top+10, 19,
-                      GREEN if is_winner else MUTED, True, bold=is_winner)
+                      GOLD if is_winner else MUTED, True)
         status = {'finished':'已结束','running':'进行中','canceled':'已取消','postponed':'已延期'}.get(match.get('status'),'待开赛')
         when = fmt_time(match.get('scheduled_at') or match.get('begin_at'))
         bo = f"BO{match['number_of_games']}" if match.get('number_of_games') else ''
@@ -138,7 +141,7 @@ class BracketRenderer(MajorTheme):
         height = cursor+54
         if width*height > 16000000:
             raise ValueError('bracket image exceeds safe size')
-        image, draw = self.canvas(width,height,snapshot,'PLAYOFFS')
+        image, draw = self.canvas(width,height,snapshot,'PLAYOFFS', title_bold=False)
         marks = {normalize_name(mark['name']):mark for mark in team_marks}
         for top,stage,positions,graph_height in layout:
             self.stage_heading(draw, stage['title'], self.PAD, top+10, upcoming)
