@@ -145,13 +145,26 @@ class OfficialResultTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(image, Image)
         self.event.stop_event.assert_called_once()
 
-    async def test_repeated_official_draw_is_one_short_reply(self):
+    async def test_repeated_official_draw_keeps_card_portrait_and_button(self):
         self.prepare_player(public=True, repeated=True)
         self.event.get_platform_name = lambda: 'qq_official_webhook'
         await self.menu.player(self.event)
-        self.request.assert_not_awaited()
-        self.event.send.assert_awaited_once_with(['你今天已抽到 Virtual Player（Demo Team），明天再来吧。'])
+        self.request.assert_awaited_once()
+        payload = self.request.await_args.kwargs['json']
+        text = payload['markdown']['content']
+        self.assertIn('你今天已经抽取过啦，明天再来吧', text)
+        self.assertIn('【Virtual Player】', text)
+        self.assertIn('https://example.test/portraits/demo.png?v=', text)
+        self.assertEqual(payload['keyboard']['content']['rows'][0]['buttons'][0]['action']['data'], '/cs今日选手')
+        self.event.send.assert_not_awaited()
         self.event.stop_event.assert_called_once()
+
+    async def test_repeated_official_local_portrait_includes_repeat_note(self):
+        self.prepare_player(repeated=True)
+        await self.menu.player(self.event)
+        self.request.assert_not_awaited()
+        self.assert_plain_portrait_reply()
+        self.assertIn('你今天已经抽取过啦，明天再来吧', self.event.send.await_args.args[0][0])
 
     async def test_repeated_onebot_draw_keeps_profile_and_portrait(self):
         self.prepare_player(public=True, repeated=True)

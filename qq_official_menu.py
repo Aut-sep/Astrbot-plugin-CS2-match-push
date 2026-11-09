@@ -337,10 +337,7 @@ class OfficialCSMenu:
             return
         player = dict(result.player)
         official = event.get_platform_name() in OFFICIAL_PLATFORMS
-        if official and result.repeated:
-            return await self._framework_reply(
-                event, f"你今天已抽到 {player['name']}（{player['team']}），明天再来吧。"
-            )
+        repeat_note = "你今天已经抽取过啦，明天再来吧" if result.repeated else ""
         # Older saved draws lack nationality or birthday. Enrich only the display,
         # keeping the original draw, team, role and persistent snapshot intact.
         profile = self.players_by_id.get(player["id"], {})
@@ -372,11 +369,11 @@ class OfficialCSMenu:
                 logger.warning("[CS] Could not prepare QQ portrait (%s)", type(exc).__name__)
         if official and not photo:
             player_info = " · ".join([player["team"], player["role"], *details])
-            text = f"🌟 今日选手 · {player['name']}\n{player_info}"
+            text = "\n".join(filter(None, (f"🌟 今日选手 · {player['name']}", repeat_note, player_info)))
             return await self._framework_reply(
                 event, self._fallback_text(text, rows), player=player
             )
-        reminder = "> 你今天已经抽取过啦，明天再来吧\n\n" if result.repeated else ""
+        reminder = f"> {repeat_note}\n\n" if repeat_note else ""
         details_line = f"{profile_line}\n\n" if profile_line else ""
         text = (
             "# 🌟 今日选手\n\n"
