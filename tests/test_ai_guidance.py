@@ -5,6 +5,7 @@ import json
 import sys
 import types
 import unittest
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, patch
 
 import test_group_rules as fixtures
@@ -70,6 +71,27 @@ class IntentTests(unittest.TestCase):
         ):
             self.assertEqual(guidance.query_tools(message), [], message)
 
+    def test_natural_phrasing_and_short_follow_ups(self):
+        cases = (
+            ("后天 G2 打不打？", "", ["get_cs2_schedule"]),
+            ("NAVI 上一场", "", ["get_cs2_match_result"]),
+            ("NAVI 和绿龙上次交手", "", ["get_cs2_match_result"]),
+            ("NAVI 和绿龙下次交手", "", ["get_cs2_schedule"]),
+            ("昨天绿龙有比赛吗", "", ["get_cs2_match_result"]),
+            ("When does NAVI play?", "", ["get_cs2_schedule"]),
+            ("不用网页搜索工具，查 NAVI 赛程", "", ["get_cs2_schedule"]),
+            ("CS2 明天谁打谁", "", ["get_cs2_schedule"]),
+            ("Major 下一阶段几点开赛", "", ["get_cs2_major_bracket"]),
+            ("那明天呢？", "今晚绿龙打谁", ["get_cs2_schedule"]),
+            ("那上一场呢？", "NAVI 下一场几点打", ["get_cs2_match_result"]),
+            ("下一阶段呢", "Major 当前对阵", ["get_cs2_major_bracket"]),
+            ("那明天呢？", "今晚上海天气怎么样", []),
+            ("NAVI 比分预测", "", []),
+            ("想关注 NAVI 战队", "", []),
+        )
+        for text, previous, expected in cases:
+            self.assertEqual(guidance.query_tools(text, previous), expected, text)
+
 
 class GuidanceTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -107,7 +129,7 @@ class GuidanceTests(unittest.IsolatedAsyncioTestCase):
         part = self.req.extra_user_content_parts[0]
         self.assertTrue(part.temporary)
         self.assertIn("get_cs2_schedule", part.text)
-        self.assertIn("3个日历天", part.text)
+        self.assertIn("7 个日历天", part.text)
         self.assertIn("Asia/Shanghai", part.text)
         self.assertEqual(self.req.system_prompt, "original persona")
         self.assertEqual(self.req.prompt, "original user prompt")
@@ -150,6 +172,23 @@ class GuidanceTests(unittest.IsolatedAsyncioTestCase):
         guidance.apply_guidance(self.p, self.event, self.req)
         self.assertEqual(self.req.extra_user_content_parts, [])
 
+    async def test_hints_use_beijing_date_and_stage_without_mutating_history(self):
+        clock = datetime(2026, 11, 9, 17, tzinfo=timezone.utc)
+        cases = (
+            ("昨晚绿龙赢了吗", "", 'get_cs2_match_result(start_date="2026-11-09", days=1)'),
+            ("那后天呢", "今晚 NAVI 打谁", '战队沿用上一问, start_date="2026-11-12", days=1'),
+            ("Major 下一阶段几点开赛", "", 'get_cs2_major_bracket(stage="next")'),
+            ("NAVI 上一场", "", 'get_cs2_match_result(days=30, limit=1)'),
+        )
+        with patch.object(guidance, "now_utc", return_value=clock):
+            for question, previous, expected in cases:
+                with self.subTest(question=question):
+                    self.event.get_message_str = lambda: question
+                    self.req.contexts = [{"role": "user", "content": previous}]
+                    self.req.extra_user_content_parts = []
+                    guidance.apply_guidance(self.p, self.event, self.req)
+                    self.assertIn(expected, self.req.extra_user_content_parts[0].text)
+
     async def test_schedule_entrypoint_defaults_to_seven_days(self):
         self.p.client = types.SimpleNamespace(
             get_matches_between=AsyncMock(return_value=[])
@@ -157,4 +196,5 @@ class GuidanceTests(unittest.IsolatedAsyncioTestCase):
         result = json.loads(await self.p.ai_cs2_schedule(self.event, team="NAVI"))
         self.assertEqual(result["status"], "ok")
         start, end = self.p.client.get_matches_between.call_args.args
-        self.assertEqual((end - start).days, 3)
+        self.assertEqual((end - start).days, 7)
+        self.assertEqual(self.p.client.get_matches_between.call_args.kwargs['per_page'], 25)

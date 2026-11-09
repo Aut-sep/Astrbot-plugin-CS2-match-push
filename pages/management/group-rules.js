@@ -17,7 +17,7 @@ export const RULE_FIELDS = [
   ['tournament_announce_hours', '开幕提前提醒（小时）', 'number', 2, 1, 168],
   ['daily_push_enabled', '定时赛程日报', 'bool', false],
   ['daily_push_times', '日报时间（北京时间）', 'times', ['08:00']],
-  ['daily_push_days', '日报包含天数', 'number', 1, 1, 3],
+  ['daily_push_days', '日报包含天数', 'number', 1, 1, 7],
   ['image_push_enabled', '图片消息', 'bool', true],
 ];
 const own = (object, key) => Object.prototype.hasOwnProperty.call(object, key);

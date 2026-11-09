@@ -6,7 +6,8 @@ import json
 from astrbot.api import logger
 
 from .bracket_images import selected_stages
-from .config import ConfigError, integer, string
+from .client import SCHEDULE_PAGE_SIZE
+from .config import ConfigError, DEFAULT_SCHEDULE_DAYS, MAX_SCHEDULE_DAYS, integer, string
 from .cs_major import MajorBracketService, STAGE_ALIASES
 from .formatters import CST, now_utc, parse_dt, sched_str
 from .official_extension import denial_reason
@@ -43,7 +44,7 @@ def _match(row):
 
 
 def _window(start_date, days, *, results):
-    days = integer(days, 'days', 1, 30 if results else 3)
+    days = integer(days, 'days', 1, 30 if results else MAX_SCHEDULE_DAYS)
     raw = string(start_date, 'start_date')
     today = now_utc().astimezone(CST).date()
     if raw:
@@ -59,30 +60,40 @@ def _window(start_date, days, *, results):
     return begin, begin + timedelta(days=days)
 
 
-def _team_predicate(query):
-    query = string(query, 'team')
+def _team_predicate(query, field='team'):
+    query = string(query, field)
     if len(query) > 80:
-        raise ConfigError('team 最多 80 个字符')
+        raise ConfigError(f'{field} 最多 80 个字符')
     if not query:
-        return lambda row: True
+        return lambda team: True
     key = normalize(query)
     if not key:
-        raise ConfigError('team 不能为空白或符号')
+        raise ConfigError(f'{field} 不能只包含符号')
     exact = [row for row in _TEAMS.candidates(query) if row[0] == 1000]
     if len(exact) > 1:
         raise ConfigError('战队别名不唯一，请提供战队全名或 PandaScore ID')
     record = _TEAMS._record(exact[0][2]) if exact else None
     identity = str(record['id']) if record else query if query.isdigit() else None
 
+    if identity is not None:
+        return lambda team: str(team.get('id')) == identity
+    return lambda team: key in {normalize(team.get('name')), normalize(team.get('slug'))}
+
+
+def _matchup_predicate(team, opponent):
+    if not team and not opponent:
+        return lambda row: True
+    first = _team_predicate(team)
+    second = _team_predicate(opponent, 'opponent')
+
     def matches(row):
-        for slot in row.get('opponents') or []:
-            opponent = slot.get('opponent') or {}
-            if identity is not None:
-                if str(opponent.get('id')) == identity:
-                    return True
-            elif key in {normalize(opponent.get('name')), normalize(opponent.get('slug'))}:
-                return True
-        return False
+        teams = [slot.get('opponent') for slot in row.get('opponents') or [] if slot.get('opponent')]
+        if not team:
+            return any(second(side) for side in teams)
+        if not opponent:
+            return any(first(side) for side in teams)
+        return any(first(side) and second(other) for i, side in enumerate(teams)
+                   for j, other in enumerate(teams) if i != j)
     return matches
 
 
@@ -151,7 +162,10 @@ async def _remote(plugin, rules, action, params):
                 'requested_stage': stage, 'selected_stage': selected, 'stages': result,
                 'filter_scope': '整届 Major 已公布对阵，不应用关注和赛事级别筛选；不推断瑞士轮后续对手。'}
 
-    predicate = _team_predicate(params.get('team', ''))
+    team = string(params.get('team', ''), 'team')
+    opponent = string(params.get('opponent', ''), 'opponent')
+    predicate = _matchup_predicate(team, opponent)
+    limit = integer(params.get('limit', LIMIT), 'limit', 1, LIMIT)
     identity = string(params.get('match_id', ''), 'match_id')
     if action == 'result' and identity:
         identity = integer(identity, 'match_id', 1)
@@ -162,16 +176,21 @@ async def _remote(plugin, rules, action, params):
         rows = [match]
         window = None
     else:
-        start, end = _window(params.get('start_date', ''), params.get('days', 1 if action == 'result' else 3), results=action == 'result')
-        rows = await plugin.client.get_matches_between(start, end)
+        start, end = _window(params.get('start_date', ''), params.get('days', 1 if action == 'result' else DEFAULT_SCHEDULE_DAYS), results=action == 'result')
+        paging = {'per_page': SCHEDULE_PAGE_SIZE} if action == 'schedule' else {}
+        rows = await plugin.client.get_matches_between(start, end, **paging)
         if rows is None:
             raise RuntimeError('incomplete upstream response')
         window = {'start': start.isoformat(), 'end_exclusive': end.isoformat(),
                   'basis': 'scheduled_at（计划开赛日期，不是结束日期）'}
         if action == 'result':
             rows = [row for row in rows if row.get('status') == 'finished']
+        else:
+            now = now_utc()
+            rows = [row for row in rows if row.get('status') == 'not_started'
+                    and parse_dt(sched_str(row)) >= now]
     rows = [row for row in rows if rules.accepts(row) and predicate(row)]
-    rows.sort(key=lambda row: (sched_str(row) or '', str(row['id'])), reverse=action == 'result')
-    return {'window': window, 'matches': [_match(row) for row in rows[:LIMIT]],
-            'total': len(rows), 'truncated': len(rows) > LIMIT,
+    rows.sort(key=lambda row: (_iso(sched_str(row)) or '', str(row['id'])), reverse=action == 'result')
+    return {'window': window, 'matches': [_match(row) for row in rows[:limit]],
+            'total': len(rows), 'limit': limit, 'truncated': len(rows) > limit,
             'filter_scope': '沿用当前会话默认或本群赛事级别、关注模式和黑名单；空结果不代表全网无比赛。'}

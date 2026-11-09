@@ -3,9 +3,22 @@
 import asyncio
 import base64
 
-from .config import ConfigError, integer, string
+from .config import ConfigError, DEFAULT_SCHEDULE_DAYS, MAX_SCHEDULE_DAYS, integer, string
 from .formatters import fmt_daily_schedule
 from .group_rules import Rules
+
+
+def require_fresh_schedule(plugin):
+    schedule = plugin.get_panel_schedule_state()
+    status = schedule["schedule_status"]
+    if not plugin._token or status == "unconfigured":
+        raise ConfigError("请先配置 PandaScore Token。")
+    if status == "loading":
+        raise ConfigError("正在获取赛程，请稍后重试。")
+    if status == "error":
+        if schedule["schedule_last_success_at"]:
+            raise ConfigError("赛程更新失败，缓存已过期。请重新获取赛程。")
+        raise ConfigError("赛程获取失败，请重新获取赛程。")
 
 
 async def build_preview(plugin, query):
@@ -16,7 +29,7 @@ async def build_preview(plugin, query):
     if kind == "daily":
         kind = "schedule"
     if not plugin._token:
-        raise ConfigError("请先在当前板块配置数据源 Token")
+        raise ConfigError("请先配置 PandaScore Token。")
 
     gid = string(query.get('group_id', ''), 'group_id')
     if gid and gid not in plugin.store.get_groups():
@@ -59,14 +72,16 @@ async def build_preview(plugin, query):
         from .cs_results import preview_results
         return await preview_results(plugin, query.get("days", 3), match_id, rules=rules)
 
-    days = integer(query.get("days", 3), "days", 1, 3)
+    days = integer(query.get("days", DEFAULT_SCHEDULE_DAYS), "days", 1, MAX_SCHEDULE_DAYS)
+    require_fresh_schedule(plugin)
     matches = [plugin._match_with_snapshot_names(match) for match in plugin._scheduled if rules.accepts(match)]
-    text = fmt_daily_schedule(matches, rules.get_followed_team_names(), days)
-    if days > plugin._fetch_ahead:
-        text += f"\n当前仅获取未来 {plugin._fetch_ahead} 天，以上仅反映已获取范围。"
+    available_days = min(days, plugin._fetch_ahead)
+    note = f"群 {gid} · 已保存规则。" if gid else "使用默认规则。"
+    if days > available_days:
+        note += f"当前仅获取未来 {available_days} 天。"
     return {
-        "text": text,
-        "note": "使用已获取且符合筛选条件的赛程；按北京时间自然日计算。此处预览文字内容，实际发送沿用已保存的图片或文字样式。",
+        "text": fmt_daily_schedule(matches, rules.get_followed_team_names(), available_days),
+        "note": note,
     }
 
 

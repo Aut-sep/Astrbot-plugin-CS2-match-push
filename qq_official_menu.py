@@ -49,6 +49,7 @@ FEATURE_ACTIONS = (
     ("schedule", "今日赛程", "/cs今日赛程"),
     ("schedule", "未来赛程", "/cs未来赛程"),
     ("bracket", "Major 对阵", "/cs对阵图"),
+    ("bracket", "Major 下一阶段", "/cs对阵图 下一阶段"),
     ("results", "赛后结果", "/cs赛果"),
     ("player", "今日选手", "/cs今日选手"),
     ("followed", "关注战队", "/cs关注列表"),
@@ -68,7 +69,6 @@ FEATURE_TITLES = {
 
 MAX_KEYBOARD_ROWS = 5
 MAX_BUTTONS_PER_ROW = 2
-MAX_CONTEXT_BUTTONS = MAX_KEYBOARD_ROWS * MAX_BUTTONS_PER_ROW
 
 
 def player_age(birth_date: str, day: str) -> int | None:
@@ -168,51 +168,6 @@ class OfficialCSMenu:
         text = text.replace("**", "").replace("`", "")
         return text.strip()
 
-    def _rows_for_feature(self, feature: str, *, feature_rows=None):
-        actions = feature_rows if feature_rows is not None else self._context_actions(feature)
-        rows = []
-        for button_feature, label, command in actions:
-            if self._enabled(button_feature):
-                if not rows or len(rows[-1]) >= MAX_BUTTONS_PER_ROW:
-                    rows.append([])
-                rows[-1].append((label, command))
-        return rows[:MAX_KEYBOARD_ROWS]
-
-    def _context_actions(self, feature: str):
-        options = {
-            "schedule": [
-                ("schedule", "今日", "/cs今日赛程"),
-                ("schedule", "3天", "/cs未来赛程"),
-                ("schedule", "2天", "/cs未来赛程 2"),
-            ],
-            "bracket": [
-                ("bracket", "当前", "/cs对阵图"),
-                ("bracket", "下一阶段", "/cs对阵图 下一阶段"),
-                ("bracket", "全部", "/cs对阵图 全部"),
-                ("bracket", "阶段1", "/cs对阵图 阶段1"),
-                ("bracket", "阶段2", "/cs对阵图 阶段2"),
-                ("bracket", "阶段3", "/cs对阵图 阶段3"),
-                ("bracket", "瑞士轮", "/cs对阵图 瑞士轮"),
-                ("bracket", "淘汰赛", "/cs对阵图 淘汰赛"),
-            ],
-            "results": [
-                ("results", "今日", "/cs赛果 1"),
-                ("results", "近3天", "/cs赛果 3"),
-                ("results", "近7天", "/cs赛果 7"),
-            ],
-            "player": [("player", "查看今日选手", "/cs今日选手")],
-            "followed": [("followed", "关注战队", "/cs关注列表")],
-            "status": [("status", "插件状态", "/cs状态")],
-            "help": list(FEATURE_ACTIONS),
-        }.get(feature, [])
-        options.extend(
-            [
-                ("help", "返回菜单", "/cs"),
-                ("help", "指令帮助", "/cs帮助"),
-            ]
-        )
-        return options
-
     async def _framework_reply(self, event, text: str, *, components=None, player=None):
         """Readable passive framework reply used by OneBot and plain QQ mode."""
         content = [Plain(self._plain_text(text))]
@@ -251,7 +206,7 @@ class OfficialCSMenu:
             return
 
         message = event.message_obj
-        raw = message.raw_message
+        raw = getattr(message, "raw_message", None)
         if isinstance(raw, botpy.message.GroupMessage):
             route = Route(
                 "POST",
@@ -263,11 +218,9 @@ class OfficialCSMenu:
                 "POST", "/v2/users/{openid}/messages", openid=raw.author.user_openid
             )
         else:
-            await event.send(
-                event.plain_result("CS 按钮菜单支持 QQ 官方机器人的群聊和单聊。")
+            return await self._framework_reply(
+                event, self._fallback_text(text, rows), player=player
             )
-            event.stop_event()
-            return
         payload = {
             "msg_type": 2,
             "markdown": {"content": text},
@@ -281,37 +234,23 @@ class OfficialCSMenu:
             if not isinstance(result, dict) or not result.get("id"):
                 raise RuntimeError("QQ did not return a message ID")
         except Exception as exc:
-            logger.warning("[CS] QQ card send failed (%s)", type(exc).__name__)
-            logger.warning("[CS] QQ rich reply failed; falling back to a plain reply")
-            await self._framework_reply(
+            logger.warning(
+                "[CS] QQ card send failed (%s); falling back to plain", type(exc).__name__
+            )
+            return await self._framework_reply(
                 event, self._fallback_text(text, rows), player=player
             )
-        else:
-            if player and "![" not in text:
-                portrait = self.root / player["image_file"]
-                if portrait.is_file():
-                    try:
-                        await event.send(
-                            event.chain_result(
-                                [Image.fromFileSystem(str(portrait))]
-                            ).use_markdown(False)
-                        )
-                    except Exception as image_exc:
-                        logger.warning(
-                            "[CS] QQ local portrait send failed (%s)",
-                            type(image_exc).__name__,
-                        )
         event.stop_event()
 
     def _fallback_text(self, text: str, rows=None) -> str:
         lines = [self._plain_text(text)]
-        actions = [
-            f"{label}：{command}"
-            for row in self._filter_rows(rows)
-            for label, command in row
-        ]
-        if actions:
-            lines.extend(["", "可直接发送：", *actions])
+        actions = [action for row in self._filter_rows(rows) for action in row]
+        if len(actions) == 1:
+            label, command = actions[0]
+            lines.append(f"{label}（发送 {command}）")
+        elif actions:
+            lines.extend(["", "可直接发送："])
+            lines.extend(f"{label}：{command}" for label, command in actions)
         return "\n".join(lines)
 
     def _filter_rows(self, rows):
@@ -405,6 +344,11 @@ class OfficialCSMenu:
             )
             return
         player = dict(result.player)
+        official = event.get_platform_name() in OFFICIAL_PLATFORMS
+        if official and result.repeated:
+            return await self._framework_reply(
+                event, f"你今天已抽到 {player['name']}（{player['team']}），明天再来吧。"
+            )
         # Older saved draws lack nationality or birthday. Enrich only the display,
         # keeping the original draw, team, role and persistent snapshot intact.
         profile = self.players_by_id.get(player["id"], {})
@@ -417,21 +361,31 @@ class OfficialCSMenu:
         details = [f"{flag} {nationality}".strip()] if nationality else []
         if age is not None:
             details.append(f"{age}岁")
-        details_line = " · ".join(details) + "\n\n" if details else ""
+        profile_line = " · ".join(details)
         compact = self.root / "player_cards" / f"{player['id']}_compact.png"
         if compact.is_file():
             player["image_file"] = str(compact.relative_to(self.root))
         portrait = self.root / player["image_file"]
-        width, height = DISPLAY_WIDTH, DISPLAY_WIDTH
+        rows = [[("抽取今日选手", "/cs今日选手")]] if official else None
         photo = ""
-        if portrait.is_file():
-            with PillowImage.open(portrait) as image:
-                height = max(1, round(width * image.height / image.width))
-            if self.photo_base_url:
+        if official and self._rich_enabled() and self.photo_base_url and portrait.is_file():
+            width = DISPLAY_WIDTH
+            try:
+                with PillowImage.open(portrait) as image:
+                    height = max(1, round(width * image.height / image.width))
                 version = hashlib.sha256(portrait.read_bytes()).hexdigest()[:12]
                 photo_url = f"{self.photo_base_url}/{quote(portrait.name)}?v={version}"
                 photo = f"![选手照片 #{width}px #{height}px]({photo_url})\n\n"
+            except OSError as exc:
+                logger.warning("[CS] Could not prepare QQ portrait (%s)", type(exc).__name__)
+        if official and not photo:
+            player_info = " · ".join([player["team"], player["role"], *details])
+            text = f"🌟 今日选手 · {player['name']}\n{player_info}"
+            return await self._framework_reply(
+                event, self._fallback_text(text, rows), player=player
+            )
         reminder = "> 你今天已经抽取过啦，明天再来吧\n\n" if result.repeated else ""
+        details_line = f"{profile_line}\n\n" if profile_line else ""
         text = (
             "# 🌟 今日选手\n\n"
             f"{reminder}"
@@ -441,10 +395,4 @@ class OfficialCSMenu:
             f"{details_line}"
             f"{photo}"
         )
-        await self.send(
-            event,
-            text,
-            rows=([[('抽取今日选手', '/cs今日选手')]]
-                  if event.get_platform_name() in OFFICIAL_PLATFORMS else None),
-            player=player,
-        )
+        await self.send(event, text, rows=rows, player=player)

@@ -9,6 +9,7 @@ import asyncio
 from collections import deque
 import hmac
 import json
+import secrets
 from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
@@ -17,9 +18,13 @@ from yarl import URL
 
 from astrbot.api import logger
 
-from .config import ConfigError, integer, message_target_id, string, validate_config
+from .config import (
+    ConfigError, MAX_SCHEDULE_DAYS, integer, message_target_id, migrate_imported_schedule_windows, string, validate_config,
+)
 from .client import PandaScoreClient
 from .delivery import DeliveryError
+from .group_rules import groups_for
+from .panel_previews import require_fresh_schedule, timed_preview
 
 CST = timezone(timedelta(hours=8))
 
@@ -41,21 +46,16 @@ form{width:min(420px,calc(100vw - 32px));padding:30px 32px;background:var(--surf
 </style>
 </head>
 <body>
-<form id="login-form">
+<form method="post" action="/login">
 <h1>CS2 比赛推送</h1><p>使用管理令牌进入独立面板。</p>
-<label for="token">管理令牌</label><input id="token" type="password" autocomplete="off" required autofocus>
-<button type="submit">进入管理面板</button><div class="error" id="error" role="alert"></div>
-<p class="note">管理员私聊机器人发送 <code>/cs面板</code> 获取令牌。也可直接从 AstrBot 插件详情打开内嵌页面。</p>
+<label for="token">管理令牌</label><input id="token" name="token" type="password" autocomplete="off" required autofocus>
+<button type="submit">进入管理面板</button><div class="error" role="alert">{error}</div>
+<p class="note">管理员私聊机器人发送 <code>/cs面板</code> 获取令牌。</p>
 </form>
-<script>
-document.getElementById('login-form').addEventListener('submit', event => {
- event.preventDefault();
- const token = document.getElementById('token').value.trim();
- if (!token) { document.getElementById('error').textContent = '请输入管理令牌'; return; }
- location.href = '/?token=' + encodeURIComponent(token);
-});
-</script>
 </body></html>"""
+
+PANEL_PAGE_HEADERS = {"Cache-Control": "no-store", "Referrer-Policy": "no-referrer"}
+PANEL_SESSION_COOKIE = "cs_panel_session"
 
 
 # ─────────────────────────────────────────
@@ -72,39 +72,29 @@ class WebPanel:
         self._bind_port = None
         self._reconfigure_lock = asyncio.Lock()
         self._config_lock = asyncio.Lock()
+        session_key = plugin.store.get("_web_panel_session_key")
+        if not isinstance(session_key, str) or not session_key:
+            session_key = secrets.token_hex(32)
+            plugin.store.set("_web_panel_session_key", session_key)
+        self._session_key = session_key.encode()
         self._logs = deque(maxlen=500)
         self._setup_routes()
 
     @web.middleware
     async def _auth_middleware(self, req, handler):
-        path = req.path
-        if path == "/" or path.startswith("/api/"):
-            token = self._request_token(req)
-            token_ok = self._token_matches(token)
-            if token_ok:
-                if req.method not in {"GET", "HEAD", "OPTIONS"}:
-                    origin = req.headers.get("Origin")
-                    if origin and not self._same_origin(req, origin):
-                        # Browser cookies are ambient credentials, including
-                        # across localhost ports. Cross-origin writes need an
-                        # explicitly supplied token rather than a session cookie.
-                        auth = req.headers.get("Authorization", "")
-                        explicit_token = auth[7:].strip() if auth.lower().startswith("bearer ") else req.rel_url.query.get("token", "")
-                        if not self._token_matches(explicit_token):
-                            return self._json({"ok": False, "msg": "cross-origin request denied"}, 403)
-                resp = await handler(req)
-                if token_ok:
-                    resp.set_cookie(
-                        "cs_panel_token",
-                        token,
-                        httponly=True,
-                        samesite="Lax",
-                        max_age=30 * 24 * 3600,
-                    )
-                return resp
-            if path == "/":
-                return web.Response(text=WEB_PANEL_LOGIN_HTML, content_type="text/html", charset="utf-8")
-            return self._json({"ok": False, "msg": "unauthorized"}, 401)
+        if not req.path.startswith("/api/"):
+            return await handler(req)
+
+        explicit_token = self._explicit_token(req)
+        expected = self._panel_token()
+        if explicit_token is not None:
+            if not self._token_matches(explicit_token, expected):
+                return self._json({"ok": False, "msg": "unauthorized"}, 401)
+        else:
+            if not self._session_matches(req, expected):
+                return self._json({"ok": False, "msg": "unauthorized"}, 401)
+            if req.method not in {"GET", "HEAD", "OPTIONS"} and not self._cookie_write_allowed(req):
+                return self._json({"ok": False, "msg": "cross-origin request denied"}, 403)
         return await handler(req)
 
     @web.middleware
@@ -125,20 +115,43 @@ class WebPanel:
             raise ConfigError("request body must be a JSON object")
         return body
 
-    def _request_token(self, req) -> str:
+    def _explicit_token(self, req) -> str | None:
         auth = req.headers.get("Authorization", "")
         if auth.lower().startswith("bearer "):
             return auth[7:].strip()
         query_token = req.rel_url.query.get("token", "")
         if query_token:
             return query_token.strip()
-        return (req.cookies.get("cs_panel_token") or "").strip()
+        return None
 
-    def _token_matches(self, token: str) -> bool:
-        expected = str(self.plugin.store.get("web_panel_token") or "").strip()
+    def _panel_token(self) -> str:
+        return str(self.plugin.store.get("web_panel_token") or "").strip()
+
+    @staticmethod
+    def _token_matches(token: str, expected: str) -> bool:
         return bool(token and expected and hmac.compare_digest(token.encode(), expected.encode()))
 
-    def _same_origin(self, req, origin: str) -> bool:
+    def _session_value(self, token: str) -> str:
+        return hmac.digest(self._session_key, token.encode(), "sha256").hex()
+
+    def _session_matches(self, req, expected: str) -> bool:
+        cookie = req.cookies.get(PANEL_SESSION_COOKIE, "")
+        return bool(expected and self._token_matches(cookie, self._session_value(expected)))
+
+    def _set_session_cookie(self, response, token):
+        response.set_cookie(PANEL_SESSION_COOKIE, self._session_value(token), httponly=True,
+                            samesite="Lax", max_age=30 * 24 * 3600)
+        response.del_cookie("cs_panel_token")
+
+    @staticmethod
+    def _cookie_write_allowed(req) -> bool:
+        # The browser reports its actual origin relationship even behind a TLS proxy.
+        site = req.headers.get("Sec-Fetch-Site")
+        if site in {"same-origin", "same-site", "cross-site"}:
+            return site == "same-origin"
+        origin = req.headers.get("Origin")
+        if not origin:
+            return True
         try:
             return URL(origin).origin() == URL(f"{req.scheme}://{req.host}").origin()
         except ValueError:
@@ -147,6 +160,7 @@ class WebPanel:
     def _setup_routes(self):
         a = self.app.router
         a.add_get("/",                          self.index)
+        a.add_post("/login",                     self.login)
         a.add_get("/app.js",                    self.asset)
         a.add_get("/setup.js",                  self.asset)
         a.add_get("/group-rules.js",            self.asset)
@@ -184,16 +198,49 @@ class WebPanel:
         )
 
     async def index(self, req):
+        expected = self._panel_token()
+        if "token" in req.rel_url.query:
+            token = req.rel_url.query["token"].strip()
+            valid = self._token_matches(token, expected)
+            params = [(key, value) for key, value in req.rel_url.query.items() if key != "token"]
+            if not valid:
+                params.append(("login", "invalid"))
+            response = web.Response(status=303, headers={**PANEL_PAGE_HEADERS,
+                                                        "Location": str(req.rel_url.with_query(params))})
+            if valid:
+                self._set_session_cookie(response, expected)
+            return response
+
+        explicit_token = self._explicit_token(req)
+        bearer_valid = self._token_matches(explicit_token or "", expected)
+        legacy_valid = self._token_matches(req.cookies.get("cs_panel_token", ""), expected)
+        if not bearer_valid and not legacy_valid and not self._session_matches(req, expected):
+            return self._login_page(invalid=req.rel_url.query.get("login") == "invalid")
         html = (PANEL_DIR / "index.html").read_text(encoding="utf-8")
-        token = req.rel_url.query.get("token", "").strip()
-        if self._token_matches(token):
-            bootstrap = (
-                "<script>\n"
-                "const u = new URL(location.href); u.searchParams.delete('token'); history.replaceState(null, '', u.pathname + u.search);\n"
-                "</script>\n"
-            )
-            html = html.replace("</head>", bootstrap + "</head>", 1)
-        return web.Response(text=html, content_type="text/html", charset="utf-8")
+        response = web.Response(text=html, content_type="text/html", charset="utf-8", headers=PANEL_PAGE_HEADERS)
+        if bearer_valid or legacy_valid:
+            self._set_session_cookie(response, expected)
+        return response
+
+    async def login(self, req):
+        if not self._cookie_write_allowed(req):
+            return self._login_page(invalid=True, status=403)
+        body = await req.post()
+        token = body.get("token", "")
+        expected = self._panel_token()
+        if not isinstance(token, str) or not self._token_matches(token.strip(), expected):
+            return self._login_page(invalid=True, status=401)
+        response = web.Response(status=303, headers={**PANEL_PAGE_HEADERS, "Location": "/"})
+        self._set_session_cookie(response, expected)
+        return response
+
+    @staticmethod
+    def _login_page(*, invalid=False, status=200):
+        return web.Response(
+            text=WEB_PANEL_LOGIN_HTML.replace("{error}", "令牌无效，请重试。" if invalid else ""),
+            content_type="text/html", charset="utf-8", status=status,
+            headers={**PANEL_PAGE_HEADERS, "Referrer-Policy": "same-origin"},
+        )
 
     async def asset(self, req):
         # Both paths are fixed routes, never an arbitrary filesystem path.
@@ -233,7 +280,6 @@ class WebPanel:
             return [], "暂时无法读取 AstrBot 官方机器人实例，请稍后刷新；已保存的实例选择会保留。"
 
     async def preview_tool(self, req):
-        from .panel_previews import timed_preview
         result = await timed_preview(self.plugin, req.rel_url.query)
         return self._json({"ok": True, **result})
 
@@ -248,7 +294,8 @@ class WebPanel:
         return await self._apply_config(req, imported=True)
 
     async def _apply_config(self, req, *, imported: bool):
-        body = validate_config(await self._body(req))
+        raw = await self._body(req)
+        body = validate_config(migrate_imported_schedule_windows(raw) if imported else raw)
         push_id = body.get("push_platform_id")
         if push_id:
             from .delivery import _get_platforms
@@ -261,6 +308,9 @@ class WebPanel:
                 if getattr(meta, "id", None) == push_id and getattr(meta, "name", None) != "aiocqhttp":
                     raise ConfigError("赛事主动推送请选择普通 OneBot 机器人，官方实例请在官方扩展区域选择。")
         async with self._config_lock:
+            token_regenerated = body.get("web_panel_token") == ""
+            if token_regenerated:
+                body["web_panel_token"] = secrets.token_urlsafe(24)
             previous = {key: self.plugin.store.get(key) for key in body}
             changed = {key for key, value in body.items() if previous[key] != value}
             web_changed = changed & {"web_panel_host", "web_panel_port", "web_panel_enabled"}
@@ -275,7 +325,7 @@ class WebPanel:
                     self.plugin.store.import_config(previous)
                     logger.error(f"[CS] Web 面板配置应用失败: {exc}")
                     return self._json({"ok": False, "msg": f"web panel reconfigure failed: {exc}"}, 500)
-            runtime_changed = changed - {"rule_presets"}
+            runtime_changed = changed - {"rule_presets", "web_panel_token"}
             if runtime_changed:
                 await self.plugin.reload_runtime_config()
             filters = {
@@ -288,10 +338,19 @@ class WebPanel:
                 self.plugin.schedule_refresh("web_import_config" if imported else "web_patch_config")
             if changed & (filters | {"tournament_announce_enabled", "tournament_announce_hours"}):
                 self.plugin.rebuild_tournament_tasks()
-        return self._json({"ok": True, "restart_required": False, "web_reconfigured": web_reconfigured})
+        response = self._json({"ok": True, "restart_required": False, "web_reconfigured": web_reconfigured,
+                               "web_token_regenerated": token_regenerated})
+        if "web_panel_token" in changed:
+            self._set_session_cookie(response, body["web_panel_token"])
+        return response
 
     async def get_matches(self, req):
-        return self._json({"ok": True, "matches": self.plugin.get_panel_matches()})
+        schedule_state = self.plugin.get_panel_schedule_state()
+        return self._json({
+            "ok": True,
+            "matches": self.plugin.get_panel_matches(),
+            **schedule_state,
+        })
 
     async def check_setup(self, req):
         """Check candidate/saved PandaScore credentials without changing config."""
@@ -356,12 +415,20 @@ class WebPanel:
         return self._json({"ok": True})
 
     async def push_now(self, req):
-        """立即推送赛程到所有群"""
+        """Queue a daily schedule for the selected active group or all active groups."""
         body = await self._body(req, allow_empty=True)
-        days = integer(body.get("days", 1), "days", 1, 3)
+        days = integer(body.get("days", 1), "days", 1, MAX_SCHEDULE_DAYS)
         gid = string(body.get('group_id', ''), 'group_id')
         if gid and gid not in self.plugin.store.get_groups():
             raise ConfigError('请选择已配置的接收群')
+        groups = groups_for(self.plugin.store)
+        if gid and gid not in groups:
+            raise ConfigError("该群已暂停推送。")
+        if not groups:
+            raise ConfigError("没有启用推送的接收群。")
+        require_fresh_schedule(self.plugin)
+        if days > self.plugin._fetch_ahead:
+            raise ConfigError(f"当前仅获取未来 {self.plugin._fetch_ahead} 天的赛程，请缩短推送天数。")
         if not self.plugin.has_daily_matches_to_push(days, group_id=gid or None):
             return self._json({"ok": True, "skipped": True, "msg": "no matches to push"})
         self.plugin.schedule_instant_push(days, "web_push_now", group_id=gid or None)
@@ -370,7 +437,7 @@ class WebPanel:
     async def send_test(self, req):
         body = await self._body(req, allow_empty=True)
         action = string(body.get("action", ""), "action") or "赛前"
-        days = integer(body.get("days", 1), "days", 1, 3)
+        days = integer(body.get("days", 1), "days", 1, MAX_SCHEDULE_DAYS)
         if not self.plugin.is_test_mode_enabled():
             return self._json({"ok": False, "msg": "测试模式未开启"}, 400)
         if not self.plugin.has_test_target():

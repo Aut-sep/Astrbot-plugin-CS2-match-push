@@ -75,6 +75,24 @@ class RulePresetTests(unittest.TestCase):
 
 
 class RulePresetAPITests(unittest.IsolatedAsyncioTestCase):
+    async def test_import_migrates_legacy_windows_at_every_scope(self):
+        with tempfile.TemporaryDirectory() as temp:
+            store = main.DataStore(str(Path(temp) / 'state.json'))
+            plugin = types.SimpleNamespace(store=store, reload_runtime_config=AsyncMock(),
+                rebuild_all_match_tasks=Mock(), rebuild_tournament_tasks=Mock())
+            preset = {'id': 'custom', 'name': '观赛', 'rules': {**Rules(store).values, 'daily_push_days': 14}}
+            backup = {'fetch_ahead_hours': 336, 'daily_push_days': 14, 'push_groups': [A],
+                      'group_rules': {A: {'daily_push_days': 14}}, 'rule_presets': [preset]}
+            req = types.SimpleNamespace(can_read_body=True, json=AsyncMock(return_value=backup))
+            panel = web.WebPanel(plugin)
+            with self.assertRaises(config.ConfigError):
+                await panel.patch_config(req)
+            self.assertEqual((await panel.import_config(req)).status, 200)
+            self.assertEqual(store.get('fetch_ahead_days'), 7)
+            self.assertEqual(store.get('daily_push_days'), 7)
+            self.assertEqual(store.get('group_rules')[A]['daily_push_days'], 7)
+            self.assertEqual(store.get('rule_presets')[0]['rules']['daily_push_days'], 7)
+
     async def test_saving_only_templates_does_not_refresh_or_rebuild_runtime(self):
         with tempfile.TemporaryDirectory() as temp:
             store = main.DataStore(str(Path(temp) / 'state.json'))

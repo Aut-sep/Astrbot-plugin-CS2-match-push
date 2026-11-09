@@ -222,13 +222,23 @@ export function createSetupGuide({ api, getState, loadConfig, activateTab, toast
     if (checks.platform?.ok === false) throw new Error(checks.platform.message || '请先连接 QQ 机器人，再重新检查。');
     await api('/api/config', 'PATCH', draft);
     draft = {};
-    await loadConfig();
-    await api('/api/refresh', 'POST', {});
     $('#setup-wizard').hidden = true;
     $('#setup-open').hidden = false;
     $('#setup-token').value = '';
     activateTab('overview');
-    toast('基础配置完成，正在获取最新赛程。暂无比赛时不会发送空日报。');
+    let refreshFailed = false;
+    try {
+      await loadConfig();
+    } catch {
+      toast('配置已保存，页面刷新失败。', true);
+      return;
+    }
+    try {
+      await api('/api/refresh', 'POST', {});
+    } catch {
+      refreshFailed = true;
+    }
+    toast(refreshFailed ? '配置已保存，赛程刷新未启动。' : '配置已保存，正在获取赛程。', refreshFailed);
   }));
   return { sync, startIfNeeded() { sync(); if (!getState().tokenConfigured || !getState().config.push_groups?.length) open(); } };
 }

@@ -1,4 +1,5 @@
-"""Offline checks for host/panel edits and the three-day schedule limit."""
+"""Offline checks for host/panel edits and the weekly schedule limit."""
+from datetime import datetime, timedelta, timezone
 import importlib
 from pathlib import Path
 import tempfile
@@ -65,45 +66,77 @@ class ConfigSyncTests(unittest.TestCase):
         self.assertFalse(self.store.get('web_panel_enabled'))
         self.assertFalse(self.store.get('image_push_enabled'))
 
+    def test_first_upgrade_preserves_panel_values_until_host_field_changes(self):
+        self.store.import_config({'pandascore_token': 'panel-value', 'web_panel_port': 8888})
+        self.store.set('_host_config_fingerprints', {})
+        host = {'pandascore_token': 'old-host-value', 'web_panel_port': 9999}
+        sync(self.store, host)
+        self.assertEqual(self.store.get('pandascore_token'), 'panel-value')
+        self.assertEqual(self.store.get('web_panel_port'), 8888)
+        host.update(web_panel_port=9000, push_platform_id='second-bot')
+        sync(self.store, host)
+        self.assertEqual(self.store.get('pandascore_token'), 'panel-value')
+        self.assertEqual(self.store.get('web_panel_port'), 9000)
+        self.assertEqual(self.store.get('push_platform_id'), 'second-bot')
+
+    def test_invalid_host_value_does_not_block_valid_edits(self):
+        sync(self.store, {'fetch_ahead_days': 'invalid', 'web_panel_port': 9999})
+        self.assertEqual(self.store.get('fetch_ahead_days'), 3)
+        self.assertEqual(self.store.get('web_panel_port'), 9999)
+
     def test_legacy_windows_are_capped_including_groups_and_presets(self):
         self.store.set('fetch_ahead_days', 30)
-        self.store.set('daily_push_days', 7)
-        self.store.set('group_rules', {'100001': {'daily_push_days': 7}})
-        self.store.set('rule_presets', [{'rules': {'daily_push_days': 7}}])
+        self.store.set('daily_push_days', 14)
+        self.store.set('group_rules', {'100001': {'daily_push_days': 14}})
+        self.store.set('rule_presets', [{'rules': {'daily_push_days': 14}}])
         loaded = main.DataStore(self.path)
-        self.assertEqual(loaded.get('fetch_ahead_days'), 3)
-        self.assertEqual(loaded.get('daily_push_days'), 3)
-        self.assertEqual(loaded.get('group_rules')['100001']['daily_push_days'], 3)
-        self.assertEqual(loaded.get('rule_presets')[0]['rules']['daily_push_days'], 3)
+        self.assertEqual(loaded.get('fetch_ahead_days'), 7)
+        self.assertEqual(loaded.get('daily_push_days'), 7)
+        self.assertEqual(loaded.get('group_rules')['100001']['daily_push_days'], 7)
+        self.assertEqual(loaded.get('rule_presets')[0]['rules']['daily_push_days'], 7)
 
     def test_new_default_and_validation(self):
-        self.assertEqual(main.DataStore._DEFAULTS['fetch_ahead_days'], 3)
+        self.assertEqual(main.DataStore._DEFAULTS['fetch_ahead_days'], 7)
         for key in ('fetch_ahead_days', 'daily_push_days'):
-            self.assertEqual(config.validate_config({key: 3})[key], 3)
+            self.assertEqual(config.validate_config({key: 7})[key], 7)
             with self.assertRaises(config.ConfigError):
-                config.validate_config({key: 4})
+                config.validate_config({key: 8})
         with self.assertRaises(config.ConfigError):
-            config.validate_config({'fetch_ahead_hours': 73})
+            config.validate_config({'fetch_ahead_hours': 169})
         with self.assertRaises(config.ConfigError):
-            ai._window('', 4, results=False)
+            ai._window('', 8, results=False)
         start, end = ai._window('', 30, results=True)
         self.assertEqual((end - start).days, 30)
 
 
 class ScheduleLimitTests(unittest.IsolatedAsyncioTestCase):
-    async def test_command_rejects_four_days_before_query(self):
+    async def test_command_defaults_to_week_and_rejects_eight_days(self):
         plugin = main.CSMatchPlugin.__new__(main.CSMatchPlugin)
         plugin._schedule_query_result = AsyncMock()
         plugin._query_reply = AsyncMock()
         event = types.SimpleNamespace(get_platform_name=lambda: 'aiocqhttp')
-        await plugin.cmd_cs_three_days(event, '4')
+        await plugin.cmd_cs_three_days(event)
+        plugin._schedule_query_result.assert_awaited_once_with(event, 7)
+        plugin._schedule_query_result.reset_mock()
+        await plugin.cmd_cs_three_days(event, '8')
         plugin._schedule_query_result.assert_not_awaited()
-        self.assertIn('1–3', plugin._query_reply.call_args.args[1])
+        self.assertIn('1–7', plugin._query_reply.call_args.args[1])
 
-    async def test_preview_rejects_four_days(self):
+    async def test_preview_rejects_eight_days(self):
         plugin = types.SimpleNamespace(_token='placeholder', store=None)
         # A minimal local store; no real provider or message target.
         with tempfile.TemporaryDirectory() as directory:
             plugin.store = main.DataStore(str(Path(directory) / 'state.json'))
             with self.assertRaises(config.ConfigError):
-                await previews.build_preview(plugin, {'days': 4})
+                await previews.build_preview(plugin, {'days': 8})
+
+    async def test_schedule_range_reads_past_the_first_small_page(self):
+        start = datetime(2026, 11, 9, tzinfo=timezone.utc)
+        end = start + timedelta(days=7)
+        first = [{'id': i, 'scheduled_at': start.isoformat()} for i in range(25)]
+        later = {'id': 25, 'scheduled_at': (end - timedelta(hours=1)).isoformat()}
+        client = main.PandaScoreClient('offline')
+        client._request = AsyncMock(side_effect=[first, [later]])
+        rows = await client.get_matches_between(start, end, per_page=25)
+        self.assertEqual(rows, [*first, later])
+        self.assertEqual([call.args[1]['page'] for call in client._request.await_args_list], [1, 2])

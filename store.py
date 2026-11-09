@@ -15,7 +15,7 @@ from typing import Optional
 
 from astrbot.api import logger
 
-from .config import ConfigError, validate_config
+from .config import ConfigError, DEFAULT_SCHEDULE_DAYS, MAX_SCHEDULE_DAYS, validate_config
 from .official_extension import DEFAULT_FEATURES
 
 
@@ -73,7 +73,7 @@ class DataStore:
         "web_panel_enabled":           True,
         "web_panel_token":             "",
         "fetch_interval_min":          5,
-        "fetch_ahead_days":            3,
+        "fetch_ahead_days":            DEFAULT_SCHEDULE_DAYS,
         "custom_streams":              [],
         "blacklist_teams":             [],
         "blacklist_leagues":           [],
@@ -98,9 +98,9 @@ class DataStore:
         self._delivery_receipts_dirty = False
 
     @staticmethod
-    def _hours_to_days(hours, default: int = 3) -> int:
+    def _hours_to_days(hours, default: int = DEFAULT_SCHEDULE_DAYS) -> int:
         try:
-            return max(1, min((int(hours) + 23) // 24, 3))
+            return max(1, min((int(hours) + 23) // 24, MAX_SCHEDULE_DAYS))
         except (TypeError, ValueError):
             return default
 
@@ -132,9 +132,9 @@ class DataStore:
                         for key, item in value.items():
                             if key in {'fetch_ahead_days', 'daily_push_days'}:
                                 try:
-                                    value[key] = max(1, min(int(item), 3))
+                                    value[key] = max(1, min(int(item), MAX_SCHEDULE_DAYS))
                                 except (TypeError, ValueError):
-                                    value[key] = 3 if key == 'fetch_ahead_days' else 1
+                                    value[key] = DEFAULT_SCHEDULE_DAYS if key == 'fetch_ahead_days' else 1
                             else:
                                 cap_windows(item)
                     elif isinstance(value, list):
@@ -518,6 +518,7 @@ class DataStore:
         """导出所有配置（排除通知记录）"""
         d = deepcopy(self._data)
         d.pop("_host_config_fingerprints", None)
+        d.pop("_web_panel_session_key", None)
         d.pop("pandascore_token", None)
         d.pop("web_panel_token", None)
         d.pop("notified_upcoming", None)

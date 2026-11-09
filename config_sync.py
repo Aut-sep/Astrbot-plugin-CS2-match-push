@@ -2,7 +2,9 @@
 import hashlib
 import json
 
-from .config import validate_config
+from astrbot.api import logger
+
+from .config import ConfigError, cap_legacy_schedule_window, validate_config
 
 
 KEYS = ('pandascore_token', 'fetch_interval_min', 'fetch_ahead_days',
@@ -16,23 +18,31 @@ def sync_host_config(store, config, *, first_run=False):
     supplied = {key: config.get(key) for key in KEYS if config.get(key) is not None}
     if 'fetch_ahead_days' not in supplied and config.get('fetch_ahead_hours') is not None:
         supplied['fetch_ahead_hours'] = config.get('fetch_ahead_hours')
-    # Clamp legacy host values before applying the stricter current schema.
-    if 'fetch_ahead_days' in supplied:
-        supplied['fetch_ahead_days'] = max(1, min(int(supplied['fetch_ahead_days']), 3))
-    if 'fetch_ahead_hours' in supplied:
-        supplied['fetch_ahead_hours'] = max(1, min(int(supplied['fetch_ahead_hours']), 72))
-    supplied = validate_config(supplied)
-    fingerprints = {key: hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
-                    for key, value in supplied.items()}
-    previous = store.get('_host_config_fingerprints', {})
-    changes = {}
+    validated = {}
     for key, value in supplied.items():
-        if first_run or (key in previous and fingerprints[key] != previous[key]):
+        try:
+            if key in ('fetch_ahead_days', 'fetch_ahead_hours'):
+                value = cap_legacy_schedule_window(value, key)
+            validated.update(validate_config({key: value}))
+        except ConfigError:
+            logger.warning(f'[CS] AstrBot 配置项 {key} 无效，保留已保存的设置。')
+
+    previous = store.get('_host_config_fingerprints', {})
+    if not isinstance(previous, dict):
+        previous = {}
+    fingerprints = previous.copy()
+    changes = {}
+    for key, value in validated.items():
+        fingerprint = hashlib.sha256(json.dumps(value, sort_keys=True).encode()).hexdigest()
+        fingerprints[key] = fingerprint
+        if first_run or (key in previous and fingerprint != previous[key]):
             changes[key] = value
-        elif key not in previous:
-            # First upgrade: retain panel values when the host still has defaults.
-            if value != store._DEFAULTS[key]:
-                changes[key] = value
+        elif key not in previous and key == 'pandascore_token' and value and not store.get(key):
+            # Older installs could keep their only credential in AstrBot.
+            changes[key] = value
+    for key in KEYS:
+        fingerprints.setdefault(key, None)
     if changes:
         store.import_config(changes)
-    store.set('_host_config_fingerprints', fingerprints)
+    if fingerprints != previous:
+        store.set('_host_config_fingerprints', fingerprints)

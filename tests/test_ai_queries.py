@@ -46,6 +46,26 @@ class AIQueryTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(start.isoformat(), '2026-11-03T00:00:00+08:00')
         self.assertEqual((end-start).days, 1)
 
+    async def test_schedule_excludes_canceled_running_and_finished_matches(self):
+        self.p.client.get_matches_between.return_value = [
+            row(), {**row(2), 'status': 'canceled'}, {**row(3), 'status': 'running'},
+            {**row(4), 'status': 'finished'}, row(5, minutes=-60),
+        ]
+        result = await self.call('schedule')
+        self.assertEqual([match['id'] for match in result['data']['matches']], [1])
+
+    async def test_head_to_head_and_limit_select_the_next_matching_fixture(self):
+        other = row(2, minutes=10)
+        other['opponents'][1]['opponent'] = {'id': 3, 'name': 'Spirit'}
+        first = row(3, minutes=30)
+        first['opponents'].reverse()
+        self.p.client.get_matches_between.return_value = [row(1), other, first]
+        result = await self.p.ai_cs2_schedule(self.event, team='1', opponent='2', limit=1)
+        data = json.loads(result)['data']
+        self.assertEqual([match['id'] for match in data['matches']], [3])
+        self.assertEqual(data['total'], 2)
+        self.assertTrue(data['truncated'])
+
     async def test_failure_and_empty_are_different(self):
         self.p.client.get_matches_between.return_value = None
         failed = await self.call('schedule')

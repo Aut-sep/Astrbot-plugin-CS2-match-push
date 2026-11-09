@@ -39,6 +39,7 @@ class GroupRuleTests(unittest.IsolatedAsyncioTestCase):
         p.store.set('push_groups', [A, B])
         p._scheduled = [row(), row(2, 3)]
         p._schedule_data_ready = True
+        p._schedule_status, p._schedule_last_success_at = 'ready', NOW.isoformat()
         p._token, p._fetch_ahead = 'offline-placeholder', 2
         p._scheduled_mids, p._match_tasks = set(), {}
         p._result_tasks, p._result_meta, p._pending_reschedules, p._tournament_tasks = {}, {}, {}, {}
@@ -144,6 +145,25 @@ class GroupRuleTests(unittest.IsolatedAsyncioTestCase):
         await p._fetch_and_schedule_locked()
         self.assertEqual(starts, [1]); self.assertEqual([m['id'] for m in p._scheduled], [1])
         self.assertEqual(rules_module.groups_for(p.store, 'upcoming', match), [B])
+
+    async def test_schedule_status_distinguishes_failure_from_successful_empty_result(self):
+        p = self.p
+        p._schedule_last_success_at = None
+        p._schedule_daily_image_warm = lambda: None
+        p.client = types.SimpleNamespace(get_upcoming_matches=AsyncMock(return_value=[]))
+        panel = web.WebPanel(p)
+        await p._fetch_and_schedule_locked()
+        success = json.loads((await panel.get_matches(None)).text)
+        self.assertEqual(success['schedule_status'], 'ready')
+        self.assertEqual(success['matches'], [])
+        self.assertEqual(success['schedule_last_success_at'], NOW.isoformat())
+
+        self.clock += timedelta(minutes=5)
+        p.client.get_upcoming_matches.return_value = None
+        await p._fetch_and_schedule_locked()
+        failure = json.loads((await panel.get_matches(None)).text)
+        self.assertEqual(failure['schedule_status'], 'error')
+        self.assertEqual(failure['schedule_last_success_at'], success['schedule_last_success_at'])
 
     async def test_user_minutes_schedule_each_group_and_keep_one_result_tracker(self):
         p = self.p; match = row()
@@ -317,6 +337,29 @@ class GroupRuleTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(p.query_rules(official).group_id)
         with self.assertRaises(config.ConfigError):await previews.build_preview(p,{'group_id':C})
 
+    async def test_daily_preview_and_manual_push_distinguish_unavailable_schedule_from_empty(self):
+        p = self.p
+        panel = web.WebPanel(p)
+        request = types.SimpleNamespace(can_read_body=False)
+        p.schedule_instant_push = Mock()
+        for status, last_success, message in (
+            ('loading', None, '正在获取赛程'),
+            ('error', None, '赛程获取失败'),
+            ('error', NOW.isoformat(), '缓存已过期'),
+        ):
+            p._schedule_status, p._schedule_last_success_at = status, last_success
+            with self.assertRaisesRegex(config.ConfigError, message):
+                await previews.build_preview(p, {'days': 1})
+            with self.assertRaisesRegex(config.ConfigError, message):
+                await panel.push_now(request)
+        p._schedule_status = 'ready'
+        p._scheduled = []
+        preview = await previews.build_preview(p, {'days': 7})
+        self.assertIn('未来 2 天内没有符合条件', preview['text'])
+        self.assertIn('仅获取未来 2 天', preview['note'])
+        self.assertTrue(json.loads((await panel.push_now(request)).text)['skipped'])
+        p.schedule_instant_push.assert_not_called()
+
     async def test_selected_rule_test_still_sends_only_to_test_target(self):
         p=self.p;p.store.set('test_target_type','private');p.store.set('test_target_id','999999')
         with scope(Rules(p.store,A)):
@@ -341,12 +384,63 @@ class GroupRuleTests(unittest.IsolatedAsyncioTestCase):
         exported=(await response.json())['data']
         self.assertEqual(exported['group_rules'][A]['remind_minutes'],29)
         self.assertNotIn('web_panel_token',exported)
+        self.assertNotIn('_web_panel_session_key', exported)
         response=await client.post('/api/push_now',json={'group_id':B,'days':1},headers=headers)
         self.assertEqual(response.status,200)
         p.schedule_instant_push.assert_called_once_with(1,'web_push_now',group_id=B)
         response=await client.post('/api/push_now',json={'group_id':C},headers=headers)
         self.assertEqual(response.status,400)
         self.assertEqual((await client.get('/group-rules.js')).status,200)
+
+    async def test_panel_login_and_token_rotation_keep_current_browser_session(self):
+        from aiohttp.test_utils import TestClient, TestServer
+
+        p = self.p
+        p.store.set('web_panel_token', 'old-offline-token')
+        p.reload_runtime_config = AsyncMock()
+        panel = web.WebPanel(p)
+        client = TestClient(TestServer(panel.app))
+        await client.start_server()
+        self.addAsyncCleanup(client.close)
+        invalid = await client.post('/login', data={'token': 'invalid'})
+        self.assertEqual(invalid.status, 401)
+        self.assertIn('令牌无效', await invalid.text())
+
+        login = await client.get('/?token=old-offline-token', allow_redirects=False)
+        self.assertEqual(login.status, 303)
+        self.assertEqual(login.headers['Location'], '/')
+        cookie = login.cookies[web.PANEL_SESSION_COOKIE]
+        self.assertTrue(cookie['httponly'])
+        self.assertNotIn('old-offline-token', cookie.value)
+        p.store = main.DataStore(p.store.path)
+        self.assertEqual(web.WebPanel(p)._session_value('old-offline-token'), cookie.value)
+        self.assertEqual((await client.get('/api/config')).status, 200)
+        cross_origin = await client.patch('/api/config', json={}, headers={'Origin': 'http://other.example'})
+        self.assertEqual(cross_origin.status, 403)
+        same_site = await client.patch('/api/config', json={}, headers={'Sec-Fetch-Site': 'same-site'})
+        self.assertEqual(same_site.status, 403)
+        proxy = await client.patch('/api/config', json={}, headers={
+            'Origin': 'https://panel.example', 'Sec-Fetch-Site': 'same-origin',
+        })
+        self.assertEqual(proxy.status, 200)
+
+        rotated = await client.patch('/api/config', json={'web_panel_token': 'new-offline-token'})
+        self.assertEqual(rotated.status, 200)
+        self.assertNotIn('new-offline-token', await rotated.text())
+        self.assertEqual((await client.get('/api/config')).status, 200)
+        stale = await client.get('/api/config', headers={'Authorization': 'Bearer old-offline-token'})
+        self.assertEqual(stale.status, 401)
+        signed_in = await client.get('/?token=new-offline-token', headers={'Authorization': 'Bearer old-offline-token'})
+        self.assertEqual(signed_in.status, 200)
+        self.assertNotIn('new-offline-token', await signed_in.text())
+
+        reset = await client.patch('/api/config', json={'web_panel_token': ''})
+        self.assertTrue((await reset.json())['web_token_regenerated'])
+        current_token = p.store.get('web_panel_token')
+        self.assertTrue(current_token)
+        self.assertNotEqual(current_token, 'new-offline-token')
+        self.assertNotIn(current_token, await reset.text())
+        self.assertEqual((await client.get('/api/config')).status, 200)
 
     async def test_new_group_can_join_before_its_future_reminder_without_replaying_sent_group(self):
         p=self.p; match=row()

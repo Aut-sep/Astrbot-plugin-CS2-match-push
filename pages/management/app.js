@@ -9,6 +9,8 @@ const state = {
   subscriptionsDraft: null,
   saving: false,
   matches: [],
+  scheduleStatus: "loading",
+  scheduleLastSuccessAt: null,
   teams: [],
   searchResultsReady: false,
   ready: false,
@@ -40,7 +42,6 @@ const splitLines = (value) => [
       .filter(Boolean),
   ),
 ];
-let sessionToken = "";
 let pollTimer;
 let refreshTimer;
 let searchSequence = 0;
@@ -79,7 +80,6 @@ async function api(path, method = "GET", body, query = {}) {
       url.searchParams.set(key, value),
     );
     const headers = { Accept: "application/json" };
-    if (sessionToken) headers.Authorization = `Bearer ${sessionToken}`;
     if (body !== undefined) headers["Content-Type"] = "application/json";
     const response = await fetch(url, {
       method,
@@ -93,7 +93,7 @@ async function api(path, method = "GET", body, query = {}) {
       throw new Error("服务器未返回有效数据，请检查插件是否已启动。");
     }
     if (response.status === 401)
-      throw new Error("登录已失效，请重新打开独立面板并输入管理令牌。");
+      throw new Error("登录已失效，请刷新后重新登录。");
     if (!response.ok)
       throw new Error(result.msg || result.message || "请求失败，请稍后重试。");
   }
@@ -298,7 +298,7 @@ async function loadConfig() {
   $("#web-secret-hint").textContent =
     result.web_token_configured === false
       ? "尚未配置管理令牌。"
-      : "管理令牌不在页面回显。留空保留原令牌。";
+      : "已配置管理令牌。";
   $("#setup-notice").hidden = state.tokenConfigured;
   for (const section of ["subscriptions", "push", "advanced"])
     if (!state.dirty.has(section)) fillForm(section);
@@ -382,8 +382,8 @@ async function saveSection() {
   const disabledStates = inputs.map(input => input.disabled);
   inputs.forEach(input => { input.disabled = true; });
   try {
-    await api("/api/config", "PATCH", values);
-    Object.assign(state.config, values);
+    const result = await api("/api/config", "PATCH", values);
+    Object.assign(state.config, Object.fromEntries(Object.entries(values).filter(([key]) => !secretKeys.has(key))));
     state.subscriptionsDraft = null;
     state.dirty.clear();
     sections.forEach(fillForm);
@@ -391,14 +391,28 @@ async function saveSection() {
     syncTeamFollowedState();
     renderStats();
     renderPushSummary();
-    try { await loadConfig(); }
-    catch { toast("配置已保存，页面刷新失败，可稍后重新打开页面。", true); }
-    toast("全部配置已保存并生效。");
+    await finishConfigSave(result, values, "配置已保存。");
   } finally {
     state.saving = false;
     inputs.forEach((input, index) => { input.disabled = disabledStates[index]; });
     updateDirtyIndicators();
   }
+}
+
+async function finishConfigSave(result, changes, message, refresh = loadConfig) {
+  const tokenNote = result.web_token_regenerated ? "新令牌可通过私聊命令 /cs面板 获取。" : "";
+  if (!bridge && result.web_reconfigured) {
+    const panelNote = changes.web_panel_enabled === false ? "独立面板已关闭。" : "请用新地址打开独立面板。";
+    toast(message + panelNote + tokenNote);
+    return;
+  }
+  try {
+    await refresh();
+  } catch {
+    toast(message + "页面刷新失败，请重试。" + tokenNote, true);
+    return;
+  }
+  toast(message + tokenNote);
 }
 
 function renderPushSummary() {
@@ -418,29 +432,35 @@ async function previewTool(kind, overrides = {}) {
   if (!state.ready) throw new Error("页面正在连接，请稍后重试。");
   if (state.saving || state.dirty.size) throw new Error("请先保存或放弃未保存的修改，再查询预览。");
   const days = overrides.days ?? Number($(kind === "results" ? "#tool-results-days" : "#tool-days").value);
-  if ((kind === "schedule" || kind === "results") && (!Number.isInteger(days) || days < 1 || days > (kind === "results" ? 30 : 3)))
-    throw new Error("查询天数超出范围：赛程 1～3 天，赛果 1～30 天。");
+  if ((kind === "schedule" || kind === "results") && (!Number.isInteger(days) || days < 1 || days > (kind === "results" ? 30 : 7)))
+    throw new Error("查询天数超出范围：赛程 1～7 天，赛果 1～30 天。");
   const matchId = $("#tool-match-id").value.trim();
   if (kind === "results" && matchId && !/^[1-9][0-9]*$/.test(matchId))
     throw new Error("比赛 ID 应为正整数。");
+  const groupId = overrides.groupId ?? $("#tool-rule-group").value;
+  if (overrides.groupId !== undefined) $("#tool-rule-group").value = groupId;
+  if (overrides.days !== undefined) $("#tool-days").value = days;
   activateTab("tools");
   const sequence = ++previewSequence;
   const panel = $("#tool-preview");
   const titles = { schedule: "赛程预览", bracket: "晋级对阵图", results: "最近赛果" };
-  $("#tool-preview-title").textContent = `${gameLabel} · ${titles[kind] || "查询预览"}`;
+  const title = overrides.daily ? "日报预览" : titles[kind];
+  $("#tool-preview-title").textContent = `${gameLabel} · ${title}`;
   $("#tool-preview-error").hidden = true;
   $("#tool-preview-image").hidden = true;
   $("#tool-preview-image").removeAttribute("src");
   $("#tool-preview-text").textContent = "正在查询，请稍候…";
-  $("#tool-preview-note").textContent = "使用已保存设置查询，结果仅在网页展示。";
+  const scopeNote = overrides.daily && !groupId ? "推送时各群使用本群规则。" : "";
+  $("#tool-preview-note").textContent = scopeNote;
   panel.setAttribute("aria-busy", "true");
+  if (overrides.daily) panel.focus();
   try {
     const result = await api("/api/tools/preview", "GET", undefined, {
-      kind, days, stage: $("#tool-stage").value, match_id: matchId, group_id: $('#tool-rule-group').value,
+      kind, days, stage: $("#tool-stage").value, match_id: matchId, group_id: groupId,
     });
     if (sequence !== previewSequence) return;
     $("#tool-preview-text").textContent = result.text || "暂无可展示内容。";
-    $("#tool-preview-note").textContent = result.note || "查询完成，结果仅在网页展示。";
+    $("#tool-preview-note").textContent = (result.note || "") + scopeNote;
     if (result.image) {
       $("#tool-preview-image").src = `data:image/png;base64,${result.image}`;
       $("#tool-preview-image").hidden = false;
@@ -449,10 +469,17 @@ async function previewTool(kind, overrides = {}) {
     if (sequence !== previewSequence) return;
     $("#tool-preview-error").textContent = error.message || "查询失败，请重试。";
     $("#tool-preview-error").hidden = false;
-    $("#tool-preview-text").textContent = "未获取到结果，可重新查询。";
+    $("#tool-preview-text").textContent = "";
   } finally {
     if (sequence === previewSequence) panel.setAttribute("aria-busy", "false");
   }
+}
+
+function manualScheduleSelection() {
+  const days = Number($("#push-now-days").value);
+  if (!Number.isInteger(days) || days < 1 || days > 7)
+    throw new Error("日报天数应为 1～7 的整数。");
+  return { days, groupId: $("#push-rule-group").value };
 }
 
 function renderStats() {
@@ -645,8 +672,21 @@ function renderMatches() {
   $("#match-count").textContent =
     `${matches.length} 场比赛${matches.length === state.matches.length ? "" : ` / 共 ${state.matches.length} 场`}`;
   if (!matches.length) {
-    $("#match-list").innerHTML =
-      `<div class="empty"><strong>${state.matches.length ? "没有匹配的比赛" : "暂无比赛安排"}</strong><p>${state.matches.length ? "试试其他关键词或筛选条件。" : state.tokenConfigured ? "可获取最新赛程，或调整订阅中的赛事筛选。" : "配置数据源后，在这里查看比赛安排。"}</p></div>`;
+    let title = "暂无比赛安排";
+    let message = "";
+    if (state.matches.length) {
+      title = "没有匹配的比赛";
+      message = "试试其他关键词或筛选条件。";
+    } else if (state.scheduleStatus === "unconfigured") {
+      title = "未配置数据源";
+    } else if (state.scheduleStatus === "loading") {
+      title = "正在获取赛程";
+    } else if (state.scheduleStatus === "error") {
+      title = "赛程获取失败";
+      message = "请重试获取赛程。";
+    }
+    const detail = message ? `<p>${escaped(message)}</p>` : "";
+    $("#match-list").innerHTML = `<div class="empty"><strong>${escaped(title)}</strong>${detail}</div>`;
     return;
   }
   $("#match-list").innerHTML = matches
@@ -678,12 +718,24 @@ async function loadMatches({ quiet = false } = {}) {
   try {
     const result = await api("/api/matches");
     state.matches = result.matches || [];
+    state.scheduleStatus = result.schedule_status || (state.tokenConfigured ? "ready" : "unconfigured");
+    state.scheduleLastSuccessAt = result.schedule_last_success_at || null;
     renderStats();
     renderMatches();
-    $("#matches-updated").textContent =
-      `北京时间 · 页面更新于 ${new Date().toLocaleTimeString("zh-CN", { hour12: false })}`;
+    const fetchedAt = state.scheduleLastSuccessAt
+      ? new Date(state.scheduleLastSuccessAt).toLocaleString("zh-CN", { timeZone: "Asia/Shanghai", hour12: false })
+      : "";
+    let updatedText = "尚未获取赛程";
+    if (fetchedAt && state.scheduleStatus === "error") updatedText = `获取失败 · 上次更新于 ${fetchedAt}`;
+    else if (fetchedAt && state.scheduleStatus === "loading") updatedText = `正在更新 · 上次更新于 ${fetchedAt}`;
+    else if (fetchedAt && state.scheduleStatus === "unconfigured") updatedText = `未配置数据源 · 上次更新于 ${fetchedAt}`;
+    else if (fetchedAt) updatedText = `赛程更新于 ${fetchedAt}`;
+    else if (state.scheduleStatus === "loading") updatedText = "正在获取赛程…";
+    else if (state.scheduleStatus === "unconfigured") updatedText = "等待配置数据源";
+    else if (state.scheduleStatus === "error") updatedText = "赛程暂不可用";
+    $("#matches-updated").textContent = updatedText;
     $("#connection-dot").className = "status-dot connected";
-    $("#connection-label").textContent = "已连接";
+    $("#connection-label").textContent = "面板已连接";
   } catch (error) {
     $("#connection-dot").className = "status-dot failed";
     $("#connection-label").textContent = "连接异常";
@@ -797,11 +849,8 @@ function activatePushView(view, { focus = false } = {}) {
 
 function installEvents() {
   $$("[data-preview]").forEach(button => button.addEventListener("click", () => run(button, () => previewTool(button.dataset.preview))));
-  $("#preview-daily").addEventListener("click", () => {
-    activateTab("tools");
-    $("#tool-days").value = Number(state.config.daily_push_days || 1);
-    $("#tool-days").focus();
-  });
+  $("#preview-daily").addEventListener("click", event =>
+    run(event.currentTarget, () => previewTool("schedule", { ...manualScheduleSelection(), daily: true })));
   $("#save-all").addEventListener("click", event => run(event.currentTarget, saveSection));
   $("#discard-all").addEventListener("click", () => {
     const sections = [...state.dirty];
@@ -898,7 +947,7 @@ function installEvents() {
   $("#refresh-matches").addEventListener("click", (event) =>
     run(event.currentTarget, async () => {
       await api("/api/refresh", "POST", {});
-      toast("已开始获取赛程，页面将自动更新。");
+      toast("正在获取赛程。");
       clearTimeout(refreshTimer);
       refreshTimer = setTimeout(() => loadMatches({ quiet: true }), 3000);
     }),
@@ -1017,18 +1066,16 @@ function installEvents() {
         throw new Error("请先保存全部修改，再立即推送。");
       if (!state.config.push_groups?.length)
         throw new Error("请先在订阅管理中添加推送群组。");
-      const gid = $('#push-rule-group').value;
-      const days = Number($('#push-now-days').value);
-      if (!Number.isInteger(days) || days < 1 || days > 3) throw new Error('推送天数应为 1～3 的整数。');
+      const { days, groupId } = manualScheduleSelection();
       if (
         !(await dialog(
           "立即推送赛程",
-          `将未来 ${days} 天的赛程发送到${gid ? '群 ' + gid : '全部启用的接收群'}，各群按本群规则筛选。`,
+          groupId ? `按本群规则向群 ${groupId} 发送 ${days} 天的赛程。` : `向全部启用的接收群发送 ${days} 天的赛程，各群使用本群规则。`,
           { confirm: "确认推送" },
         ))
       )
         return;
-      const result = await api("/api/push_now", "POST", { days, group_id: gid });
+      const result = await api("/api/push_now", "POST", { days, group_id: groupId });
       toast(
         result.skipped
           ? "当前没有符合条件的比赛，无需推送。"
@@ -1044,7 +1091,7 @@ function installEvents() {
         throw new Error("请启用测试模式并保存目标号码。");
       const action = $("#test-action").value;
       const days = ["日报", "全部"].includes(action) ? Number($("#test-days").value) : 1;
-      if (!Number.isInteger(days) || days < 1 || days > 3) throw new Error("测试日报天数应为 1～3 的整数。");
+      if (!Number.isInteger(days) || days < 1 || days > 7) throw new Error("测试日报天数应为 1～7 的整数。");
       if (
         !(await dialog(
           "发送测试消息",
@@ -1177,11 +1224,13 @@ async function importConfig(input) {
     ))
   )
     return;
-  await api("/api/config/import", "POST", data);
+  const result = await api("/api/config/import", "POST", data);
   state.dirty.clear();
-  await loadConfig();
-  await loadMatches();
-  toast("配置已导入并生效。");
+  state.subscriptionsDraft = null;
+  await finishConfigSave(result, data, "配置已导入。", async () => {
+    await loadConfig();
+    await loadMatches();
+  });
 }
 
 // 主题：手动选择优先并记住；否则内嵌时跟随 AstrBot，独立访问默认深色。
@@ -1236,17 +1285,10 @@ async function initialize() {
       $("#host-mode").textContent = "AstrBot 内嵌管理视图";
     } else {
       try {
-        sessionToken =
-          new URLSearchParams(location.search).get("token") ||
-          readSession("cs_panel_token") ||
-          "";
-        if (sessionToken)
-          writeSession("cs_panel_token", sessionToken);
+        window.sessionStorage.removeItem("cs_panel_token");
       } catch {
-        /* HttpOnly session cookies remain usable if browser storage is unavailable. */
+        // Older panel versions may have stored a token here.
       }
-      if (new URLSearchParams(location.search).has("token"))
-        { const u = new URL(location.href); u.searchParams.delete("token"); history.replaceState(null, "", u.pathname + u.search); }
       $("#host-mode").textContent = "独立 Web 管理面板";
     }
     await loadConfig();
@@ -1262,8 +1304,7 @@ async function initialize() {
       }
     }, 30000);
   } catch (error) {
-    $("#page-error").textContent =
-      `${error.message || "页面初始化失败"} 请刷新页面重试。`;
+    $("#page-error").textContent = error.message || "页面初始化失败，请刷新后重试。";
     $("#page-error").hidden = false;
     $("#connection-dot").className = "status-dot failed";
     $("#connection-label").textContent = "连接失败";

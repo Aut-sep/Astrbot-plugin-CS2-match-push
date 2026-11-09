@@ -4,6 +4,7 @@ Only editable settings are returned. Exported runtime state and unknown keys are
 ignored, so existing configuration backups can still be imported safely.
 """
 
+from copy import deepcopy
 import ipaddress
 import re
 from urllib.parse import urlsplit
@@ -15,12 +16,16 @@ class ConfigError(ValueError):
     """A setting or request value supplied by the user is invalid."""
 
 
+DEFAULT_SCHEDULE_DAYS = 7
+MAX_SCHEDULE_DAYS = 7
+
+
 INTEGER_RANGES = {
     "remind_minutes": (1, 120),
     "web_panel_port": (1, 65535),
     "fetch_interval_min": (1, 1440),
-    "fetch_ahead_days": (1, 3),
-    "daily_push_days": (1, 3),
+    "fetch_ahead_days": (1, MAX_SCHEDULE_DAYS),
+    "daily_push_days": (1, MAX_SCHEDULE_DAYS),
     "tournament_announce_hours": (1, 168),
 }
 BOOLEAN_KEYS = {
@@ -49,6 +54,32 @@ def integer(value, name: str, minimum: int, maximum: int | None = None) -> int:
         limit = f"{minimum}~{maximum}" if maximum is not None else f">= {minimum}"
         raise ConfigError(f"{name} must be {limit}")
     return number
+
+
+def cap_legacy_schedule_window(value, key: str) -> int:
+    maximum = MAX_SCHEDULE_DAYS * 24 if key == "fetch_ahead_hours" else INTEGER_RANGES[key][1]
+    return min(integer(value, key, 1), maximum)
+
+
+def migrate_imported_schedule_windows(cfg):
+    """Cap old backup ranges before validating the rest of the configuration."""
+    if not isinstance(cfg, dict):
+        return cfg
+    cfg = deepcopy(cfg)
+    fetch_key = "fetch_ahead_days" if "fetch_ahead_days" in cfg else "fetch_ahead_hours"
+    for key in (fetch_key, "daily_push_days"):
+        if key in cfg:
+            cfg[key] = cap_legacy_schedule_window(cfg[key], key)
+
+    groups = cfg.get("group_rules")
+    presets = cfg.get("rule_presets")
+    rules = list(groups.values()) if isinstance(groups, dict) else []
+    if isinstance(presets, list):
+        rules.extend(preset.get("rules") for preset in presets if isinstance(preset, dict))
+    for rule in rules:
+        if isinstance(rule, dict) and "daily_push_days" in rule:
+            rule["daily_push_days"] = cap_legacy_schedule_window(rule["daily_push_days"], "daily_push_days")
+    return cfg
 
 
 def string(value, name: str, *, nonempty: bool = False) -> str:
@@ -152,7 +183,7 @@ def validate_config(cfg: dict) -> dict:
         if key in cfg:
             result[key] = integer(cfg[key], key, *bounds)
     if "fetch_ahead_days" not in cfg and "fetch_ahead_hours" in cfg:
-        hours = integer(cfg["fetch_ahead_hours"], "fetch_ahead_hours", 1, 72)
+        hours = integer(cfg["fetch_ahead_hours"], "fetch_ahead_hours", 1, MAX_SCHEDULE_DAYS * 24)
         result["fetch_ahead_days"] = (hours + 23) // 24
     for key in BOOLEAN_KEYS:
         if key in cfg:

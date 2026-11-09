@@ -34,7 +34,7 @@ from astrbot.api.event import filter, AstrMessageEvent, MessageEventResult
 from astrbot.api import logger
 
 from .store import DataStore
-from .client import PandaScoreClient
+from .client import PandaScoreClient, SCHEDULE_PAGE_SIZE
 from .ai_queries import query as ai_query
 from .ai_guidance import apply_guidance
 from .formatters import (
@@ -49,7 +49,7 @@ from .plugin_view import PluginView
 from .team_logos import TeamLogoCatalog, normalize_name
 from .banners import BannerRenderer
 from .delivery import DeliveryError, send_target
-from .config import ConfigError, integer, message_target_id
+from .config import ConfigError, DEFAULT_SCHEDULE_DAYS, MAX_SCHEDULE_DAYS, integer, message_target_id
 from .official_extension import OFFICIAL_PLATFORMS, denial_reason
 from .bracket_data import format_bracket
 from .cs_major import MajorBracketService, STAGE_ALIASES as MAJOR_STAGE_ALIASES
@@ -94,6 +94,8 @@ class CSMatchPlugin(Star):
         self.client = PandaScoreClient(self._token)
         self._scheduled: list    = []
         self._schedule_data_ready = False
+        self._schedule_status = "loading" if self._token else "unconfigured"
+        self._schedule_last_success_at: str | None = None
         self._loop_task           = None
         self._daily_push_task     = None
         self._tournament_task     = None
@@ -169,17 +171,17 @@ class CSMatchPlugin(Star):
         if fetch_ahead_days in (None, "", [], {}):
             legacy_hours = _get("fetch_ahead_hours", None)
             if legacy_hours in (None, "", [], {}):
-                self._fetch_ahead = 3
+                self._fetch_ahead = DEFAULT_SCHEDULE_DAYS
             else:
                 try:
-                    self._fetch_ahead = max(1, min((int(legacy_hours) + 23) // 24, 3))
+                    self._fetch_ahead = max(1, min((int(legacy_hours) + 23) // 24, MAX_SCHEDULE_DAYS))
                 except (TypeError, ValueError):
-                    self._fetch_ahead = 3
+                    self._fetch_ahead = DEFAULT_SCHEDULE_DAYS
         else:
             try:
-                self._fetch_ahead = max(1, min(int(fetch_ahead_days), 3))
+                self._fetch_ahead = max(1, min(int(fetch_ahead_days), MAX_SCHEDULE_DAYS))
             except (TypeError, ValueError):
-                self._fetch_ahead = 3
+                self._fetch_ahead = DEFAULT_SCHEDULE_DAYS
 
         self._web_host = str(_get("web_panel_host", WEB_PANEL_HOST) or WEB_PANEL_HOST).strip() or WEB_PANEL_HOST
         self._web_port = max(1, _get_int("web_panel_port", WEB_PANEL_PORT))
@@ -194,7 +196,7 @@ class CSMatchPlugin(Star):
             logger.warning(f"[CS] fetch_interval_min 配置无效，沿用当前值: {e}")
 
         try:
-            self._fetch_ahead = max(1, min(int(self.store.get("fetch_ahead_days") or self._fetch_ahead), 3))
+            self._fetch_ahead = max(1, min(int(self.store.get("fetch_ahead_days") or self._fetch_ahead), MAX_SCHEDULE_DAYS))
         except (TypeError, ValueError) as e:
             logger.warning(f"[CS] fetch_ahead_days 配置无效，沿用当前值: {e}")
 
@@ -449,6 +451,13 @@ class CSMatchPlugin(Star):
 
         return result
 
+    def get_panel_schedule_state(self) -> dict:
+        """Return schedule-fetch health separately from cached match rows."""
+        return {
+            "schedule_status": self._schedule_status,
+            "schedule_last_success_at": self._schedule_last_success_at,
+        }
+
     def _find_scheduled_match(self, mid: int) -> dict | None:
         return next((match for match in self._scheduled if match["id"] == mid), None)
 
@@ -665,12 +674,20 @@ class CSMatchPlugin(Star):
         # The cached list is not a fresh basis for skipping a pending daily event.
         self._schedule_data_ready = False
         if not self._token:
+            self._schedule_status = "unconfigured"
             return
+
+        self._schedule_status = "loading"
 
         now = now_utc()
         cutoff = now + timedelta(days=self._fetch_ahead)
-        matches = await self.client.get_upcoming_matches(per_page=100, until=cutoff)
+        try:
+            matches = await self.client.get_upcoming_matches(per_page=SCHEDULE_PAGE_SIZE, until=cutoff)
+        except Exception:
+            self._schedule_status = "error"
+            raise
         if matches is None:
+            self._schedule_status = "error"
             logger.warning("[CS] 日程请求失败，保留已有任务")
             self.panel.push_log("WARN", "日程请求失败，保留已有任务")
             return
@@ -691,6 +708,8 @@ class CSMatchPlugin(Star):
 
         self._scheduled = to_schedule
         self._schedule_data_ready = True
+        self._schedule_status = "ready"
+        self._schedule_last_success_at = now_utc().isoformat()
         self.panel.push_log("INFO", f"日程刷新完成，共 {len(to_schedule)} 场符合条件的比赛")
 
         # ── 清理不再在列表中的旧任务 ──────────────────────────────────────
@@ -1346,7 +1365,7 @@ class CSMatchPlugin(Star):
                 return
             if not self._schedule_data_ready:
                 return
-            days_to_prepare = {1, 3, int(self.store.get("daily_push_days") or 1), *self._daily_images.windows}
+            days_to_prepare = {1, DEFAULT_SCHEDULE_DAYS, int(self.store.get("daily_push_days") or 1), *self._daily_images.windows}
             for days in sorted(days_to_prepare):
                 text, matches = self._daily_image_request(days)
                 await self._notification_components(text, matches=matches, daily_days=days)
@@ -1723,24 +1742,29 @@ class CSMatchPlugin(Star):
         return await self.cmd_help(event)
 
     @filter.llm_tool(name="get_cs2_schedule")
-    async def ai_cs2_schedule(self, event: AstrMessageEvent, team: str = "", start_date: str = "", days: int = 3) -> str:
+    async def ai_cs2_schedule(self, event: AstrMessageEvent, team: str = "", start_date: str = "",
+                              days: int = DEFAULT_SCHEDULE_DAYS, opponent: str = "", limit: int = 100) -> str:
         """查询 CS2 战队近期比赛、赛程、对手和开赛时间时优先使用本工具，而非通用网页搜索。
         适用“最近有 NAVI 比赛吗”“今晚绿龙打谁”“Spirit 明天几点打”；支持中文别名与大小写。
-        未指定日期的近期赛程默认未来3个日历天；今晚/明天请指定北京时间日期且 days=1。
+        只返回未来未开赛场次，按开赛时间升序。近期默认 7 个日历天；今晚/明天请指定北京时间日期且 days=1。
         只读，不发送推送。沿用本会话筛选规则；新闻、转会等问题应使用其他信息来源。
         根据返回的 status、时区、来源、读取/修改时间和缓存标志回答；失败不能声称查询成功，空结果不能声称全网无比赛。
 
         Args:
             team(string): 战队全名、已收录中文别名或 PandaScore 战队 ID；空字符串查询全部符合规则的队伍。
             start_date(string): 北京时间起始日期 YYYY-MM-DD；空字符串为今天。今晚请指定今天日期并依据返回时间筛选。
-            days(number): 查询日历天数，整数 1–3，近期赛程默认 3，明确单日问题用 1。含起始日，按计划开赛时间统计。
+            days(number): 查询日历天数，整数 1–7，近期赛程默认 7，明确单日问题用 1。含起始日，按计划开赛时间统计。
+            opponent(string): 可选。明确查询两队交手时传第二支战队，不要把两队写进 team。
+            limit(number): 返回场数，整数 1–100。只问下一场时填 1。
         """
-        return await ai_query(self, event, 'schedule', team=team, start_date=start_date, days=days)
+        return await ai_query(self, event, 'schedule', team=team, start_date=start_date, days=days,
+                              opponent=opponent, limit=limit)
 
     @filter.llm_tool(name="get_cs2_match_result")
-    async def ai_cs2_result(self, event: AstrMessageEvent, team: str = "", start_date: str = "", days: int = 1, match_id: str = "") -> str:
+    async def ai_cs2_result(self, event: AstrMessageEvent, team: str = "", start_date: str = "", days: int = 1,
+                            match_id: str = "", opponent: str = "", limit: int = 100) -> str:
         """查询 CS2 比分、胜负和已结束比赛结果时优先使用本工具，而非通用网页搜索。
-        适用“昨天 NAVI 赢了吗”“绿龙上一场比分多少”；按问题指定的日期查询，日期不明时先澄清或说明范围。
+        适用“昨天 NAVI 赢了吗”“绿龙上一场比分多少”。上一场未指定日期时用 days=30、limit=1，结果按计划开赛时间倒序。
         只读查询，不推测缺失比分。沿用本会话筛选规则；失败不代表战队没比赛或输掉比赛。
         final_score 为 null 时比分尚未确认，不能编造胜负。时间范围依据计划开赛日期，跨日比赛可能稍后才结束。
 
@@ -1749,8 +1773,11 @@ class CSMatchPlugin(Star):
             start_date(string): 北京时间起始日期 YYYY-MM-DD；空字符串回看含今天的最近 days 天。问昨天时指定昨天日期。
             days(number): 查询日历天数，整数 1–30，默认 1。
             match_id(string): 可选的 PandaScore 比赛 ID；填写时忽略日期和 days，返回该场状态，尚未结束时没有最终赛果。
+            opponent(string): 可选。明确查询两队交手时传第二支战队。
+            limit(number): 返回场数，整数 1–100。只问上一场时填 1。
         """
-        return await ai_query(self, event, 'result', team=team, start_date=start_date, days=days, match_id=match_id)
+        return await ai_query(self, event, 'result', team=team, start_date=start_date, days=days,
+                              match_id=match_id, opponent=opponent, limit=limit)
 
     @filter.llm_tool(name="get_cs2_followed_teams")
     async def ai_cs2_followed(self, event: AstrMessageEvent) -> str:
@@ -1785,7 +1812,7 @@ class CSMatchPlugin(Star):
         return await self._schedule_query_result(event, 1)
 
     @filter.command("cs未来赛程")
-    async def cmd_cs_three_days(self, event: AstrMessageEvent, days: str = "3") -> MessageEventResult:
+    async def cmd_cs_three_days(self, event: AstrMessageEvent, days: str = str(DEFAULT_SCHEDULE_DAYS)) -> MessageEventResult:
         denied = self._official_denial(event, 'schedule')
         if denied is not None:
             return denied
@@ -1859,9 +1886,9 @@ class CSMatchPlugin(Star):
             return denied
         raw = str(days).strip()
         try:
-            count = None if raw.lower() in {"", "全部", "all"} else integer(raw, "days", 1, 3)
+            count = None if raw.lower() in {"", "全部", "all"} else integer(raw, "days", 1, MAX_SCHEDULE_DAYS)
         except ConfigError:
-            return await self._query_reply(event, "用法：/cs比赛 [天数/全部]，天数 1–3；不填查看已获取的全部赛程。", feature="schedule")
+            return await self._query_reply(event, "用法：/cs比赛 [天数/全部]，天数 1–7；不填查看已获取的全部赛程。", feature="schedule")
         return await self._schedule_query_result(event, count)
 
     @filter.command("cs赛果", alias={"cs最近赛果"})
@@ -2190,7 +2217,7 @@ class CSMatchPlugin(Star):
         days = 1
         if action == "日报" and len(parts) > 1:
             try:
-                days = integer(parts[1], "days", 1, 3)
+                days = integer(parts[1], "days", 1, MAX_SCHEDULE_DAYS)
             except ValueError:
                 return event.plain_result("格式错误，示例：/cs测试 日报 2")
 
@@ -2212,9 +2239,9 @@ class CSMatchPlugin(Star):
         if denied is not None:
             return denied
         try:
-            days = integer(arg.strip() or '1', 'days', 1, 3)
+            days = integer(arg.strip() or '1', 'days', 1, MAX_SCHEDULE_DAYS)
         except ConfigError:
-            return event.plain_result('用法：/cs推送 [1–3天]，按各接收群规则发送。')
+            return event.plain_result('用法：/cs推送 [1–7天]，按各接收群规则发送。')
         if not self._scheduled:
             return event.plain_result("📭 当前没有已安排的比赛，请先发送 /cs刷新")
         if not self.has_daily_matches_to_push(days):
@@ -2288,10 +2315,9 @@ class CSMatchPlugin(Star):
         if arg.startswith("天数"):
             parts = arg.split()
             try:
-                n = int(parts[1])
-                assert 1 <= n <= 3
-            except Exception:
-                return event.plain_result("格式错误，示例：/cs日报 天数 2（1~3）")
+                n = integer(parts[1], "days", 1, MAX_SCHEDULE_DAYS)
+            except (IndexError, ConfigError):
+                return event.plain_result("格式错误，示例：/cs日报 天数 2（1–7）")
             self.store.import_config({"daily_push_days": n})
             self._schedule_daily_image_warm()
             return event.plain_result(f"✅ 已设置推送范围：{n} 天内的赛程")
@@ -2364,9 +2390,9 @@ class CSMatchPlugin(Star):
             "命令前缀示例：/（以 AstrBot 全局配置为准）\n"
             "━━━━━━━━━━━━━\n"
             "【比赛查询】\n"
-            "  /cs比赛 [天数/全部]  查询已获取的赛程，天数 1–3\n"
+            "  /cs比赛 [天数/全部]  查询已获取的赛程，天数 1–7\n"
             "  /cs今日赛程          查看北京时间今天的赛程\n"
-            "  /cs未来赛程 [天数]   查看今天起 N 天赛程，默认 3 天\n"
+            "  /cs未来赛程 [天数]   查看今天起 N 天赛程，默认 7 天\n"
             "  /cs对阵图 [阶段]     查看 Major 晋级对阵图\n"
             "  /cs赛果 [天数]       查询最近赛果，默认 3 天\n"
             "  /cs赛果 比赛 <ID>    查询指定比赛赛果\n"

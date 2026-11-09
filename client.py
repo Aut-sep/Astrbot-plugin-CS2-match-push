@@ -13,6 +13,7 @@ from .team_search import TeamSearch
 from .tournament_events import build_event
 
 API_BASE = "https://api.pandascore.co"
+SCHEDULE_PAGE_SIZE = 25
 
 
 class PandaScoreClient:
@@ -155,7 +156,9 @@ class PandaScoreClient:
             previous_page = result
             page += 1
 
-    async def get_matches_between(self, start: datetime, end: datetime) -> list | None:
+    async def get_matches_between(
+        self, start: datetime, end: datetime, *, per_page: int = 100
+    ) -> list | None:
         """All statuses in a UTC schedule window, including past/running games.
 
         Bounds are inclusive upstream; enforce the half-open interval locally.
@@ -168,7 +171,7 @@ class PandaScoreClient:
             result = await self._request(
                 f"{API_BASE}/csgo/matches",
                 {"range[scheduled_at]": f"{start.astimezone(timezone.utc).isoformat()},{end.astimezone(timezone.utc).isoformat()}",
-                 "per_page": 100, "page": page, "sort": "scheduled_at,id"})
+                 "per_page": per_page, "page": page, "sort": "scheduled_at,id"})
             if not isinstance(result, list) or any(not isinstance(m, dict) or m.get("id") is None for m in result):
                 return None
             if result and result == previous:
@@ -184,7 +187,7 @@ class PandaScoreClient:
                 if start <= scheduled < end and mid not in seen:
                     rows.append(match)
                     seen.add(mid)
-            if len(result) < 100:
+            if len(result) < per_page:
                 return rows
             previous = result
         return None
