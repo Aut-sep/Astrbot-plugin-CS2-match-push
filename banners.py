@@ -43,6 +43,7 @@ class BannerRenderer:
                 round_winners=round_winners, winner_index=winner_index,
             )
         from PIL import Image as PILImage, ImageDraw, ImageStat
+        from .formatters import reschedule_card_times
 
         names = [self._notification_text(name) for name in (team_names or [])[:2]]
         marks = self._team_mark_index(team_marks)
@@ -66,6 +67,7 @@ class BannerRenderer:
             elif title and lines[0] == self._notification_text(title):
                 lines.pop(0)
         title = self._notification_text(title or f"{self.game_label} 赛事推送")
+        is_opening = not has_matchup and ("赛事开幕通知" in title or "关注战队参赛提醒" in title)
         is_result = has_matchup and "赛事结果" in title
         compact_matchup = has_matchup and (is_result or any(kind in title for kind in ("赛前提醒", "已开赛")))
         if is_result and winner_index is None:
@@ -83,12 +85,13 @@ class BannerRenderer:
         changed_times = {}
         if has_matchup and "赛程变更" in title:
             for line in lines:
-                changed = re.match(r"^(原定|调整)[：:].*?([0-2]\d:[0-5]\d)", line)
+                changed = re.fullmatch(r"^(原定|调整)[：:]\s*((?:\d{2}-\d{2} )?[0-2]\d:[0-5]\d)", line)
                 if changed:
                     changed_times[changed.group(1)] = changed.group(2)
-        time_transition = " → ".join(changed_times[key] for key in ("原定", "调整")) if len(changed_times) == 2 else ""
-        if time_transition:
-            display_time = changed_times["调整"]
+        time_transition, day_label = "", ""
+        if len(changed_times) == 2:
+            time_transition, day_label = reschedule_card_times(changed_times["原定"], changed_times["调整"])
+            display_time = time_transition
         body = []
         for line in lines:
             if time_transition and re.match(r"^(?:原定|调整)[：:]", line):
@@ -104,7 +107,7 @@ class BannerRenderer:
                 continue
             if re.match(r"^(?:还有|距开赛还有约).*(?:分钟|小时)", line):
                 continue
-            if re.match(r"^(?:开赛时间|原定|调整)[：:]", line):
+            if not is_opening and re.match(r"^(?:开赛时间|原定|调整)[：:]", line):
                 line = re.sub(r"(?<=[：:])\s*\d{2,4}[-/.年]\d{1,2}(?:[-/.月]\d{1,2}日?)?\s+(?=\d{2}:\d{2})", "", line)
             if has_matchup:
                 if all(name and name in line for name in names) and re.search(
@@ -176,6 +179,23 @@ class BannerRenderer:
             cursor += match_height + (21 if compact_matchup else 27)
 
         wrapped = []
+        if is_opening:
+            event = next((line[5:].strip() for line in body if line.startswith("赛事名称：")), "")
+            start = next((line[5:].strip() for line in body if line.startswith("开赛时间：")), "")
+            if event and start:
+                event_font = self._pick_banner_font(27)
+                event_mark = next((mark for mark in league_marks if mark["name"].casefold() in event.casefold()), None)
+                event_width = width - 2 * padding - (96 if event_mark else 40)
+                event_rows = self._wrap_notification_text(measure, event, event_font, event_width)
+                wrapped.append({"kind": "opening", "event_rows": event_rows, "font": event_font, "time": start,
+                                "icon": event_mark, "height": 94 + 35 * len(event_rows)})
+                secondary = ("赛事等级：", "预计结束：", "举办地点：", "奖金池：")
+                facts = [line for line in body if line.startswith(secondary)]
+                if facts:
+                    for row in self._wrap_notification_text(measure, "  ·  ".join(facts), detail_font, width - 2 * padding):
+                        wrapped.append((row.strip(" ·"), 25, detail_font, 0, muted, False, False))
+                    wrapped.append(("", 13, detail_font, 0, muted, False, False))
+                body = [line for line in body if line and not line.startswith(("赛事名称：", "开赛时间：", *secondary))]
         for line in body:
             if not line:
                 wrapped.append(("", 11, body_font, 0, muted, False, False))
@@ -212,9 +232,11 @@ class BannerRenderer:
                 entries = [entry.strip() for entry in re.split(r"[、,，]", participants.group(1)) if entry.strip()]
                 if entries:
                     gallery_entries = [(name, marks.get(self._team_key(name))) for name in entries]
-                    wrapped.append(("参赛战队", 27, detail_font, 0, muted, False, False))
-                    wrapped.append({"kind": "gallery", "entries": gallery_entries,
-                                    "height": self._team_gallery_height(measure, gallery_entries, detail_font)})
+                    row_gap = 12 if is_opening else 0
+                    wrapped.append(("参赛战队", 33 if is_opening else 27, detail_font, 0,
+                                    ink if is_opening else muted, False, False))
+                    wrapped.append({"kind": "gallery", "entries": gallery_entries, "row_gap": row_gap,
+                                    "height": self._team_gallery_height(measure, gallery_entries, detail_font, row_gap)})
                     continue
             day_group = bool(is_daily and re.match(r"^(?:今天|明天|\d{2}-\d{2})[（(]", line))
             detail = bool(re.match(r"^第\d+局[：:]|^各局详情[：:]|暂无详细数据", line))
@@ -261,7 +283,8 @@ class BannerRenderer:
             self._draw_card_text(draw, context_label, context_x, title_y + 4, context_font, "#dce5f0")
         if matchup:
             self._draw_matchup_card(image, draw, matchup, names, logo_images, is_result,
-                                    game_outcomes, winner_index, display_time, time_transition, compact=compact_matchup)
+                                    game_outcomes, winner_index, display_time, time_transition,
+                                    compact=compact_matchup, day_label=day_label)
         for item in wrapped:
             if isinstance(item, tuple):
                 row, row_height, font, indent, color, centered, bold = item
@@ -272,8 +295,29 @@ class BannerRenderer:
             if item["kind"] == "schedule":
                 cursor = self._draw_schedule_row(image, draw, item, cursor)
                 continue
+            if item["kind"] == "opening":
+                box_bottom = cursor + item["height"] - 16
+                draw.rounded_rectangle((padding, cursor, width - padding, box_bottom), radius=9,
+                                       fill="#e5ebf2", outline=rule)
+                draw.rounded_rectangle((padding, cursor + 14, padding + 4, box_bottom - 14),
+                                       radius=2, fill="#ff6848")
+                if item["icon"]:
+                    icon_x = width - padding - 67
+                    draw.rounded_rectangle((icon_x - 6, cursor + 12, icon_x + 50, cursor + 68),
+                                           radius=8, fill="#ffffff", outline=rule)
+                    self._draw_small_mark(image, draw, icon_x, cursor + 18,
+                                          item["icon"], 44, item["icon"]["name"])
+                for index, row in enumerate(item["event_rows"]):
+                    self._draw_card_text(draw, row, padding + 20, cursor + 17 + 35 * index, item["font"], ink)
+                label_y = cursor + 23 + 35 * len(item["event_rows"])
+                self._draw_card_text(draw, "开幕时间 · 北京时间", padding + 20, label_y, label_font, muted)
+                self._draw_card_text(draw, item["time"], padding + 20, label_y + 20,
+                                     self._pick_banner_font(25), ink)
+                cursor += item["height"]
+                continue
             if item["kind"] == "gallery":
-                cursor = self._draw_team_gallery(image, draw, item["entries"], cursor, padding, width, detail_font, ink, rule)
+                cursor = self._draw_team_gallery(image, draw, item["entries"], cursor, padding, width, detail_font, ink, rule,
+                                                 row_gap=item["row_gap"])
                 continue
             if item.get("icon"):
                 self._draw_small_mark(image, draw, padding, cursor + 2, item["icon"], item.get("icon_size", 25), item.get("row", "?"))
@@ -378,7 +422,8 @@ class BannerRenderer:
 
 
     def _draw_matchup_card(self, image, draw, matchup, names, logo_images, is_result,
-                           game_outcomes, winner_index, display_time="", time_transition="", *, compact=False):
+                           game_outcomes, winner_index, display_time="", time_transition="", *, compact=False,
+                           day_label=""):
         """Draw the shared team, score and round-outcome layout for CS cards."""
         from PIL import ImageStat
         width = 640
@@ -430,6 +475,12 @@ class BannerRenderer:
             shown_time = time_transition or display_time
             time_font = self._fit_banner_font(draw, shown_time, 180, 24, 16) if time_transition else self._pick_banner_font(34)
             self._draw_card_text(draw, shown_time, width // 2, time_y, time_font, ink, centered=True, bold=not compact and not time_transition)
+            if day_label:
+                bounds = draw.textbbox((0, 0), shown_time, font=time_font)
+                right = width // 2 + (bounds[2] - bounds[0]) / 2
+                draw.rounded_rectangle((right - 30, time_y - 21, right, time_y - 4), radius=4, fill="#e5ebf2")
+                self._draw_card_text(draw, day_label, right - 15, time_y - 18,
+                                     self._pick_banner_font(11), muted, centered=True)
             self._draw_card_text(draw, "北京时间", width // 2, time_y + (36 if compact else 45), label_font, gold, centered=True)
 
 
@@ -586,7 +637,7 @@ class BannerRenderer:
         for index, row in enumerate(rows):
             self._draw_card_text(draw, row, x + icon_size + 7, y + 1 + index * 19, font, color)
 
-    def _draw_team_gallery(self, image, draw, entries, y, padding, width, font, color, rule):
+    def _draw_team_gallery(self, image, draw, entries, y, padding, width, font, color, rule, *, row_gap=0):
         cell_w, cols, icon = 180, 3, 24
         rows = []
         for start in range(0, len(entries), cols):
@@ -599,16 +650,16 @@ class BannerRenderer:
                 row_h = max(row_h, len(name_rows) * 18)
                 for line_index, line in enumerate(name_rows):
                     self._draw_card_text(draw, line, x + icon + 7, y + 4 + line_index * 18, font, color)
-            y += max(30, row_h + 8)
+            y += max(30, row_h + 8) + row_gap
         return y
 
-    def _team_gallery_height(self, draw, entries, font):
+    def _team_gallery_height(self, draw, entries, font, row_gap=0):
         total = 0
         for start in range(0, len(entries), 3):
             batch = entries[start:start + 3]
             max_lines = max((len(self._wrap_notification_text(draw, name, font, 180 - 24 - 14))
                              for name, _ in batch), default=1)
-            total += max(30, max_lines * 18 + 8)
+            total += max(30, max_lines * 18 + 8) + row_gap
         return total
 
     def render_team_strip(self, team_marks, output_path: str) -> str:

@@ -4,7 +4,7 @@ import re
 from PIL import Image, ImageDraw, ImageFilter
 
 from .cs_major import is_major
-from .formatters import fmt_time, sched_str
+from .formatters import fmt_time, reschedule_card_times, sched_str
 from .match_stages import match_stage_label
 from .tournament_events import event_name
 
@@ -60,6 +60,9 @@ def major_context(*, text='', match=None, competition=None, snapshot=None):
             if not found:
                 return None
             timing[key] = found[1].strip()
+        timing['transition'], timing['day_label'] = reschedule_card_times(
+            timing['old_time'], timing['new_time'], sched_str(source),
+        )
     return {
         'kind': kind,
         'event': title,
@@ -163,8 +166,6 @@ class MajorNoticeRenderer:
             winner_index = None
         # Preserve meaningful formatter details without repeating its matchup.
         details = []
-        if kind == 'reschedule' and not matchup:
-            details.extend(self.rows(measure, f"原定 {context['old_time']}  →  调整 {context['new_time']}", 15))
         if '关注战队' in text:
             details.append('关注战队参赛')
         if result and context.get('draw'):
@@ -231,8 +232,15 @@ class MajorNoticeRenderer:
                 draw.line((293,y+141,347,y+141), fill=GOLD, width=2)
             elif kind == 'reschedule':
                 self.text(draw, 'VS', 320, y+46, 23, MUTED, True)
-                self.text(draw, f"{context['old_time']} → {context['new_time']}",
-                          320, y+87, 16, INK, True, 212)
+                transition = context['transition']
+                label = context['day_label']
+                font = s._fit_banner_font(draw, transition, 208, 23, 13)
+                s._draw_card_text(draw, transition, 320, y+87, font, INK, centered=True)
+                if label:
+                    bounds = draw.textbbox((0, 0), transition, font=font)
+                    right = 320 + (bounds[2] - bounds[0]) / 2
+                    draw.rounded_rectangle((right-30, y+65, right, y+82), radius=4, fill='#eee3ce')
+                    self.text(draw, label, right-15, y+68, 11, '#86652f', True)
                 self.text(draw, '北京时间', 320, y+119, 11, MUTED, True)
             else:
                 self.text(draw, 'VS', 320, y+46, 23, MUTED, True)
@@ -271,8 +279,10 @@ class MajorNoticeRenderer:
             draw.line((49,y+4,591,y+4), fill='#faf6ec')
             draw.line((590,y+67,590,y+76,575,y+76), fill='#c6a56b')
             draw.rectangle((38,y+17,41,y+65), fill=GOLD)
-            self.text(draw, '阶段开赛' if kind == 'stage' else '赛事开幕', 58, y+16, 12, MUTED)
-            self.text(draw, context.get('time', '时间待确认'), 58, y+40, 29)
+            self.text(draw, titles[kind], 58, y+16, 12, MUTED)
+            clock = (' '.join(filter(None, (context['transition'], context['day_label'])))
+                     if kind == 'reschedule' else context.get('time', '时间待确认'))
+            self.text(draw, clock, 58, y+40, 29)
             self.text(draw, '北京时间', 543, y+53, 12, MUTED, True)
             y += 98
             if context.get('end') and context['end'] != '未知':

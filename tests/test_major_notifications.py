@@ -43,12 +43,20 @@ class MajorNoticeIdentityTests(unittest.TestCase):
         self.assertEqual(self.context(match,'CS2 已开赛')['kind'],'started')
         self.assertEqual(self.context(match,'CS2 赛事结果 · 关注战队')['kind'],'result')
 
-    def test_reschedule_preserves_both_dates_and_times(self):
+    def test_reschedule_uses_clock_times_and_a_day_label(self):
         match = {**deepcopy(fixture.MATCH), 'serie': {'name':'Demo Major'}}
-        text = fixture.fmt.fmt_reschedule(match,'11-10 20:00','11-11 02:30')
-        context = notices.major_context(text=text,match=match)
-        self.assertEqual(context['kind'],'reschedule')
-        self.assertEqual((context['old_time'],context['new_time']),('11-10 20:00','11-11 02:30'))
+        for old, new, label in (
+            ('11-10 20:00', '11-10 02:30', ''),
+            ('11-10 20:00', '11-11 02:30', '次日'),
+            ('11-10 20:00', '11-12 02:30', '跨日'),
+            ('12-31 20:00', '01-01 02:30', '次日'),
+        ):
+            with self.subTest(old=old, new=new):
+                text = fixture.fmt.fmt_reschedule(match, old, new)
+                context = notices.major_context(text=text, match=match)
+                self.assertEqual(context['kind'], 'reschedule')
+                self.assertEqual(context['transition'], '20:00 → 02:30')
+                self.assertEqual(context['day_label'], label)
 
     def test_opening_uses_competition_context_and_start_uses_actual_time(self):
         match = {**deepcopy(fixture.MATCH), 'serie': {'full_name':'Demo Major'}}

@@ -37,6 +37,22 @@ def fmt_time(iso: Optional[str]) -> str:
         return iso
 
 
+def reschedule_card_times(old_time: str, new_time: str, scheduled_at: str | None = None) -> tuple[str, str]:
+    """Return the clock-only transition and an optional Beijing-time day badge."""
+    old_day, _, old_clock = old_time.rpartition(" ")
+    new_day, _, new_clock = new_time.rpartition(" ")
+    transition = f"{old_clock or '待确认'} → {new_clock or '待确认'}"
+    if not old_day or not new_day or old_day == new_day:
+        return transition, ""
+    try:
+        year = parse_dt(scheduled_at).astimezone(CST).year if scheduled_at else now_cst().year
+        new_date = datetime.strptime(f"{year}-{new_day}", "%Y-%m-%d").date()
+    except ValueError:
+        return transition, "跨日"
+    previous_day = (new_date - timedelta(days=1)).strftime("%m-%d")
+    return transition, "次日" if previous_day == old_day else "跨日"
+
+
 def parse_dt(iso: Optional[str]) -> datetime:
     if not iso:
         raise ValueError("empty datetime string")
