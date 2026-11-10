@@ -163,7 +163,7 @@ class MajorNoticeRenderer:
             winner_index = None
         # Preserve meaningful formatter details without repeating its matchup.
         details = []
-        if kind == 'reschedule':
+        if kind == 'reschedule' and not matchup:
             details.extend(self.rows(measure, f"原定 {context['old_time']}  →  调整 {context['new_time']}", 15))
         if '关注战队' in text:
             details.append('关注战队参赛')
@@ -230,11 +230,10 @@ class MajorNoticeRenderer:
                 self.text(draw, 'FINAL', 320, y+118, 11, MUTED, True)
                 draw.line((293,y+141,347,y+141), fill=GOLD, width=2)
             elif kind == 'reschedule':
-                old_clock = re.search(r'([0-2]\d:[0-5]\d)', context['old_time'])
-                new_clock = re.search(r'([0-2]\d:[0-5]\d)', context['new_time'])
-                self.text(draw, '原定 '+(old_clock[1] if old_clock else '待确认'), 320, y+51, 17, MUTED, True, 160)
-                self.text(draw, new_clock[1] if new_clock else '待确认', 320, y+88, 33, INK, True, 160)
-                self.text(draw, '调整后 · 北京时间', 320, y+131, 11, MUTED, True)
+                self.text(draw, 'VS', 320, y+46, 23, MUTED, True)
+                self.text(draw, f"{context['old_time']} → {context['new_time']}",
+                          320, y+87, 16, INK, True, 212)
+                self.text(draw, '北京时间', 320, y+119, 11, MUTED, True)
             else:
                 self.text(draw, 'VS', 320, y+46, 23, MUTED, True)
                 clock = context.get('time', '')
