@@ -32,6 +32,7 @@ ROUTES = (
     ("POST", r"/api/teams", "add_team"),
     ("POST", r"/api/teams/unfollow", "remove_team"),
     ("GET", r"/api/logs", "get_logs"),
+    ("GET", r"/api/diagnostics", "get_diagnostics"),
     ("POST", r"/api/notified/clear", "clear_notified"),
     ("POST", r"/api/tasks/rebuild", "rebuild_tasks"),
     ("PATCH", r"/api/matches/(?P<mid>[0-9]+)", "patch_match"),
@@ -72,6 +73,7 @@ class PluginView:
         for endpoint, handler, methods, desc in (
             ("panel", self.dispatch, ["GET", "POST"], "CS2 管理面板"),
             ("export", self.export, ["GET"], "导出 CS2 配置（不含令牌）"),
+            ("diagnostics", self.export_diagnostics, ["GET"], "导出 CS2 推送诊断"),
         ):
             route = f"/{PLUGIN_NAME}/{endpoint}"
             context.register_web_api(route, handler, methods, desc)
@@ -138,3 +140,12 @@ class PluginView:
             self.plugin.store.export_all(),
             headers={"Content-Disposition": 'attachment; filename="cs2-config.json"'},
         )
+
+    async def export_diagnostics(self):
+        try:
+            result = await self.plugin.panel.get_diagnostics(
+                PanelRequest('GET', dict(self._request.query) | {'limit': '1000'}, None, {}))
+        except ConfigError as exc:
+            return self._json_response({'ok': False, 'msg': str(exc)}, status_code=400)
+        return self._json_response(json.loads(result.text), status_code=result.status,
+                                   headers={'Content-Disposition': 'attachment; filename="cs2-diagnostics.json"'})

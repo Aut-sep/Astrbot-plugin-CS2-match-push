@@ -58,6 +58,7 @@ from .bracket_images import BracketImages
 from .daily_image_cache import DailyImageCache, daily_image_key
 from .group_rules import Rules, current as current_rules, scope as rule_scope, selected_group, send_allowed, has_send_gate, groups_for, any_match
 from .group_notifications import GroupNotifications
+from .push_diagnostics import PushDiagnostics, emit as diagnostic_event, match_evidence, selection_evidence, cleanup_reason
 from .reschedule_notices import queue_change, schedule_changed, send_pending as send_pending_reschedules
 
 # 每个并发推送独立关联通知，避免重试时重复发送给已成功的群。
@@ -91,7 +92,12 @@ class CSMatchPlugin(Star):
         sync_host_config(self.store, config, first_run=first_run)
         self._ensure_web_panel_token()
         self._sync_runtime_config_from_store()
+        self.diagnostics = PushDiagnostics(
+            data_dir / 'push_diagnostics.sqlite3', clock=lambda: now_utc().timestamp(),
+            secrets=(self._token, self.store.get('web_panel_token')), on_error=logger.warning,
+        )
         self.client = PandaScoreClient(self._token)
+        self.client.diagnostics = self.diagnostics
         self._scheduled: list    = []
         self._schedule_data_ready = False
         self._schedule_status = "loading" if self._token else "unconfigured"
@@ -226,6 +232,8 @@ class CSMatchPlugin(Star):
         except asyncio.CancelledError:
             return
         if exc:
+            diagnostic_event(self, 'task_exception', level='ERROR', error=exc, evidence={'task': label},
+                             match_id=int(label.split(':')[1]) if label.split(':')[0] in {'remind', 'result'} else None)
             logger.error(f"[CS] 后台任务异常({label}): {type(exc).__name__}: {exc}")
 
     async def reload_runtime_config(self):
@@ -233,6 +241,8 @@ class CSMatchPlugin(Star):
         self._token = str(self.store.get("pandascore_token") or "").strip()
         # 复用会话，避免修改无关设置时关闭正在请求的连接。
         self.client.headers["Authorization"] = f"Bearer {self._token}"
+        self.diagnostics.secrets = tuple(dict.fromkeys((*self.diagnostics.secrets,
+            *(str(s) for s in (self._token, self.store.get('web_panel_token')) if s))))
         self.bracket_images.request_refresh()
         self._schedule_daily_image_warm()
 
@@ -281,6 +291,7 @@ class CSMatchPlugin(Star):
 
         self._create_background_task(self.bracket_images.run(), "bracket_image_warm")
         self._restore_result_polls()
+        self._create_background_task(self._diagnostic_loop(), 'diagnostic_watchdog')
         self._loop_task       = self._create_background_task(self._poll_loop(), "poll_loop")
         self._daily_push_task = self._create_background_task(self._daily_push_loop(), "daily_push_loop")
         self._tournament_task = self._create_background_task(self._tournament_announce_loop(), "tournament_loop")
@@ -289,6 +300,8 @@ class CSMatchPlugin(Star):
         self.panel.push_log("OK", f"插件启动，刷新间隔 {self._fetch_interval} 分钟")
 
     async def destroy(self):
+        diagnostic_event(self, 'shutdown', evidence={'reminder_matches': list(self._match_tasks),
+                                                    'result_matches': list(self._result_tasks)})
         self.plugin_view.unregister()
         tasks_to_cancel = []
         for task in (self._loop_task, self._daily_push_task, self._tournament_task):
@@ -317,6 +330,7 @@ class CSMatchPlugin(Star):
             await asyncio.gather(*tasks_to_cancel, return_exceptions=True)
         await self.panel.stop()
         await self.client.close()
+        self.diagnostics.close()
         logger.info("[CS] 插件已停止")
 
     async def terminate(self):
@@ -346,8 +360,12 @@ class CSMatchPlugin(Star):
 
     def clear_match_notifications(self):
         self.store.clear_match_notifications()
+        diagnostics = getattr(self, 'diagnostics', None)
+        if diagnostics is not None:
+            diagnostics.reset_watches()
 
     def rebuild_all_match_tasks(self):
+        diagnostic_event(self, 'manual_rebuild', evidence={'match_ids': list(self._match_tasks)})
         for task in self._match_tasks.values():
             task.cancel()
         self._match_tasks.clear()
@@ -468,7 +486,8 @@ class CSMatchPlugin(Star):
         meta = self._result_meta.get(mid, {})
         return meta.get("match")
 
-    def _cancel_match_remind_task(self, mid: int):
+    def _cancel_match_remind_task(self, mid: int, reason='manual_rebuild'):
+        diagnostic_event(self, reason, match_id=mid, evidence={'action': 'cancel_reminder'})
         task = self._match_tasks.get(mid)
         if task and not task.done():
             task.cancel()
@@ -476,6 +495,7 @@ class CSMatchPlugin(Star):
         self._scheduled_mids.discard(mid)
 
     def _cancel_match_result_task(self, mid: int):
+        diagnostic_event(self, 'manual_rebuild', match_id=mid, evidence={'action': 'cancel_result'})
         task = self._result_tasks.get(mid)
         if task and not task.done():
             task.cancel()
@@ -484,6 +504,11 @@ class CSMatchPlugin(Star):
 
     def _start_match_remind_task(self, match: dict, remind_min: int):
         mid = match["id"]
+        diagnostics = getattr(self, 'diagnostics', None)
+        if diagnostics is not None:
+            diagnostics.track(self, match)
+        diagnostic_event(self, 'reminder_scheduled', match=match,
+                         evidence={'selection': selection_evidence(self.store, match)})
         task = self._create_background_task(self._schedule_match(match, remind_min), f"remind:{mid}")
         self._match_tasks[mid] = task
         self._scheduled_mids.add(mid)
@@ -497,7 +522,7 @@ class CSMatchPlugin(Star):
             self.store.set_custom_remind(mid, remind_minutes)
             msg = f"已设置比赛 {mid} 自定义提醒：{remind_minutes} 分钟"
 
-        self._cancel_match_remind_task(mid)
+        self._cancel_match_remind_task(mid, 'reminder_updated')
 
         match = self._find_scheduled_match(mid)
         if match:
@@ -538,8 +563,19 @@ class CSMatchPlugin(Star):
             except asyncio.CancelledError:
                 raise
             except Exception as e:
+                diagnostic_event(self, 'task_exception', level='ERROR', error=e, evidence={'task': 'poll_loop'})
                 logger.error(f"[CS] 日程刷新异常，将在下一轮重试: {e}")
                 await asyncio.sleep(60)
+
+    async def _diagnostic_loop(self):
+        while True:
+            try:
+                self.diagnostics.audit(self)
+            except asyncio.CancelledError:
+                raise
+            except Exception as exc:
+                diagnostic_event(self, 'watchdog_failed', level='ERROR', error=exc)
+            await asyncio.sleep(60)
 
     # ── 每日定时推送循环 ──────────────────
 
@@ -559,6 +595,7 @@ class CSMatchPlugin(Star):
             except asyncio.CancelledError:
                 break
             except Exception as e:
+                diagnostic_event(self, 'task_exception', level='ERROR', error=e, evidence={'task': 'tournament_loop'})
                 logger.error(f"[CS] 赛事开幕检测异常: {e}")
                 await asyncio.sleep(300)
 
@@ -687,6 +724,7 @@ class CSMatchPlugin(Star):
             self._schedule_status = "error"
             raise
         if matches is None:
+            diagnostic_event(self, 'schedule_failed', level='WARN')
             self._schedule_status = "error"
             logger.warning("[CS] 日程请求失败，保留已有任务")
             self.panel.push_log("WARN", "日程请求失败，保留已有任务")
@@ -697,14 +735,29 @@ class CSMatchPlugin(Star):
 
         to_schedule = []
         for m in matches:
+            if getattr(self, 'diagnostics', None) is not None:
+                diagnostic_event(self, 'schedule_received', match=m,
+                                 evidence={'selection': selection_evidence(self.store, m)},
+                                 dedupe=f"schedule:{m.get('id')}")
             if m.get("status") != "not_started" or not _should_track(m):
+                diagnostic_event(self, 'schedule_filtered', match=m,
+                                 evidence={'cause': 'status' if m.get('status') != 'not_started' else 'selection'},
+                                 dedupe=f"filtered:{m.get('id')}")
                 continue
             try:
                 sched_dt = parse_dt(sched_str(m))
             except (TypeError, ValueError):
+                diagnostic_event(self, 'schedule_filtered', match=m, level='WARN',
+                                 evidence={'cause': 'invalid_time'}, dedupe=f"filtered:{m.get('id')}")
                 continue
             if now < sched_dt <= cutoff:
                 to_schedule.append(m)
+            else:
+                diagnostic_event(self, 'schedule_filtered', match=m,
+                                 evidence={'cause': 'time_elapsed' if sched_dt <= now else 'outside_window'},
+                                 dedupe=f"filtered:{m.get('id')}")
+                if sched_dt <= now and getattr(self, 'diagnostics', None) is not None:
+                    self.diagnostics.track(self, m, phase='observed')
 
         self._scheduled = to_schedule
         self._schedule_data_ready = True
@@ -722,6 +775,9 @@ class CSMatchPlugin(Star):
                 # Resolve the known match before removing its reminder/tracking.
                 fresh = await self.client.get_match_result(mid)
                 if not fresh or str(fresh.get("id")) != str(mid) or not fresh.get("status"):
+                    diagnostic_event(self, 'state_unverified', match_id=mid, level='WARN',
+                                     evidence={'old_snapshot': self.store.get_match_snapshot(mid),
+                                               'response': match_evidence(fresh) if fresh else None})
                     self.panel.push_log("WARN", f"比赛 {mid} 移出赛程但状态未核实，保留原追踪任务")
                     unverified_changes.add(mid)
                     continue
@@ -735,6 +791,12 @@ class CSMatchPlugin(Star):
                         to_schedule.append(fresh)
                         current_mids.add(mid)
                         continue
+                reason = cleanup_reason(fresh, _should_track(fresh), now, cutoff)
+                diagnostic_event(self, reason, match=fresh, level='WARN' if reason.startswith('not_started_') else 'INFO',
+                                 evidence={'action': 'cancel_reminder', 'now': now.isoformat(),
+                                           'cutoff': cutoff.isoformat(), 'old_snapshot': self.store.get_match_snapshot(mid),
+                                           'selection': selection_evidence(self.store, fresh),
+                                           'result_handoff': reason in {'handoff_running', 'handoff_finished'}})
                 task = self._match_tasks.get(mid)
                 if task and not task.done():
                     task.cancel()
@@ -763,7 +825,9 @@ class CSMatchPlugin(Star):
                         logger.info(f"[CS] 比赛 {mid} 已开赛或结束，从赛前任务转入赛果追踪")
                         self.panel.push_log("INFO", f"比赛 {mid} 已开赛或结束，已衔接赛果追踪")
                     continue
-                logger.info(f"[CS] 取消不再符合条件的比赛 {mid} 提醒任务（{fresh['status']}）")
+                logger.info(f"[CS] 取消比赛 {mid} 提醒任务：reason={reason}, status={fresh['status']}, "
+                            f"scheduled_at={fresh.get('scheduled_at')}, begin_at={fresh.get('begin_at')}")
+                self.panel.push_log('WARN', f'比赛 {mid} 提醒任务取消：{reason}，详见推送诊断')
                 self.store.del_match_snapshot(mid)
 
         # ── 为每场比赛安排/更新提醒任务 ──────────────────────────────────
@@ -830,6 +894,8 @@ class CSMatchPlugin(Star):
 
             # 需要重建任务（时间或队伍变更）
             if needs_rebuild and mid in self._scheduled_mids:
+                diagnostic_event(self, 'task_replaced', match=match,
+                                 evidence={'old_snapshot': old_snap, 'reason': change_reason})
                 task = self._match_tasks.get(mid)
                 if task and not task.done():
                     task.cancel()
@@ -862,6 +928,7 @@ class CSMatchPlugin(Star):
             track_result = await self._run_remind(match, remind_min)
         except asyncio.CancelledError:
             cancelled = True
+            diagnostic_event(self, 'task_canceled', match=match, evidence={'result_handoff': False})
             raise
         finally:
             owns_task = self._match_tasks.get(mid) is asyncio.current_task()
@@ -935,6 +1002,10 @@ class CSMatchPlugin(Star):
     async def _run_result_poll(self, match: dict):
         """阶段2：开赛后独立轮询结果，记录进度供 Web 面板展示"""
         mid       = match["id"]
+        diagnostics = getattr(self, 'diagnostics', None)
+        if diagnostics is not None:
+            diagnostics.track(self, match, phase='result')
+        diagnostic_event(self, 'result_tracking', match=match)
         if str(mid) in self.store.get("result_recovery_ignored", {}):
             self.store.clear_pending_result(mid)
             return
@@ -958,6 +1029,8 @@ class CSMatchPlugin(Star):
         try:
             while True:
                 if now_utc() >= deadline:
+                    diagnostic_event(self, 'result_deadline', match=match, level='WARN',
+                                     evidence={'attempt': attempt, 'deadline': deadline.isoformat()})
                     logger.warning(f"[CS] 比赛 {mid} 超过截止时间，放弃查询结果")
                     self.panel.push_log("WARN", f"比赛 {mid} 超时放弃（已查询 {attempt} 次）")
                     self.store.clear_pending_result(mid)
@@ -982,6 +1055,7 @@ class CSMatchPlugin(Star):
                         self.panel.push_log("OK", f"已推送赛后结果：比赛 {mid}（查询 {attempt} 次）")
                         return
                 elif result and result.get("status") == "canceled":
+                    diagnostic_event(self, 'result_canceled', match=result)
                     self.panel.push_log("INFO", f"比赛 {mid} 已取消，停止结果轮询")
                     self.store.clear_pending_result(mid)
                     return
@@ -1527,6 +1601,7 @@ class CSMatchPlugin(Star):
         try:
             return bool(await sender())
         except Exception as exc:
+            diagnostic_event(self, 'notification_failed', key=key, group_id=selected_group(), level='ERROR', error=exc)
             logger.error(f"[CS] 通知发送异常，将重试({key}): {exc}")
             return False
         finally:
@@ -1557,8 +1632,12 @@ class CSMatchPlugin(Star):
             label = self._format_target_label(target_type, target_id)
             try:
                 if is_active is not None and not is_active((target_type, target_id)):
+                    diagnostic_event(self, 'send_blocked', key=key, group_id=target_id,
+                                     evidence={'cause': 'inactive_event'})
                     continue
                 if not send_allowed() or (has_send_gate() and str(target_id) not in self.store.get_groups()):
+                    diagnostic_event(self, 'send_blocked', key=key, group_id=target_id,
+                                     evidence={'cause': 'policy_changed'})
                     continue
                 # Rendering may await; scheduled daily events must still be active
                 # before counting a receipt or sending this target.
@@ -1579,6 +1658,8 @@ class CSMatchPlugin(Star):
                     continue
                 if is_active is not None and not is_active((target_type, target_id)):
                     continue
+                diagnostic_event(self, 'send_attempt', key=key, group_id=target_id,
+                                 evidence={'target_type': target_type, 'platform': self.store.get('push_platform_id')})
                 result = await send_target(
                     self.context, target_type, target_id, chain,
                     platform_id=self.store.get("push_platform_id") or None,
@@ -1592,11 +1673,19 @@ class CSMatchPlugin(Star):
                 if message_id:
                     ref["message_id"] = message_id
                 if key:
-                    self.store.mark_delivery_target(key, target_key)
+                    try:
+                        self.store.mark_delivery_target(key, target_key)
+                    except Exception as exc:
+                        diagnostic_event(self, 'receipt_failed', key=key, group_id=target_id, level='ERROR', error=exc,
+                                         evidence={'message_id': message_id, 'platform_accepted': True})
+                        raise
                 sent_refs.append(ref)
+                diagnostic_event(self, 'send_success', key=key, group_id=target_id,
+                                 evidence={'target_type': target_type, 'message_id': message_id})
                 logger.info(f"[CS] 已推送 -> {label}")
                 self.panel.push_log("OK", f"消息已推送到 {label}")
             except Exception as e:
+                diagnostic_event(self, 'send_failed', key=key, group_id=target_id, level='ERROR', error=e)
                 logger.error(f"[CS] 推送失败 {label}: {e}")
                 self.panel.push_log("ERROR", f"推送失败 {label}: {e}")
         return sent_refs

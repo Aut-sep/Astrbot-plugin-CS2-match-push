@@ -184,6 +184,7 @@ class WebPanel:
         a.add_post("/api/teams/unfollow",       self.remove_team)
         a.add_delete("/api/teams/{name}",       self.remove_team)    # 保留兼容
         a.add_get("/api/logs",                  self.get_logs)
+        a.add_get("/api/diagnostics",           self.get_diagnostics)
         a.add_post("/api/notified/clear",       self.clear_notified)
         a.add_post("/api/tasks/rebuild",        self.rebuild_tasks)
         # 单场比赛：自定义提醒时间 & 手动重建
@@ -535,6 +536,19 @@ class WebPanel:
 
     async def get_logs(self, req):
         return self._json({"ok": True, "logs": list(self._logs)[-100:]})
+
+    async def get_diagnostics(self, req):
+        query = req.rel_url.query
+        raw_mid = query.get('match_id', '')
+        mid = integer(raw_mid, 'match_id', 1, 2**63 - 1) if raw_mid else None
+        limit = integer(query.get('limit', '100'), 'limit', 1, 1000)
+        view = query.get('view') or None
+        if view not in (None, 'matches', 'detail'):
+            raise ConfigError('不支持的诊断视图')
+        diagnostics = getattr(self.plugin, 'diagnostics', None)
+        if diagnostics is None:
+            return self._json({'ok': False, 'msg': '当前实例尚未启用持久化诊断'}, 503)
+        return self._json({'ok': True, **diagnostics.query(match_id=mid, limit=limit, view=view)})
 
     async def clear_notified(self, req):
         self.plugin.clear_match_notifications()

@@ -48,6 +48,240 @@ let searchSequence = 0;
 let setupGuide;
 let groupRuleEditor;
 let pushViewInitialized = false;
+let diagnosticSequence = 0;
+
+function diagnosticQuery(limit = 100) {
+  const match = $('#diagnostic-match').value.trim();
+  if (match && !/^[1-9][0-9]*$/.test(match)) throw new Error('请输入有效的比赛 ID。');
+  return { ...(match ? { match_id: match } : {}), limit };
+}
+
+const diagnosticTime = (value) => value
+  ? new Date(value * 1000).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false })
+  : '暂无记录';
+
+const diagnosticNotices = {
+  upcoming: '赛前提醒',
+  finished: '赛果通知',
+  daily: '赛程日报',
+  series: '赛事开幕通知',
+  reschedule: '改期通知',
+  'major-stage': 'Major 阶段通知',
+};
+const diagnosticKinds = {
+  missing_upcoming: 'upcoming',
+  reminder_scheduled: 'upcoming',
+  task_canceled: 'upcoming',
+  missing_finished: 'finished',
+  result_tracking: 'finished',
+  result_tracking_lost: 'finished',
+  result_deadline: 'finished',
+  daily_overdue: 'daily',
+};
+
+const diagnosticCopy = {
+  missing_upcoming: ['赛前提醒可能漏发', '已过提醒时间，插件还没查到这条消息发送成功的记录。先查看同场比赛的记录，看看提醒是否被取消或发送失败。'],
+  missing_finished: ['赛果通知可能漏发', '插件查到比赛已结束，但没有找到赛果发送成功的记录。可以先在 QQ 中确认是否收到，再查看同场比赛的发送记录。'],
+  result_tracking_lost: ['赛果可能不会自动发送', '已过计划开赛时间，插件没有继续跟踪这场比赛的结果。可以先查看同场比赛有没有取消或改期记录。'],
+  daily_overdue: ['赛程日报可能漏发', '已过日报发送时间，插件仍在等待发送。可以先在 QQ 中确认是否收到。'],
+  issue_resolved: ['巡检已不再标记这项问题', '可能是推送恢复了，也可能是这条通知已无需发送。可查看同场的发送记录确认。'],
+  not_started_time_elapsed: ['取消赛前提醒：开赛时间已过去', '赛程来源仍显示比赛未开始，但给出的开赛时间已过去。插件因此撤掉了这次提醒。'],
+  not_started_time_invalid: ['取消赛前提醒：开赛时间有误', '赛程来源仍显示比赛未开始，但缺少有效的开赛时间。插件因此撤掉了这次提醒。'],
+  selection_rejected: ['比赛未通过推送设置筛选', '可检查推送设置里的关注队伍、赛事等级和屏蔽名单。'],
+  schedule_filtered: ['这次没有安排提醒'],
+  schedule_failed: ['暂时无法获取赛程', '插件保留了之前安排好的提醒。'],
+  single_match_received: ['已更新这场比赛的状态'],
+  reminder_scheduled: ['已安排赛前提醒'],
+  result_tracking: ['正在跟踪比赛结果'],
+  state_unverified: ['暂时无法确认比赛状态', '插件保留了原有安排，等待后续赛程更新。'],
+  status_canceled: ['赛程来源标记比赛取消'],
+  status_postponed: ['赛程来源标记比赛延期'],
+  status_unexpected: ['比赛状态无法识别'],
+  outside_window: ['新开赛时间超出本次赛程查询范围', '比赛改期到了插件本次查询赛程的时间范围以外。'],
+  handoff_running: ['比赛已开打，转为跟踪赛果'],
+  handoff_finished: ['比赛已结束，转为查询赛果'],
+  task_replaced: ['赛前提醒已重新安排', '开赛时间或对阵队伍有变动。'],
+  task_canceled: ['赛前提醒任务已取消'],
+  result_deadline: ['等待赛果超时', '插件在规定时间内未能获取最终比分。'],
+  send_attempt: ['正在尝试发送'],
+  send_success: ['QQ 平台已接受消息', '插件已保存发送成功记录。可在 QQ 中确认消息是否显示。'],
+  send_failed: ['发送时出现错误', '插件未能确认这条消息发送成功。请先在 QQ 中确认是否收到，再决定是否补发。'],
+  receipt_failed: ['QQ 平台已接受消息，发送记录保存失败', '请先到 QQ 查看消息是否已经收到，避免重复补发。'],
+  notification_failed: ['生成或发送通知时出错', '可以展开技术详情查看出错环节。'],
+  send_blocked: ['发送前检查未通过'],
+  notification_skipped: ['这次跳过了通知'],
+  request_failed: ['获取赛事数据失败'],
+  response_invalid: ['赛程来源返回的数据格式有误'],
+  task_exception: ['插件后台处理出错'],
+  recorder_started: ['推送诊断已启动'],
+  watchdog_failed: ['自动检查时出错'],
+  notification_reset: ['通知记录已被手动清空'],
+};
+
+const diagnosticCauses = {
+  status: '比赛状态暂时不符合赛前提醒条件。',
+  selection: '可检查推送设置里的关注队伍、赛事等级和屏蔽名单。',
+  invalid_time: '赛程来源没有提供有效的开赛时间。',
+  time_elapsed: '赛程来源给出的开赛时间已过去。',
+  outside_window: '开赛时间超出本次查询赛程的时间范围。',
+  inactive_event: '这条通知已失效。',
+  policy_changed: '当前推送设置下，这个接收方已无需接收这条通知。',
+  group_policy_or_historical: '当前群设置或启用时间下，这场比赛无需推送给该群。',
+  canceled: '赛程来源标记比赛取消。',
+  postponed: '赛程来源标记比赛延期。',
+  already_started_handoff: '比赛已开打，插件转为跟踪赛果。',
+  teams_unconfirmed: '至少一支对阵队伍还未确定。',
+};
+
+function renderDiagnostic(record, isIssue, expanded) {
+  const evidence = record.evidence || {};
+  const reason = record.reason;
+  const copy = Object.hasOwn(diagnosticCopy, reason) ? diagnosticCopy[reason] : [];
+  const title = copy[0] || (record.message !== reason ? record.message : '') || '记录了一次推送处理';
+  const description = copy[1] || (Object.hasOwn(diagnosticCauses, evidence.cause) ? diagnosticCauses[evidence.cause] : '');
+  const kind = (record.event_key || evidence.event_key || '').split(':')[0] || diagnosticKinds[reason];
+  const notice = Object.hasOwn(diagnosticNotices, kind) ? diagnosticNotices[kind] : '';
+  const needsAttention = isIssue ? !record.resolved_at : ['WARN', 'ERROR'].includes(record.level);
+  const status = isIssue ? (needsAttention ? '需要关注' : '已解除标记') : '';
+  const audience = record.group_id
+    ? `${isIssue || evidence.target_type === 'group' ? 'QQ 群' : '接收方'} ${record.group_id}`
+    : '';
+  const meta = [record.match_id ? notice : '', audience, diagnosticTime(isIssue ? record.last_seen : record.ts)].filter(Boolean);
+  const key = isIssue ? `issue-${record.issue_key}` : `event-${record.id}`;
+  return `
+    <article class="diagnostic-event${needsAttention ? ' diagnostic-warning' : ''}">
+      ${!record.match_id && notice ? `<h5>${escaped(notice)}</h5>` : ''}
+      <p class="diagnostic-meta">${meta.map(escaped).join(' · ')}</p>
+      <p class="diagnostic-summary">${status ? `<span class="diagnostic-status">${status}</span>` : ''}<strong>${escaped(title)}</strong></p>
+      ${description ? `<p>${escaped(description)}</p>` : ''}
+      ${evidence.due_at ? `<p>原定发送时间 ${escaped(diagnosticTime(evidence.due_at))}</p>` : ''}
+      <details data-diagnostic-key="${escaped(key)}"${expanded.has(key) ? ' open' : ''}>
+        <summary>技术详情${record.match_id ? ` · 比赛 ID ${escaped(record.match_id)}` : ''}</summary>
+        <p>${[reason, record.level, record.event_key].filter(Boolean).map(escaped).join(' · ')}</p>
+        ${isIssue ? `<p>首次发现 ${escaped(diagnosticTime(record.first_seen))}${record.resolved_at ? ` · 解除标记 ${escaped(diagnosticTime(record.resolved_at))}` : ''}</p>` : ''}
+        <pre>${escaped(JSON.stringify(evidence, null, 2))}</pre>
+      </details>
+    </article>`;
+}
+
+const diagnosticMatchLimit = 30;
+const diagnosticDetailLimit = 20;
+
+function diagnosticMatchHeading(match) {
+  const teams = match.match_teams || [];
+  if (!teams.some((name) => name && name !== 'TBD')) return '对阵待确认';
+  return teams.map((name) => name && name !== 'TBD'
+    ? `<span class="diagnostic-team">${escaped(name)}</span>`
+    : '待定').join(' <span class="diagnostic-versus">对</span> ');
+}
+
+async function loadDiagnosticDetail(card) {
+  if (card.dataset.loading === 'true') return;
+  card.dataset.loading = 'true';
+  const content = $('.diagnostic-match-body', card);
+  const matchId = card.dataset.diagnosticMatchId;
+  const query = { view: 'detail', limit: diagnosticDetailLimit, ...(matchId ? { match_id: matchId } : {}) };
+  content.setAttribute('aria-busy', 'true');
+  try {
+    const result = await api('/api/diagnostics', 'GET', undefined, query);
+    if (!result.health?.available) throw new Error('诊断暂时不可用，请稍后刷新。');
+
+    const expanded = new Set($$('details[open]', content).map((detail) => detail.dataset.diagnosticKey));
+    const issues = result.issues || [];
+    const openIssues = issues.filter((issue) => !issue.resolved_at);
+    const closedIssues = issues.filter((issue) => issue.resolved_at);
+    const render = (records, isIssue = false) => records.map((record) => renderDiagnostic(record, isIssue, expanded)).join('');
+    const section = (key, title, records, { isIssue = false, count = records.length, startOpen = false } = {}) =>
+      records.length ? `<details class="diagnostic-group" data-diagnostic-key="${key}"${expanded.has(key) || startOpen ? ' open' : ''}>
+        <summary>${title} <span class="muted">（${count} 条）</span></summary>
+        ${count > records.length || records.length === diagnosticDetailLimit ? `<p class="muted">显示最近 ${records.length} 条，可导出查看更多。</p>` : ''}
+        ${render(records, isIssue)}</details>` : '';
+    const groups = result.event_groups || {};
+    content.innerHTML = (
+      section('issues', '需要关注', openIssues, { isIssue: true, count: result.open_issues, startOpen: !card.dataset.loaded }) +
+      section('schedule', '比赛安排', groups.schedule || []) +
+      section('delivery', '发送结果', groups.delivery || []) +
+      section('system', matchId ? '数据与运行记录' : '插件运行', groups.system || []) +
+      section('updates', '例行赛程更新', groups.updates || []) +
+      section('attempts', '发送尝试', groups.attempts || []) +
+      section('closed', '过去发现的问题', closedIssues, { isIssue: true })
+    ) || '<p class="muted">暂无可显示的记录。</p>';
+    card.dataset.loaded = 'true';
+  } catch (error) {
+    content.textContent = error.message || '记录加载失败，请稍后刷新。';
+  } finally {
+    card.dataset.loading = 'false';
+    content.removeAttribute('aria-busy');
+  }
+}
+
+async function loadDiagnostics({ refreshDetails = false } = {}) {
+  const sequence = ++diagnosticSequence;
+  const query = { ...diagnosticQuery(diagnosticMatchLimit), view: 'matches' };
+  const result = await api('/api/diagnostics', 'GET', undefined, query);
+  if (sequence !== diagnosticSequence) return;
+
+  const health = result.health || {};
+  const stale = !health.last_audit || Date.now() / 1000 - health.last_audit > 180;
+  $('#diagnostic-health').textContent = !health.available
+    ? '诊断暂时不可用，请管理员查看插件日志。'
+    : `${stale ? '自动检查尚未运行或已超过 3 分钟。' : '自动检查正常。'}最近检查 ${diagnosticTime(health.last_audit)}。`;
+  $('#diagnostic-error').hidden = !health.last_error;
+  $('#diagnostic-error-text').textContent = health.last_error || '';
+
+  const matches = result.matches || [];
+  const list = $('#diagnostic-matches');
+  const previous = new Map([...list.children].map((card) => [card.dataset.diagnosticMatchId, card]));
+  matches.forEach((match, index) => {
+    const id = String(match.match_id);
+    const card = previous.get(id) || document.createElement('details');
+    previous.delete(id);
+    if (!card.dataset.diagnosticMatchId) {
+      card.className = 'diagnostic-match';
+      card.dataset.diagnosticMatchId = id;
+      card.setAttribute('name', 'diagnostic-match-cards');
+      card.innerHTML = '<summary></summary><div class="diagnostic-match-body" aria-live="polite">正在加载这场比赛的记录…</div>';
+    }
+    const heading = `<span class="diagnostic-match-heading">${diagnosticMatchHeading(match)}</span>
+      ${match.open_issues ? `<span class="diagnostic-attention">${escaped(match.open_issues)} 项需要关注</span>` : ''}
+      <span class="diagnostic-meta">比赛 ID ${escaped(id)} · 最近记录 ${escaped(diagnosticTime(match.last_seen))}</span>`;
+    const summary = $('summary', card);
+    if (card.dataset.heading !== heading) {
+      summary.innerHTML = heading;
+      card.dataset.heading = heading;
+    }
+    if (list.children[index] !== card) list.insertBefore(card, list.children[index] || null);
+    if (query.match_id && refreshDetails) card.open = true;
+  });
+  for (const staleCard of previous.values()) staleCard.remove();
+
+  const empty = $('#diagnostic-empty');
+  empty.hidden = matches.length > 0;
+  empty.textContent = !health.available ? '暂时无法加载比赛记录。'
+    : query.match_id ? '没有找到这场比赛的诊断记录。' : '暂无需要关注或有推送记录的比赛。';
+  $('#diagnostic-list-note').hidden = Boolean(query.match_id) || matches.length === 0;
+  const general = $('#diagnostic-general');
+  general.hidden = Boolean(query.match_id);
+  if (general.hidden) general.open = false;
+  if (refreshDetails) {
+    await Promise.all($$('#diagnostics details[data-diagnostic-match-id][open]').map(loadDiagnosticDetail));
+  }
+}
+
+async function exportDiagnostics() {
+  const query = diagnosticQuery(1000);
+  if (bridge) {
+    await bridge.download('diagnostics', query, 'cs2-diagnostics.json');
+  } else {
+    const result = await api('/api/diagnostics', 'GET', undefined, query);
+    const url = URL.createObjectURL(new Blob([JSON.stringify(result, null, 2)], { type: 'application/json' }));
+    const link = document.createElement('a');
+    link.href = url; link.download = 'cs2-diagnostics.json';
+    document.body.append(link); link.click(); link.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  }
+  toast('已导出最近最多 1000 条诊断；可按比赛 ID 缩小范围。');
+}
 
 // Sandboxed AstrBot views can throw even when accessing the storage property.
 // Remembering a tab is optional; storage failures must not block the panel.
@@ -831,6 +1065,7 @@ function activateTab(name, { focus = false } = {}) {
     section.hidden = section.id !== name;
   });
   if (name === "advanced" && state.ready) run($("#refresh-logs"), loadLogs);
+  if (name === "diagnostics" && state.ready) run($('#refresh-diagnostics'), loadDiagnostics);
   if (name === "subscriptions" && state.ready) loadPopularTeams();
 }
 
@@ -1108,6 +1343,16 @@ function installEvents() {
   $("#refresh-logs").addEventListener("click", (event) =>
     run(event.currentTarget, loadLogs),
   );
+  const refreshDiagnostics = () => loadDiagnostics({ refreshDetails: true });
+  $('#refresh-diagnostics').addEventListener('click', (event) => run(event.currentTarget, refreshDiagnostics));
+  $('#diagnostics').addEventListener('toggle', (event) => {
+    const card = event.target;
+    if (card.matches('details[data-diagnostic-match-id]') && card.open) loadDiagnosticDetail(card);
+  }, true);
+  $('#export-diagnostics').addEventListener('click', (event) => run(event.currentTarget, exportDiagnostics));
+  $('#diagnostic-match').addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') { event.preventDefault(); run($('#refresh-diagnostics'), refreshDiagnostics); }
+  });
   $("#export-config").addEventListener("click", (event) =>
     run(event.currentTarget, exportConfig),
   );
@@ -1230,6 +1475,7 @@ async function importConfig(input) {
   await finishConfigSave(result, data, "配置已导入。", async () => {
     await loadConfig();
     await loadMatches();
+    if (state.active === 'diagnostics') await loadDiagnostics();
   });
 }
 
@@ -1296,11 +1542,15 @@ async function initialize() {
     setupGuide.startIfNeeded();
     if (state.active === "subscriptions") loadPopularTeams();
     await loadMatches();
+    if (state.active === 'diagnostics') await loadDiagnostics();
     $("#app").setAttribute("aria-busy", "false");
     pollTimer = setInterval(() => {
       if (!document.hidden && state.ready) {
         loadMatches({ quiet: true });
         if (state.active === "advanced") loadLogs().catch(() => {});
+        if (state.active === 'diagnostics') loadDiagnostics().catch((error) => {
+          $('#diagnostic-health').textContent = `诊断加载失败：${error.message}`;
+        });
       }
     }, 30000);
   } catch (error) {

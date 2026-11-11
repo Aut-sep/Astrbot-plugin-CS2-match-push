@@ -11,6 +11,7 @@ import aiohttp
 from astrbot.api import logger
 from .team_search import TeamSearch
 from .tournament_events import build_event
+from .push_diagnostics import emit as diagnostic_event
 
 API_BASE = "https://api.pandascore.co"
 SCHEDULE_PAGE_SIZE = 25
@@ -56,13 +57,20 @@ class PandaScoreClient:
                     if r.status == 200:
                         return await r.json()
                     logger.warning(f"[CS] 请求失败: HTTP {r.status} {url}")
+                    diagnostic_event(self, 'request_failed', level='WARN',
+                                     evidence={'endpoint': url.removeprefix(API_BASE), 'http_status': r.status,
+                                               'attempt': attempt + 1})
                     if r.status != 429 and r.status < 500:
                         return None
                     if r.status == 429:
                         delay = self._retry_delay(r.headers.get("Retry-After"))
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                diagnostic_event(self, 'request_failed', level='WARN', error=e,
+                                 evidence={'endpoint': url.removeprefix(API_BASE), 'attempt': attempt + 1})
                 logger.warning(f"[CS] 请求异常（第{attempt+1}次）: {type(e).__name__}")
             except ValueError:
+                diagnostic_event(self, 'response_invalid', level='WARN',
+                                 evidence={'endpoint': url.removeprefix(API_BASE), 'attempt': attempt + 1})
                 logger.warning(f"[CS] API 返回了无效 JSON: {url}")
             # 先退出响应上下文，释放连接后再等待，避免占用连接池。
             if attempt < 2:
@@ -131,6 +139,9 @@ class PandaScoreClient:
                 {"per_page": page_size, "page": page, "sort": "scheduled_at,id"},
             )
             if not isinstance(result, list) or any(not isinstance(m, dict) for m in result):
+                diagnostic_event(self, 'response_invalid', level='WARN',
+                                 evidence={'endpoint': '/csgo/matches/upcoming', 'page': page,
+                                           'response_type': type(result).__name__})
                 return None
             if result and result == previous_page:
                 logger.warning("[CS] API 返回重复分页，保留原有赛程")
@@ -331,4 +342,8 @@ class PandaScoreClient:
     async def get_match_result(self, match_id: int) -> dict | None:
         """查询单场比赛当前状态及结果，包括进行中、取消和延期状态。"""
         result = await self._request(f"{API_BASE}/matches/{match_id}", {})
+        diagnostic_event(self, 'single_match_received' if isinstance(result, dict) else 'response_invalid',
+                         match=result if isinstance(result, dict) else None, match_id=match_id,
+                         evidence={'endpoint': f'/matches/{match_id}', 'requested_match_id': match_id},
+                         level='INFO' if isinstance(result, dict) else 'WARN')
         return result if isinstance(result, dict) else None

@@ -143,6 +143,7 @@
           推送设置<span class="tab-dirty" hidden>●</span>
         </button>
         <button id="tab-tools" role="tab" aria-controls="tools" aria-selected="false" tabindex="-1" data-tab="tools">赛事工具</button>
+        <button id="tab-diagnostics" role="tab" aria-controls="diagnostics" aria-selected="false" tabindex="-1" data-tab="diagnostics">推送诊断</button>
         <button
           id="tab-advanced"
           role="tab"
@@ -460,6 +461,26 @@
         </article>
       </section>
 
+      <section id="diagnostics" role="tabpanel" aria-labelledby="tab-diagnostics" hidden>
+        <article class="card padded" aria-labelledby="diagnostics-title">
+          <h3 id="diagnostics-title">推送诊断</h3>
+          <p class="muted">展开一场比赛，查看它的异常、比赛安排和发送结果。</p>
+          <div class="diagnostic-toolbar">
+            <label for="diagnostic-match">按比赛 ID 查询（可选）<input id="diagnostic-match" inputmode="numeric" placeholder="例如 1762451" autocomplete="off"></label>
+            <button type="button" class="button" id="refresh-diagnostics">查看记录</button>
+            <button type="button" class="button" id="export-diagnostics">导出诊断记录</button>
+          </div>
+          <p id="diagnostic-health" role="status" class="muted">打开此页后加载诊断</p>
+          <details id="diagnostic-error" hidden><summary>查看诊断错误详情</summary><p id="diagnostic-error-text"></p></details>
+          <p id="diagnostic-list-note" class="muted" hidden>显示最近最多 30 场，待处理的比赛排在前面。也可按比赛 ID 查询。</p>
+          <div id="diagnostic-matches"></div>
+          <p id="diagnostic-empty" class="empty compact" role="status">正在加载比赛记录…</p>
+          <details class="diagnostic-match" id="diagnostic-general" data-diagnostic-match-id="">
+            <summary>其他通知与插件运行</summary>
+            <div class="diagnostic-match-body" aria-live="polite">正在加载记录…</div>
+          </details>
+        </article>
+      </section>
       <section id="advanced" role="tabpanel" aria-labelledby="tab-advanced" hidden>
         <div class="section-heading"><h2>高级维护</h2><p>管理数据源、可选入口与配置备份。</p></div>
         <form id="advanced-form" data-section="advanced">
@@ -506,6 +527,7 @@
             <div class="action-row"><div><strong>重置通知记录</strong><p>清除去重状态，已发送过的比赛可能再次推送。</p></div><button type="button" class="button danger" id="clear-notified">重置记录</button></div>
           </div></details>
         </article>
+
         <details class="card disclosure">
           <summary><span>运行日志<small>最近 100 条面板事件</small></span></summary><div class="disclosure-body"><div class="log-toolbar"><button type="button" class="button" id="refresh-logs">刷新日志</button></div><div id="logs" class="logs"><div class="empty">打开此页后加载日志</div></div></div>
         </details>

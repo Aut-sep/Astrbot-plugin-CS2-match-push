@@ -6,6 +6,7 @@ from datetime import timedelta
 from astrbot.api import logger
 from .formatters import CST, fmt_daily_schedule, fmt_tournament_announce, is_push_ready_match, parse_dt, sched_str, team_name
 from .group_rules import Rules, groups_for, scope
+from .push_diagnostics import emit as diagnostic_event
 
 
 def now_utc():
@@ -34,7 +35,9 @@ class GroupNotifications:
     def freeze(self, key, groups):
         try:
             return self.p.store.freeze_targets(key, groups)
-        except OSError:
+        except OSError as exc:
+            diagnostic_event(self.p, 'notification_failed', key=key, level='ERROR', error=exc,
+                             evidence={'stage': 'freeze_targets'})
             logger.exception('[CS] 无法保存通知目标，本轮不投递，稍后重试')
             return None
 
@@ -55,6 +58,8 @@ class GroupNotifications:
         def gate():
             return self.active(gid, kind, match, event) and (extra is None or extra())
         if not gate():
+            diagnostic_event(self.p, 'send_blocked', key=key, group_id=gid,
+                             evidence={'cause': 'group_policy_or_historical'})
             return False
         async def attempt():
             if f'group:{gid}' in self.p.store.get_delivery_targets(key):
@@ -97,14 +102,20 @@ class GroupNotifications:
                 if fresh and str(fresh.get('id')) == str(mid):
                     status = fresh.get('status')
                     if status in {'canceled', 'postponed'}:
+                        diagnostic_event(p, 'notification_skipped', match=fresh, key=key,
+                                         evidence={'cause': status})
                         return False
                     if status in {'running', 'finished'}:
+                        diagnostic_event(p, 'notification_skipped', match=fresh, key=key,
+                                         evidence={'cause': 'already_started_handoff'})
                         match.clear(); match.update(deepcopy(fresh))
                         return True
                     if status == 'not_started':
                         try:
                             start = parse_dt(sched_str(fresh))
                         except (TypeError, ValueError):
+                            diagnostic_event(p, 'notification_skipped', match=fresh, key=key, level='WARN',
+                                             evidence={'cause': 'invalid_time'})
                             return False
                         changed = start != parse_dt(sched_str(match))
                         match.clear(); match.update(deepcopy(fresh))
@@ -126,6 +137,9 @@ class GroupNotifications:
                                     lambda minutes=minutes, rules=rules: p._push_upcoming(
                                         match, minutes, p.store.get('custom_streams') or [], rules.get_followed_team_names()),
                                     match=match)
+                        else:
+                            diagnostic_event(p, 'notification_skipped', match=match, key=key,
+                                             evidence={'cause': 'teams_unconfirmed'}, dedupe=f'unconfirmed:{mid}')
                 else:
                     p.panel.push_log('WARN', f'比赛 {mid} 赛前状态未核实，暂不发送提醒')
             delivered = p.store.get_delivery_targets(key)
@@ -293,7 +307,8 @@ class GroupNotifications:
                 watermark = max(watermark, now)
             except asyncio.CancelledError:
                 raise
-            except Exception:
+            except Exception as exc:
+                diagnostic_event(self.p, 'task_exception', level='ERROR', error=exc, evidence={'task': 'daily_push_loop'})
                 logger.exception('[CS] 分群日报处理失败，将在下一轮继续')
 
     async def opening(self, event):
