@@ -168,8 +168,6 @@ class MajorNoticeRenderer:
         details = []
         if kind == 'reschedule':
             details.extend(self.rows(measure, f"原定 {context['old_time']}  →  调整 {context['new_time']}", 15))
-        if '关注战队' in text:
-            details.append('关注战队参赛')
         if result and context.get('draw'):
             details.append('平局')
         elif result and context.get('forfeit'):
