@@ -111,7 +111,7 @@ export function createGroupRuleEditor({ getConfig, getDraft, getDefaults, edit, 
     return `<section class="preset-library" aria-labelledby="preset-title"><div class="card-header preset-library-header"><div><h3 id="preset-title">推送预设</h3><p>${selected ? '选择一个预设应用到当前群，再按需修改下方规则。' : '先选择接收群，再应用预设；应用后仍可逐项调整。'}</p></div>
       <button type="button" class="button" data-preset-action="save-current" ${selected ? '' : 'disabled'}>将当前群另存为预设</button></div>
       <div class="preset-grid">${BUILTIN_PRESETS.map(p => card(p, true)).join('')}${custom.map(p => card(p, false)).join('')}</div>${teamPicker}
-      <small class="preset-library-note">预设应用到当前群草稿；点击页面上方「保存配置」后生效。更新预设不会改变已应用到其他群的规则。</small>
+      <small class="preset-library-note">已填进草稿，记得点页面顶部的「保存配置」才会生效。更新预设不会改变已应用到其他群的规则。</small>
     </section>`;
   }
   function render() {
@@ -143,8 +143,8 @@ export function createGroupRuleEditor({ getConfig, getDraft, getDefaults, edit, 
         <div class="rule-tabs" role="tablist" aria-label="群规则分类">${RULE_SECTIONS.map(([key, title]) => `<button type="button" role="tab" id="rule-tab-${key}" aria-controls="rule-fields" aria-selected="${key === activeSection}" tabindex="${key === activeSection ? 0 : -1}" data-rule-section="${key}">${title}</button>`).join('')}</div>
         <div id="rule-fields" class="rule-fields" role="tabpanel" aria-labelledby="rule-tab-${activeSection}">${section[2].map(key => renderField(RULE_FIELDS.find(field => field[0] === key), rules)).join('')}</div>
         <div class="rule-footer"><span>修改暂存于当前页面，点击「保存配置」后生效。</span>
-        <details class="rule-inheritance" data-rule-advanced ${advancedOpen ? 'open' : ''}><summary>高级设置：逐项继承</summary><p>勾选的项目使用本群值，未勾选的项目跟随默认规则。已有逐项配置会继续保留。</p><div class="rule-inheritance-grid">${RULE_FIELDS.map(([key, label]) => `<label class="rule-override"><input type="checkbox" data-rule-inherit="${key}" aria-label="${label}使用本群值" ${hasOwn(key) ? 'checked' : ''}>${label}</label>`).join('')}</div></details>
-        <details class="rule-copy-menu"><summary>复制与恢复</summary><div class="rule-copy"><label class="field">复制规则来源<select id="rule-copy-from"><option value="">默认规则</option>${groups.filter(gid => gid !== selected).map(gid => `<option value="${esc(gid)}">群 ${esc(gid)}</option>`).join('')}</select></label><button type="button" class="button" data-rule-copy>复制完整规则</button><button type="button" class="button ghost" data-rule-reset>全部恢复继承</button></div></details></div>
+        <details class="rule-inheritance" data-rule-advanced ${advancedOpen ? 'open' : ''}><summary>高级：哪些项跟默认规则走</summary><p>勾选的项按本群设置，没勾选的跟默认规则走。已有单独设置会继续保留。</p><div class="rule-inheritance-grid">${RULE_FIELDS.map(([key, label]) => `<label class="rule-override"><input type="checkbox" data-rule-inherit="${key}" aria-label="${label}使用本群值" ${hasOwn(key) ? 'checked' : ''}>${label}</label>`).join('')}</div></details>
+        <details class="rule-copy-menu"><summary>复制与恢复</summary><div class="rule-copy"><label class="field">复制规则来源<select id="rule-copy-from"><option value="">默认规则</option>${groups.filter(gid => gid !== selected).map(gid => `<option value="${esc(gid)}">群 ${esc(gid)}</option>`).join('')}</select></label><button type="button" class="button" data-rule-copy>复制完整规则</button><button type="button" class="button ghost" data-rule-reset>恢复使用默认规则</button></div></details></div>
       </div>`}`;
     refreshTargetSelectors();
   }

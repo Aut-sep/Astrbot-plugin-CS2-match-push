@@ -32,7 +32,7 @@ export function createSetupGuide({ api, getState, loadConfig, activateTab, toast
     preset.innerHTML = '<option value="">暂不应用预设</option>' + [...BUILTIN_PRESETS, ...custom].map(item => `<option value="${esc(item.id)}">${esc(item.name)}</option>`).join('');
     preset.value = [...BUILTIN_PRESETS, ...custom].some(item => item.id === selectedPreset) ? selectedPreset : '';
     const item = [...BUILTIN_PRESETS, ...custom].find(entry => entry.id === preset.value);
-    $('#setup-preset-description').textContent = item ? `${item.description || '自定义推送规则'} ${item.summary || ''}` : '选择预设后会显示基本功能与通知范围。';
+    $('#setup-preset-description').textContent = item ? `${item.description || '自定义推送规则'} ${item.summary || ''}` : '选一个预设，下面会显示它包含的提醒内容。';
     $('#setup-preset-teams').hidden = !item || item.rules.filter_mode !== 'followed' || !!item.rules.followed_teams?.length;
     $('#setup-preset-teams').innerHTML = presetTeams.map(team => `<label class="inline-check"><input type="checkbox" data-setup-preset-team value="${esc(team.id)}" ${presetTeamIds.has(String(team.id)) ? 'checked' : ''}><span>${esc(team.name)}</span></label>`).join('');
   }
@@ -62,8 +62,9 @@ export function createSetupGuide({ api, getState, loadConfig, activateTab, toast
     $('#setup-token').value = '';
     $('#setup-group').value = '';
     $('#setup-bot-confirm').checked = false;
-    for (const key of ['remind_minutes', 'image_push_enabled', 'daily_push_enabled', 'daily_push_days', 'push_platform_id']) {
+    for (const key of ['remind_minutes', 'image_push_enabled', 'daily_push_enabled', 'daily_push_days']) {
       const el = document.querySelector(`[data-setup-key="${key}"]`);
+      if (!el) continue;
       if (el.type === 'checkbox') el.checked = !!config[key];
       else el.value = config[key] ?? '';
     }
@@ -121,7 +122,7 @@ export function createSetupGuide({ api, getState, loadConfig, activateTab, toast
   }
   async function goToCheck() {
     showStep(3);
-    $('#setup-checks').textContent = '正在检查待保存的配置…';
+    $('#setup-checks').textContent = '正在检查配置…';
     const result = await api('/api/setup/check', 'POST', draft.pandascore_token ? { pandascore_token: draft.pandascore_token } : {});
     result.groups = { ok: !!draft.push_groups?.length, message: `已选择 ${draft.push_groups?.length || 0} 个接收群，保存后生效。` };
     showChecks(result);

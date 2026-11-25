@@ -53,62 +53,51 @@
           <div class="setup-heading"><h3 id="setup-step-title" tabindex="-1"></h3><button type="button" class="button ghost" id="setup-close">稍后继续</button></div>
           <div class="notice error" id="setup-error" role="alert" hidden></div>
           <form id="setup-source-form" data-setup-step="0">
-            <p>插件需要 PandaScore 提供 CS2 赛程。先连接数据源，再配置接收群。</p>
-            <ol class="setup-instructions"><li>打开 <a href="https://developers.pandascore.co/docs/authentication" target="_blank" rel="noopener noreferrer">PandaScore 官方 Token 说明</a>，从其中的 Dashboard 入口登录或注册。</li><li>在 Dashboard 复制你的 API Token，粘贴到下方。</li><li>点击「验证并继续」。所有填写内容将在最后一步统一保存。</li></ol>
+            <p>插件需要 PandaScore 提供 CS2 赛程。先连接数据源，再添加接收群。</p>
+            <ol class="setup-instructions"><li>打开 <a href="https://developers.pandascore.co/docs/authentication" target="_blank" rel="noopener noreferrer">PandaScore 官方说明</a>，点页面里的 Dashboard 登录或注册。</li><li>在 Dashboard 复制你的 API Token，粘贴到下方。</li><li>点「验证并继续」，所有设置会在最后一步统一保存。</li></ol>
             <label class="field">PandaScore Token <span class="setup-required">必填</span><input id="setup-token" type="password" autocomplete="new-password" spellcheck="false" placeholder="粘贴 API Token；已有配置时可留空"><small id="setup-token-hint"></small></label>
-            <p class="setup-note">Token 不在页面回显。只在你点击验证时发送到插件服务器，由服务器连接 PandaScore；无需发送到聊天中。</p>
+            <p class="setup-note">Token 只保存在本地插件里，不会发到群聊，也不会在页面明文显示。</p>
             <div class="setup-actions"><button type="submit" id="setup-source-save" class="button primary">验证并继续</button></div>
           </form>
           <form id="setup-group-form" data-setup-step="1" hidden>
-            <p>比赛提醒和赛报会自动发送到你添加的 QQ 群。</p>
-            <ol class="setup-instructions"><li>先在 AstrBot「机器人」页面连接 OneBot QQ 机器人，确认机器人在线。</li><li>填写接收群的纯数字 QQ 群号；官方机器人扩展仅用于被动查询，不参与赛事推送。</li></ol>
+            <p>比赛提醒和赛果会自动发到你添加的 QQ 群。</p>
+            <ol class="setup-instructions"><li>先在 AstrBot「机器人」页面连好 QQ 机器人并确认在线。</li><li>填写要接收比赛提醒的 QQ 群号（纯数字，需确保机器人已在群里）。</li></ol>
             <p id="setup-groups-status" class="notice"></p>
-            <label class="field">接收 QQ 群号 <span class="setup-required">必填</span><input id="setup-group" autocomplete="off" inputmode="numeric" pattern="[1-9][0-9]*" placeholder="纯数字 QQ 群号；已有接收群时可留空"><small>只需一个群即可开始。更多接收群可在「订阅管理」中添加。</small></label>
+            <label class="field">接收 QQ 群号 <span class="setup-required">必填</span><input id="setup-group" autocomplete="off" inputmode="numeric" pattern="[1-9][0-9]*" placeholder="纯数字 QQ 群号；已有接收群时可留空"><small>先填一个群就能开始，之后可以在「订阅管理」继续加。</small></label>
             <div class="setup-actions"><button type="button" data-setup-back class="button">上一步</button><button type="submit" id="setup-group-next" class="button primary">确认接收群，下一步</button></div>
           </form>
           <form id="setup-options-form" data-setup-step="2" hidden>
-            <p>以下全部为可选项。保持当前设置即可开始使用，之后可随时调整。</p>
+            <p>下面这些都可以先用默认设置，以后随时能改。</p>
             <section class="setup-preset card padded" aria-labelledby="setup-preset-title">
-              <h3 id="setup-preset-title">快速选择推送方式</h3>
-              <p>选择一个接收群和预设，完成引导后可在订阅管理中继续修改。</p>
+              <h3 id="setup-preset-title">快速选一套推送方式</h3>
+              <p>选个接收群和预设就能直接用，之后还能逐项微调。</p>
               <div class="setup-fields">
                 <label class="field">应用到接收群<select id="setup-preset-group"><option value="">暂不应用预设</option></select></label>
                 <label class="field">推送预设<select id="setup-preset"><option value="">暂不应用预设</option></select></label>
               </div>
-              <p id="setup-preset-description" class="setup-note">选择预设后会显示基本功能与通知范围。</p>
+              <p id="setup-preset-description" class="setup-note">选一个预设，下面会显示它包含的提醒内容。</p>
               <div id="setup-preset-teams" class="preset-team-options" hidden></div>
             </section>
             <div class="setup-fields">
-              <label class="field">提前几分钟提醒<input type="number" min="1" max="120" required data-setup-key="remind_minutes"><small>比赛开始前提醒一次；单场也可以独立调整。</small></label>
-              <label class="field">普通推送平台 ID<input type="text" data-setup-key="push_platform_id" placeholder="留空自动选择 OneBot"><small>赛事主动推送使用 OneBot；不会使用官方机器人扩展的选择。</small></label>
+              <label class="field">赛前提前几分钟提醒<input type="number" min="1" max="120" required data-setup-key="remind_minutes"><small>开赛前提醒一次，单场比赛也可以单独调。</small></label>
             </div>
             <fieldset class="tiers"><legend>推送哪些级别的赛事</legend><label><input type="checkbox" value="s" data-setup-tier>S</label><label><input type="checkbox" value="a" data-setup-tier>A</label><label><input type="checkbox" value="b" data-setup-tier>B</label><label><input type="checkbox" value="c" data-setup-tier>C</label><label><input type="checkbox" value="d" data-setup-tier>D</label><label><input type="checkbox" value="unranked" data-setup-tier>未评级</label></fieldset>
-            <p class="setup-note">新安装默认关注 S、A 级赛事。不关注具体战队也能收到所选级别的比赛；喜欢的队伍可在「订阅管理」中用简称或中文外号搜索关注。</p>
-            <label class="inline-check"><input type="checkbox" data-setup-key="image_push_enabled">图片推送（默认开启，包含队标、赛程和比分）</label>
+            <p class="setup-note">默认会推 S、A 级比赛；喜欢的战队可以在「订阅管理」里用简称或中文外号搜出来关注。</p>
+            <label class="inline-check"><input type="checkbox" data-setup-key="image_push_enabled">图片推送（默认开启，带队标、赛程和比分）</label>
             <label class="inline-check"><input type="checkbox" data-setup-key="daily_push_enabled">每天定时发送赛程日报</label>
             <div class="setup-fields">
-              <label class="field">日报时间（北京时间）<input type="text" id="setup-daily-times" placeholder="08:00, 18:00"><small>24 小时制；多个时间用逗号分隔。</small></label>
-              <label class="field">日报包含未来几天<input type="number" min="1" max="3" required data-setup-key="daily_push_days"><small>1 为今天，2 为今天和明天。</small></label>
+              <label class="field">日报时间（北京时间）<input type="text" id="setup-daily-times" placeholder="08:00, 18:00"><small>24 小时制，多个时间用逗号隔开。</small></label>
+              <label class="field">日报包含未来几天<input type="number" min="1" max="3" required data-setup-key="daily_push_days"><small>1 是今天，2 是今天和明天。</small></label>
             </div>
-            <p class="setup-note">直播链接、开幕预告、黑名单和更多设置，可在完成后进入「推送设置」或「订阅管理」。</p>
-            <div class="notice" aria-labelledby="setup-official-title">
-              <h4 id="setup-official-title">官方机器人扩展（可选）</h4>
-              <p>普通 QQ 机器人已支持全部命令和自动推送；有官方机器人时，可再增加一个查询入口。</p>
-              <ul class="setup-instructions">
-                <li><strong>用途：</strong>查询赛程、赛果、Major 对阵图，以及抽取今日选手。</li>
-                <li><strong>优点：</strong>支持卡片和点击按钮；共用已有数据与配置，无需再部署一套插件。</li>
-                <li><strong>限制：</strong>本插件官方端只回复用户查询，不主动发送赛事提醒、日报或赛果，也不提供管理命令。</li>
-                <li><strong>开启：</strong>先在 AstrBot 接入官方机器人；完成引导后，到「高级维护 → 官方机器人扩展」启用，选择账号和开放功能。没有官方机器人可跳过。</li>
-              </ul>
-            </div>
-            <div class="setup-actions"><button type="button" data-setup-back class="button">上一步</button><button type="button" id="setup-options-skip" class="button">保留当前设置</button><button type="submit" id="setup-options-save" class="button primary">确认可选设置，继续</button></div>
+            <p class="setup-note">直播链接、黑名单等更多选项可在「推送设置」调整；如需接入 QQ 官方机器人，可在完成后到「高级维护 → 官方机器人扩展」开启。</p>
+            <div class="setup-actions"><button type="button" data-setup-back class="button">上一步</button><button type="button" id="setup-options-skip" class="button">保持默认</button><button type="submit" id="setup-options-save" class="button primary">确认设置，继续</button></div>
           </form>
           <div data-setup-step="3" hidden>
-            <p>检查数据源和接收目标。接口能正常连接但暂无赛程，也视为数据源连接成功。</p>
+            <p>确认 Token、接收群和机器人状态。即使暂时没有比赛，能连上接口就算成功。</p>
             <ul id="setup-checks" class="setup-checks" aria-live="polite"></ul>
-            <label class="inline-check"><input type="checkbox" id="setup-bot-confirm">我已确认 QQ 机器人在线，并且已加入接收群。</label>
-            <p class="setup-note">点击完成后统一保存配置并获取最新赛程，不会发送测试消息。首次安装可在群里发送 <code>/cs比赛</code> 检查查询；自动提醒会在符合推送条件的比赛临近时发送。</p>
-            <div class="setup-actions"><button type="button" data-setup-back class="button">上一步</button><button type="button" id="setup-recheck" class="button">重新检查</button><button type="button" id="setup-finish" class="button primary">保存配置并完成，查看赛程</button></div>
+            <label class="inline-check"><input type="checkbox" id="setup-bot-confirm">我已确认 QQ 机器人在线，并且已经加进接收群。</label>
+            <p class="setup-note">点「完成并查看赛程」即可保存设置并拉取最新比赛（不会往群里发消息）。装好后可在群里发 <code>/cs比赛</code> 试一下。</p>
+            <div class="setup-actions"><button type="button" data-setup-back class="button">上一步</button><button type="button" id="setup-recheck" class="button">重新检查</button><button type="button" id="setup-finish" class="button primary">完成并查看赛程</button></div>
           </div>
         </div>
       </section>
@@ -156,10 +145,10 @@
       </nav>
 
       <section id="overview" role="tabpanel" aria-labelledby="tab-overview">
-<div class="stats">
+        <div class="stats">
           <div class="stat">
             <span>当前赛程</span><strong id="stat-matches">—</strong
-            ><small>已缓存的比赛</small>
+            ><small>已获取的比赛</small>
           </div>
           <div class="stat">
             <span>关注战队</span><strong id="stat-teams">—</strong
@@ -167,7 +156,7 @@
           </div>
           <div class="stat">
             <span>推送群组</span><strong id="stat-groups">—</strong
-            ><small>已启用的接收目标</small>
+            ><small>已开启推送的群</small>
           </div>
           <div class="stat">
             <span>默认赛前提醒</span><strong id="stat-remind">—</strong
@@ -218,7 +207,7 @@
           </div>
           <div class="card-bottom">
             <span id="match-count">—</span
-            ><span>每 30 秒更新页面 · 获取赛程按已配置周期运行</span>
+            ><span>页面每 30 秒自动刷新 · 赛程会定时自动更新</span>
           </div>
         </div>
       </section>
@@ -258,7 +247,7 @@
             <div class="card-header">
               <div>
                 <h3>默认关注战队</h3>
-                <p>搜索后选择准确战队，避免同名误订阅。</p>
+                <p>搜到后点一下关注，避免同名队伍搞混。</p>
               </div>
               <span class="count" id="team-count">0</span>
             </div>
@@ -297,13 +286,13 @@
           <div><span class="summary-label">自动推送</span><strong id="push-rule-summary">正在读取</strong></div>
         </div>
         <div id="push-readiness" class="notice" role="status" hidden></div>
-        <div class="push-shortcuts"><button type="button" class="button ghost" data-navigate="subscriptions">管理群组与订阅</button><span class="muted">概览为已保存配置</span></div>
+        <div class="push-shortcuts"><button type="button" class="button ghost" data-navigate="subscriptions">管理群组与订阅</button><span class="muted">上方显示的是已保存的设置</span></div>
         <nav class="push-view-switch" role="tablist" aria-label="推送设置分类">
           <button type="button" id="push-view-tab-defaults" role="tab" aria-selected="true" aria-controls="push-view-defaults" data-push-view="defaults">
             <span class="push-view-letter">A</span>默认规则<span class="count push-view-count" id="push-view-defaults-count" hidden>0</span>
           </button>
           <button type="button" id="push-view-tab-groups" role="tab" aria-selected="false" tabindex="-1" aria-controls="push-view-groups" data-push-view="groups">
-            <span class="push-view-letter">B</span>按群覆盖<span class="count push-view-count" id="push-view-groups-count" hidden>0</span>
+            <span class="push-view-letter">B</span>分群单独设置<span class="count push-view-count" id="push-view-groups-count" hidden>0</span>
           </button>
         </nav>
         <form id="push-form" data-section="push">
@@ -315,7 +304,7 @@
             <article class="card padded">
               <div class="settings-title"><span class="settings-number">01</span><h3>赛事范围</h3></div>
               <p class="description">
-                未设置独立规则的群沿用这里的范围。黑名单始终优先。
+                没单独设置的群都按这里生效，黑名单里的队伍或赛事一定不会推。
               </p>
               <fieldset class="tiers">
                 <legend>允许的赛事级别</legend>
@@ -380,14 +369,14 @@
                 <div class="setting-divider"></div>
                 <label class="switch-row"><span><strong>赛事开幕预告</strong><small>在整届赛事开始前发送介绍。</small></span><input type="checkbox" role="switch" data-key="tournament_announce_enabled"></label>
                 <label class="field">开幕提前提醒（小时）<input type="number" data-key="tournament_announce_hours" min="1" max="168" required></label>
-                <details class="help-details"><summary>提醒与改期规则</summary><div>双方队伍已确定，且原定或新开赛时间距现在两小时内时通知；已发赛前提醒的比赛改期也通知。同次刷新 3 场起合并为汇总，远期和待定赛事静默更新。单场自定义提醒优先于群规则。</div></details>
+                <details class="help-details"><summary>提醒与改期规则</summary><div>同一次更新有 3 场以上开赛或改期时会自动合并成一条；还早或对手待定的比赛不会刷屏。单场自定义提醒优先于群规则。</div></details>
               </article>
               <article class="card padded">
                 <div class="settings-title"><span class="settings-number">03</span><h3>赛程日报</h3></div>
                 <label class="switch-row"><span><strong>定时发送日报</strong><small>按北京时间发送比赛安排。</small></span><input type="checkbox" role="switch" data-key="daily_push_enabled"></label>
                 <label class="field">推送时间<input data-key="daily_push_times" data-type="times" placeholder="08:00, 18:00"><small>24 小时制，多个时间用逗号分隔。</small></label>
                 <label class="field">包含天数<input type="number" data-key="daily_push_days" min="1" max="3" required><small>1 为今天，2 为今天和明天。</small></label>
-                <details class="help-details"><summary>日报包含哪些比赛</summary><div>按北京时间自然日计算，仅包含已获取、符合所选规则且双方战队已确定的比赛。各群的推送时间与范围可在群规则中独立设置。</div></details>
+                <details class="help-details"><summary>日报包含哪些比赛</summary><div>按北京时间算，只统计已经公布对阵、且符合本群规则的比赛。各群的时间和范围可在分群设置里单独调。</div></details>
               </article>
             </div>
             <article class="card padded">
@@ -485,13 +474,13 @@
                 <label class="inline-check"><input type="checkbox" data-key="official_features" value="status"><span>机器人状态</span></label>
               </div></fieldset>
               <label class="inline-check"><input type="checkbox" data-key="official_rich_replies"><span>使用图片卡片与富文本回复</span></label>
-              <details class="help-details"><summary>接入与使用说明</summary><div>先在 AstrBot 中接入 QQ 官方机器人，再在这里选择账号和功能。无需另填账号 Token 或部署第二套插件。官方端只回复当前会话，不提供主动推送或管理命令。</div></details>
+              <details class="help-details"><summary>接入与使用说明</summary><div>先在 AstrBot 里接好 QQ 官方机器人，再在这里勾选账号和功能。只在你 @ 或发指令时回复，不会主动往群里发提醒。</div></details>
             </div>
           </details>
           <details class="card disclosure">
             <summary><span>独立 Web 面板<small>监听地址、端口与管理令牌</small></span></summary>
             <div class="disclosure-body">
-              <label class="switch-row"><span><strong>启用独立面板</strong><small>AstrBot 内嵌页面不依赖此开关。</small></span><input type="checkbox" role="switch" data-key="web_panel_enabled"></label>
+              <label class="switch-row"><span><strong>启用独立面板</strong><small>在 AstrBot 后台直接打开页面时不受此开关影响。</small></span><input type="checkbox" role="switch" data-key="web_panel_enabled"></label>
               <div class="form-grid"><label class="field">监听地址<input data-key="web_panel_host" required><small>仅本机访问使用 127.0.0.1。</small></label><label class="field">端口<input type="number" data-key="web_panel_port" min="1" max="65535" required></label></div>
               <label class="field">管理令牌<div class="secret-input"><input type="password" data-key="web_panel_token" autocomplete="new-password" placeholder="留空保留当前令牌"><button type="button" class="button ghost" data-reveal="web_panel_token" aria-label="显示管理令牌">显示</button></div><small id="web-secret-hint"></small></label>
               <details class="help-details"><summary>令牌与生效方式</summary><div><p>保存后应用监听地址。管理令牌不在页面回显；输入新值可替换。</p><label class="inline-check clear-secret"><input type="checkbox" data-clear="web_panel_token">清除已保存的管理令牌</label></div></details>
@@ -503,7 +492,7 @@
           <div class="action-row"><div><strong>配置备份</strong><p>导出不含令牌，导入保留当前令牌。</p></div><div class="button-group"><button type="button" class="button" id="export-config">导出配置</button><button type="button" class="button" id="import-config">导入配置</button><input id="import-file" type="file" accept=".json,application/json" hidden></div></div>
           <details class="inline-settings"><summary>任务重建与通知记录</summary><div>
             <div class="action-row"><div><strong>重建比赛任务</strong><p>重新安排提醒，保留已发送记录。</p></div><button type="button" class="button" id="rebuild-tasks">重建任务</button></div>
-            <div class="action-row"><div><strong>重置通知记录</strong><p>清除去重状态，已发送过的比赛可能再次推送。</p></div><button type="button" class="button danger" id="clear-notified">重置记录</button></div>
+            <div class="action-row"><div><strong>重置通知记录</strong><p>清空已推送记录，之前发过的比赛可能会再推一次。</p></div><button type="button" class="button danger" id="clear-notified">重置记录</button></div>
           </div></details>
         </article>
         <details class="card disclosure">

@@ -202,7 +202,7 @@ test('existing partial rules keep inherited values editable and put overrides in
   assert.deepEqual(f.draft.group_rules['100002'], { remind_minutes: 30, image_push_enabled: false });
   const main = f.host.innerHTML.split('<details class="rule-inheritance"')[0];
   assert.doesNotMatch(main, /data-rule-inherit=/);
-  assert.match(f.host.innerHTML, /高级设置：逐项继承/);
+  assert.match(f.host.innerHTML, /高级：哪些项跟默认规则走/);
   assert.match(main, /data-rule-value="filter_mode"[^>]*><option/);
   assert.doesNotMatch(main, /data-rule-value="filter_mode"[^>]*disabled/);
   f.value('filter_mode', 'tiers');
