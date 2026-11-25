@@ -126,9 +126,13 @@ class MajorNoticeRenderer:
                     ornament.crop((0,0,640,header))).convert('RGB'), (0,0))
         glow = Image.new('RGBA', image.size)
         light = ImageDraw.Draw(glow)
-        light.ellipse((32,header+2,608,header+200), fill=(223,190,132,25))
-        glow = glow.filter(ImageFilter.GaussianBlur(28))
-        image.paste(Image.alpha_composite(image.convert('RGBA'),glow).convert('RGB'))
+        light.ellipse((-20, header - 30, 660, header + 240), fill=(223, 190, 132, 22))
+        glow = glow.filter(ImageFilter.GaussianBlur(64))
+        body_area = (0, header, 640, image.height)
+        image.paste(
+            Image.alpha_composite(image.crop(body_area).convert('RGBA'), glow.crop(body_area)).convert('RGB'),
+            (0, header),
+        )
 
     def medallion(self, draw, cx, top, winner=False):
         draw.ellipse((cx-51,top-10,cx+51,top+92), outline='#d3bc92', width=1)
@@ -150,8 +154,7 @@ class MajorNoticeRenderer:
         titles = {'upcoming': '赛前提醒', 'started': '已开赛', 'result': '赛事结果',
                   'opening': '赛事开幕', 'stage': '阶段开赛', 'reschedule': '赛程变更'}
         measure = ImageDraw.Draw(Image.new('RGB', (640, 1)))
-        event_rows = self.rows(measure, context['event'], 18)
-        header = 109 + 25 * len(event_rows)
+        header = 98
         stage_rows = self.rows(measure, context.get('stage'), 17, 520) if context.get('stage') else []
         name_rows = [self.rows(measure, name, 19, 190) for name in names] if matchup else []
         outcomes = list(round_winners or []) if result else []
@@ -178,8 +181,8 @@ class MajorNoticeRenderer:
         if matchup:
             content_height = 185 + 25 * max(map(len, name_rows))
             if outcomes:
-                content_height += 36 * ((len(outcomes)+4)//5)
-            content_height += 28 * len(stage_rows) + (22 if stage_rows else 0)
+                content_height += 38 * ((len(outcomes)+4)//5)
+            content_height += 28 * len(stage_rows) + (16 if stage_rows else 0)
         else:
             content_height = (32 * len(stage_rows) + 20 if stage_rows else 0) + 118
             if context.get('end') and context['end'] != '未知':
@@ -191,7 +194,7 @@ class MajorNoticeRenderer:
                 content_height += 32
             if kind == 'stage':
                 content_height += 34
-        height = header + content_height + 25 * len(details) + 54
+        height = header + content_height + 25 * len(details) + 12
         image = Image.new('RGB', (640, height), PAPER)
         draw = ImageDraw.Draw(image)
         self.backdrop(image, header)
@@ -200,7 +203,7 @@ class MajorNoticeRenderer:
         draw.line((8,0,639,0), fill='#e6cd9c')
         draw.line((8,header-1,639,header-1), fill='#b29461')
         self.text(draw, 'CS2', 38, 23, 16, '#ff8a70')
-        self.text(draw, '/  MAJOR', 82, 24, 14, GOLD)
+        self.text(draw, '/  ' + context['event'], 82, 24, 14, GOLD, width=304 if test else 390)
         self.text(draw, titles[kind], 38, 55, 27, '#ffffff')
         draw.rounded_rectangle((483, 18, 606, 78), radius=7, outline='#514e47')
         draw.rounded_rectangle((487, 22, 602, 74), radius=5, fill='#263241', outline='#aa8d5d')
@@ -208,10 +211,6 @@ class MajorNoticeRenderer:
         self.text(draw, 'MAJOR', 539, 43, 13, GOLD)
         if test:
             self.text(draw, '测试推送', 396, 27, 12, GOLD)
-        draw.line((38, 96, 602, 96), fill='#45505c')
-        draw.line((38, 96, 138, 96), fill=GOLD)
-        for index, row in enumerate(event_rows):
-            self.text(draw, row, 38, 109+index*25, 18, '#dce5f0')
         y = header
         if matchup:
             self.text(draw, context.get('format'), 320, y+19, 13, MUTED, True)
@@ -245,14 +244,24 @@ class MajorNoticeRenderer:
             if outcomes:
                 for offset in range(0, len(outcomes), 5):
                     row = outcomes[offset:offset+5]
-                    left = 320-len(row)*51
+                    step = 112
+                    left = 320 - (len(row) - 1) * step // 2
+                    ny = y + 7
+                    if len(row) > 1:
+                        draw.line((left, ny, left + (len(row) - 1) * step, ny), fill='#d5d0c5', width=1)
                     for index, winner in enumerate(row):
-                        x = left+index*102
-                        draw.rounded_rectangle((x,y,x+94,y+26), radius=4, fill='#e5ebef')
+                        cx = left + index * step
+                        is_win_map = winner in (0, 1) and winner == winner_index
+                        if is_win_map:
+                            draw.polygon([(cx, ny-5), (cx+5, ny), (cx, ny+5), (cx-5, ny)],
+                                         fill=GOLD, outline='#b38e4c')
+                        else:
+                            draw.polygon([(cx, ny-4), (cx+4, ny), (cx, ny+4), (cx-4, ny)],
+                                         fill=PAPER, outline='#9ba6b2')
                         label = names[winner] if winner in (0,1) else '待确认'
-                        self.text(draw, f'{offset+index+1}  {label}', x+47, y+7, 12,
-                                  GREEN if winner == winner_index else MUTED, True, 84)
-                    y += 36
+                        self.text(draw, f'{offset+index+1}  {label}', cx, y+16, 12,
+                                  '#7b5b28' if is_win_map else MUTED, True, 96)
+                    y += 38
             if stage_rows:
                 draw.line((38,y,602,y), fill=LINE)
                 draw.polygon([(316,y),(320,y-4),(324,y),(320,y+4)], fill=GOLD)
@@ -260,7 +269,6 @@ class MajorNoticeRenderer:
                 for row in stage_rows:
                     self.text(draw, row, 320, y, 17, MUTED, True)
                     y += 28
-                y += 6
         else:
             y += 24
             for row in stage_rows:
@@ -299,11 +307,5 @@ class MajorNoticeRenderer:
         for line in details:
             self.text(draw, line, 320 if matchup else 38, y+2, 15, MUTED, matchup)
             y += 25
-        draw.rectangle((0,height-44,640,height), fill='#e5ebf2')
-        draw.line((38,height-44,602,height-44), fill=GOLD)
-        draw.line((280,height-44,360,height-44), fill='#a88342', width=2)
-        self.text(draw, 'CS2 比赛推送  /  MAJOR', 38, height-27, 11, MUTED)
-        footer = '虚拟数据预览 · 非真实赛事' if demo else '测试推送' if test else '比赛已结束' if result else 'Major 赛事资讯'
-        self.text(draw, footer, 480, height-27, 11, '#8b6a35' if demo else MUTED, True, 240)
         image.save(output_path, format='PNG', optimize=True)
         return output_path
