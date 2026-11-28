@@ -36,10 +36,10 @@ class MajorIntegrationTests(unittest.IsolatedAsyncioTestCase):
         notifier = self.notifier()
         with patch.object(major, 'now_utc', return_value=NOW):
             await notifier.send(self.snapshot(), self.p._token)
-        self.assertEqual([item[0] for item in self.sent], [A])
-        self.assertEqual(self.sent[0][2][-1], b'offline-image')
-        self.assertEqual(len(self.sent[0][2]), 3)
-        self.assertTrue(self.sent[0][2][1].startswith(b'\x89PNG'))
+        self.assertEqual([item[0] for item in self.sent], [A, A])
+        self.assertEqual(len(self.sent[0][2]), 1)
+        self.assertTrue(self.sent[0][2][0].startswith(b'\x89PNG'))
+        self.assertEqual(self.sent[1][2], [b'offline-image'])
         self.assertEqual(self.p.store.get_delivery_targets('major-stage:900:901'), {f'group:{A}'})
 
     async def test_partial_failure_retries_only_failed_group_after_reload(self):
@@ -54,7 +54,22 @@ class MajorIntegrationTests(unittest.IsolatedAsyncioTestCase):
             self.p.store = main.DataStore(self.p.store.path)
             await notifier.send(self.snapshot(), self.p._token)
             await notifier.send(self.snapshot(), self.p._token)
-        self.assertEqual([item[0] for item in self.sent], [A, B])
+        self.assertEqual([item[0] for item in self.sent], [A, A, B, B])
+        self.assertEqual(self.p.store.get_delivery_targets('major-stage:900:901'), {f'group:{A}', f'group:{B}'})
+
+    async def test_chart_failure_after_card_retries_only_chart(self):
+        async def send(context, kind, target, chain, **kwargs):
+            if target == B and chain == [b'offline-image']:
+                raise RuntimeError('chart transport failure')
+            return await self.sender(context, kind, target, chain, **kwargs)
+        notifier = self.notifier()
+        with patch.object(major, 'now_utc', return_value=NOW):
+            with patch.object(main, 'send_target', side_effect=send):
+                await notifier.send(self.snapshot(), self.p._token)
+            self.p.store = main.DataStore(self.p.store.path)
+            await notifier.send(self.snapshot(), self.p._token)
+        self.assertEqual([(item[0], item[2] == [b'offline-image']) for item in self.sent],
+                         [(A, False), (B, False), (A, True), (B, True)])
         self.assertEqual(self.p.store.get_delivery_targets('major-stage:900:901'), {f'group:{A}', f'group:{B}'})
 
     async def test_pause_during_render_prevents_delivery(self):
@@ -73,7 +88,7 @@ class MajorIntegrationTests(unittest.IsolatedAsyncioTestCase):
                                             'tournament_announce_enabled': False}})
         with patch.object(major, 'now_utc', return_value=NOW):
             await self.notifier().send(self.snapshot(), self.p._token)
-        self.assertEqual([item[0] for item in self.sent], [B])
+        self.assertEqual([item[0] for item in self.sent], [B, B])
 
     async def test_disabling_major_during_render_prevents_delivery(self):
         async def render(*args):

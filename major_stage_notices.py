@@ -57,9 +57,11 @@ class MajorStageNotices:
                 if start is None:
                     continue
                 key = f"major-stage:{snapshot['serie_id']}:{stage['id']}"
+                card_key, chart_key = f'{key}:card', f'{key}:chart'
                 targets = [('group', gid) for gid in groups_for(self.plugin.store, 'major_stage')]
                 delivered = self.plugin.store.get_delivery_targets(key)
-                if not any(f'{kind}:{gid}' not in delivered for kind, gid in targets):
+                pending = [(kind, gid) for kind, gid in targets if f'{kind}:{gid}' not in delivered]
+                if not pending:
                     continue
 
                 def active(target):
@@ -68,24 +70,34 @@ class MajorStageNotices:
                             and gid in groups_for(self.plugin.store, 'major_stage')
                             and due_start(stage, now_utc()) is not None)
 
-                async def deliver():
-                    # Stage reminders always attach this one stage's chart, even
-                    # when routine match notifications use text-only mode.
-                    data = await self.images.notice_image(snapshot, stage, token)
-                    if not any(active(target) for target in targets):
-                        return []
-                    _, Plain, Image = self.plugin._message_component_types()
-                    text = (f"【CS Major 阶段开赛提醒】\n{snapshot['title']}\n"
-                            f"{stage['title']} · 北京时间 {start.astimezone(CST):%m-%d %H:%M} 开始")
-                    path = await asyncio.to_thread(
-                        self.plugin._banner_renderer.render_notification,
-                        text, self.plugin._new_notice_path(), major=stage_context(snapshot, stage, start),
-                    )
-                    card = await asyncio.to_thread(Path(path).read_bytes)
-                    if not any(active(target) for target in targets):
+                # Stage reminders always attach both images (notice card + stage chart)
+                # as separate image-only messages, even when routine notices use text-only mode.
+                data = await self.images.notice_image(snapshot, stage, token)
+                if not any(active(target) for target in pending):
+                    continue
+                _, _, Image = self.plugin._message_component_types()
+                text = (f"【CS Major 阶段开赛提醒】\n{snapshot['title']}\n"
+                        f"{stage['title']} · 北京时间 {start.astimezone(CST):%m-%d %H:%M} 开始")
+                path = await asyncio.to_thread(
+                    self.plugin._banner_renderer.render_notification,
+                    text, self.plugin._new_notice_path(), major=stage_context(snapshot, stage, start),
+                )
+                card = await asyncio.to_thread(Path(path).read_bytes)
+                if not any(active(target) for target in pending):
+                    continue
+
+                async def deliver_image(payload):
+                    if not any(active(target) for target in pending):
                         return []
                     return await self.plugin._push_components_to_targets_with_refs(
-                        targets, [Plain(text), Image.fromBytes(card), Image.fromBytes(data)], is_active=active,
+                        pending, [Image.fromBytes(payload)], is_active=active,
                     )
 
-                await self.plugin._deliver_notification(key, deliver)
+                await self.plugin._deliver_notification(card_key, lambda: deliver_image(card))
+                await self.plugin._deliver_notification(chart_key, lambda: deliver_image(data))
+                card_done = self.plugin.store.get_delivery_targets(card_key)
+                chart_done = self.plugin.store.get_delivery_targets(chart_key)
+                for kind, gid in pending:
+                    target_key = f'{kind}:{gid}'
+                    if target_key in card_done and target_key in chart_done:
+                        self.plugin.store.mark_delivery_target(key, target_key)
